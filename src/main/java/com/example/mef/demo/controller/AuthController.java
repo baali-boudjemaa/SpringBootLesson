@@ -5,12 +5,15 @@ import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import com.example.mef.demo.Service.UserServices;
 import com.example.mef.demo.Service.JwtUtil;
+import com.example.mef.demo.securityconfig.JwtTokenHelper;
 import io.lettuce.core.output.ScanOutput;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,8 +23,7 @@ public class AuthController {
 
     @Autowired
     private AuthenticationManager authenticationManager;
-    @Autowired
-    private UserServices userDetailsService;
+
     @Autowired
     private UserRepository repository;
     @Autowired
@@ -30,6 +32,13 @@ public class AuthController {
     private JwtUtil jwtUtil;
     @Autowired
     UserServices userServices;
+    @Autowired
+    private JwtTokenHelper jwtTokenHelper;
+
+    @Autowired
+    private UserDetailsService userDetailService;
+
+
     @PostMapping("/signup")
     public String registerUser( @RequestBody User user) {
         System.out.println(user.getEmail());
@@ -43,14 +52,20 @@ public class AuthController {
     public String loginUser(@RequestBody AuthenticationRequest request) {
         System.out.println(request.getUsername()+request.getPassword());
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+            UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
+            authenticationManager.authenticate(usernamePasswordAuthenticationToken);
+            UserDetails userDetails = this.userDetailService.loadUserByUsername(request.getUsername());
+
+           // String token = this.jwtTokenHelper.generateToken(userDetails);
+            String token= jwtUtil.generateToken(userDetails);
+            return token;
+
         } catch (AuthenticationException e) {
-            throw new RuntimeException(e);
+            System.out.println("invalid details of user in request");
+            throw new RuntimeException("Invalid Username or password");
         }
 
-        UserDetails user = userDetailsService.loadUserByUsername(request.getUsername());
 
-        return jwtUtil.generateToken(user);
     }
 
     @GetMapping("/hello")
