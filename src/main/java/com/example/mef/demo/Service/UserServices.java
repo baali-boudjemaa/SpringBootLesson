@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class UserServices  implements UserDetailsService {
@@ -26,7 +25,7 @@ public class UserServices  implements UserDetailsService {
         User user = userRepository.findByUsername(username);
         if (user == null)
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), new ArrayList<>());
+        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), user.getAuthorities());
 
     }
 
@@ -72,6 +71,7 @@ public class UserServices  implements UserDetailsService {
     {
         this.userRepository.save(user);
     }
+
 
     public boolean validateLoginCredentials(String email,String password)
     {

@@ -1,12 +1,18 @@
 package com.example.mef.demo.controller;
 
 import com.example.mef.demo.Model.AuthenticationRequest;
+import com.example.mef.demo.Model.JwtAuthResponse;
 import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import com.example.mef.demo.Service.UserServices;
 import com.example.mef.demo.Service.JwtUtil;
 import io.lettuce.core.output.ScanOutput;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -15,6 +21,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -43,21 +52,33 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String loginUser(@RequestBody AuthenticationRequest request) {
+    public ResponseEntity<?> loginUser(@RequestBody AuthenticationRequest request) {
         System.out.println(request.getUsername()+request.getPassword());
         try {
             this.authenticate(request.getUsername(),request.getPassword());
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(request.getUsername());
             String token = this.jwtUtil.generateToken(userDetails);
-            return  token;
+            JwtAuthResponse response = new JwtAuthResponse();
+            response.setToken(token);
+            ResponseCookie springCookie = ResponseCookie.from("session-token", token)
+                    .httpOnly(true)
+                    .secure(true)
+                    .path("/")
+                    .maxAge(30 * 60) // 30 minutes
+                    .build();
+            // It is standard practice to prefix the token with "Bearer "
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, springCookie.toString())
+                    .body(response);
+
         } catch (Exception e) {
 
             throw new RuntimeException(e);
         }
 
     }
-
-    @GetMapping("/hello")
+    //@PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/user")
     public String hello() {
         return "Hello, Secure World!";
     }

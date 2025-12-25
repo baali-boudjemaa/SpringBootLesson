@@ -1,5 +1,6 @@
 package com.example.mef.demo.Model;
 
+import com.example.mef.demo.enums.Role;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -10,8 +11,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Setter
@@ -19,7 +24,18 @@ import java.util.UUID;
 @Entity
 @Table(name="User")
 @NoArgsConstructor
-public class User {
+public class User implements UserDetails {
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", password='" + password + '\'' +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", role=" + role +
+                '}';
+    }
+
     // Getters and setters
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -37,8 +53,13 @@ public class User {
     private String username;
 
     @Email(message = "Email address is not valid")
-    @Column(name="email", nullable = false, length = 100)
+    @Column(name="email", nullable = false,unique = true,
+            length = 100)
     private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="role", nullable = false)
+    private Role role;
 
     // Constructor with parameters
     public User(String username,String password, String email) {
@@ -46,6 +67,29 @@ public class User {
         this.email = email;
         this.password=password;
     }
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        System.out.println("eeeeeeeeeeeeeeeeeeee");
+        if (this.role == Role.ADMIN) {
+            return List.of(new SimpleGrantedAuthority("ADMIN"), new SimpleGrantedAuthority("STANDARD"));
+        }
+        return List.of(new SimpleGrantedAuthority("STANDARD"));
 
+
+
+    }
+   /* @ManyToMany(cascade = CascadeType.ALL,fetch = FetchType.EAGER)
+    @JoinTable(name = "user_role",
+            joinColumns=@JoinColumn(name="user",referencedColumnName = "id"),
+            inverseJoinColumns = @JoinColumn(name="role", referencedColumnName = "id")
+    )
+    private Set<Role> roles= new HashSet<>();
+
+    // methods from UserDetails as required by Spring Security
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        List<SimpleGrantedAuthority> authorities = this.roles.stream().map((role) -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList());
+        return authorities;
+    }*/
 
 }

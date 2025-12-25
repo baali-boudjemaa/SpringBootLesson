@@ -1,4 +1,4 @@
-package com.lakshy.blog.payloads;
+package com.example.mef.demo.Model;
 
 import lombok.Data;
 
