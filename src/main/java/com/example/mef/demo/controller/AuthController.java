@@ -67,6 +67,7 @@ public class AuthController {
                     .maxAge(30 * 60) // 30 minutes
                     .build();
             // It is standard practice to prefix the token with "Bearer "
+            System.out.println("User :"+request.getUsername()+"   has been longed in");
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, springCookie.toString())
                     .body(response);
@@ -78,8 +79,11 @@ public class AuthController {
 
     }
     //@PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/user")
-    public String hello() {
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @DeleteMapping("/user/{userId}")
+    public String hello(@PathVariable Integer userId) {
+        System.out.println(userId);
+        userServices.deleteUser(userId);
         return "Hello, Secure World!";
     }
 

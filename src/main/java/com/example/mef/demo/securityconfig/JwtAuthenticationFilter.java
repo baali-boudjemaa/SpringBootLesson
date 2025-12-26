@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -72,14 +73,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 			
 			if(this.jwtTokenHelper.validateToken(token, userDetails)) {
-				// all fine - can authenticate here
+				/*// all fine - can authenticate here
 				// we know spring security needs a username/password to get api authorized so creating this using details we have for user 
 				UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()); 
 				usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-				
 				//set spring security
-				SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-				
+				SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);*/
+                SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails,null,
+                        userDetails.getAuthorities());
+                usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                securityContext.setAuthentication(usernamePasswordAuthenticationToken);
+                SecurityContextHolder.setContext(securityContext);
 			} else {
 				// validation of token failed
 				System.out.println("Invalid JWT Token");
