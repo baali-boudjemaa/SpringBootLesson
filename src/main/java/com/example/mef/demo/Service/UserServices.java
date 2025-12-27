@@ -2,6 +2,7 @@ package com.example.mef.demo.Service;
 
 
 import com.example.mef.demo.Repository.UserRepository;
+import com.example.mef.demo.response.CustomResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -65,7 +66,9 @@ public class UserServices  implements UserDetailsService {
    // @PreAuthorize("hasRole('ADMIN')")
     public void deleteUser(int id)
     {
+
         this.userRepository.deleteById(id);
+
     }
 
     //Add User
