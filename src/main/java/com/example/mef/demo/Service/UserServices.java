@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 
 import com.example.mef.demo.Model.User;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -64,10 +66,28 @@ public class UserServices  implements UserDetailsService {
 
     //delete single User
    // @PreAuthorize("hasRole('ADMIN')")
-    public void deleteUser(int id)
+    public  ResponseEntity<CustomResponse<String>> deleteUser(int id)
     {
 
-        this.userRepository.deleteById(id);
+        Optional<User> user= userRepository.findById(id);
+        if (user.isPresent()) {
+            CustomResponse<String> response = new CustomResponse<>(
+                HttpStatus.OK.value(),
+                "user deleted" ,
+                null
+        );
+            this.userRepository.deleteById(id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }else {
+            CustomResponse<String> response = new CustomResponse<>(
+                    HttpStatus.OK.value(),
+                    "user deleted" , null     
+            );
+            this.userRepository.deleteById(id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+
 
     }
 

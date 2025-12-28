@@ -6,6 +6,7 @@ import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import com.example.mef.demo.Service.UserServices;
 import com.example.mef.demo.Service.JwtUtil;
+import com.example.mef.demo.response.CustomResponse;
 import io.lettuce.core.output.ScanOutput;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -81,10 +82,9 @@ public class AuthController {
     //@PreAuthorize("hasRole('ADMIN')")
     @PreAuthorize("hasAuthority('ADMIN')")
     @DeleteMapping("/user/{userId}")
-    public String hello(@PathVariable Integer userId) {
+    public ResponseEntity<CustomResponse<String>> hello(@PathVariable Integer userId) {
         System.out.println(userId);
-        userServices.deleteUser(userId);
-        return "Hello, Secure World!";
+        return userServices.deleteUser(userId);
     }
 
     private void authenticate(String username, String password) throws Exception {
