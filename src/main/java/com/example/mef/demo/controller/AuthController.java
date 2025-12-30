@@ -21,6 +21,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -28,6 +29,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@Validated
 public class AuthController {
 
     @Autowired
@@ -43,6 +45,7 @@ public class AuthController {
     UserServices userServices;
     @Autowired
     UserDetailsService userDetailsService;
+
     @PostMapping("/signup")
     public String registerUser( @RequestBody User user) {
         System.out.println(user.getEmail());

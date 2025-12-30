@@ -37,13 +37,12 @@ public class SecurityConfiguration {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
-    @Deprecated(since = "6.1", forRemoval = true)
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll().requestMatchers(HttpMethod.POST,"/api/user").authenticated().requestMatchers(HttpMethod.POST,"/api/signup", "/api/login").permitAll()
+                       .requestMatchers(HttpMethod.POST,"/api/user").authenticated().requestMatchers(HttpMethod.POST,"/api/signup", "/api/login").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 

@@ -29,67 +29,62 @@ public class UserServices  implements UserDetailsService {
         User user = userRepository.findByUsername(username);
         if (user == null)
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), user.getAuthorities());
+        return new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), user.getAuthorities());
 
     }
 
 
-
     //Get All Users
-    public List<User> getAllUser()
-    {
+    public List<User> getAllUser() {
         List<User> users = (List<User>) this.getAllUser();
         return users;
     }
 
     //Get Single User
-    public User getUser(int id)
-    {
+    public User getUser(int id) {
         Optional<com.example.mef.demo.Model.User> optional = this.userRepository.findById(id);
         com.example.mef.demo.Model.User user = optional.get();
         return user;
     }
 
     //Get Single User By Email
-    public User getUserByEmail(String email)
-    {
-        User user=	this.userRepository.findByUsername(email);
+    public User getUserByEmail(String email) {
+        User user = this.userRepository.findByUsername(email);
         return user;
     }
 
     //Update
-    public void updateUser(User user,int id)
-    {
+    public void updateUser(User user, int id) {
         user.setId(id);
         this.userRepository.save(user);
     }
 
     //delete single User
-   // @PreAuthorize("hasRole('ADMIN')")
-    public  ResponseEntity<CustomResponse<String>> deleteUser(int id)
-    {
+    // @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CustomResponse<String>> deleteUser(int id) {
 
-        Optional<User> user= userRepository.findById(id);
-        if (user.isPresent()) {
-            CustomResponse<String> response = new CustomResponse<>(
-                HttpStatus.OK.value(),
-                "user deleted" ,
-                null
-        );
-            this.userRepository.deleteById(id);
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        }else {
+        Optional<User> user = userRepository.findById(id);
+        if (userRepository.existsById(id)) {
             CustomResponse<String> response = new CustomResponse<>(
                     HttpStatus.OK.value(),
-                    "user deleted" , null     
+                    "user deleted",
+                    null
+            );
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            this.userRepository.deleteById(id);
+            CustomResponse<String> response = new CustomResponse<>(
+                    HttpStatus.OK.value(),
+                    "user not found",
+                    null
             );
             this.userRepository.deleteById(id);
             return new ResponseEntity<>(response, HttpStatus.OK);
         }
 
 
-
     }
+
 
     //Add User
     public void addUser(User user)
