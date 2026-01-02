@@ -1,9 +1,14 @@
 services:
+  app:
+    image: 'docker-spring-boot-postgres:latest'
+    build:
+      context: .
+    container_name: app
   db:
     image: mariadb:latest
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "3305:3305"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
