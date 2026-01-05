@@ -2,20 +2,24 @@ package com.example.mef.demo.Service;
 
 
 import com.example.mef.demo.Repository.UserRepository;
+import com.example.mef.demo.response.CustomResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
 import com.example.mef.demo.Model.User;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
-public class UserServices  {
+public class UserServices  implements UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
@@ -25,52 +29,69 @@ public class UserServices  {
         User user = userRepository.findByUsername(username);
         if (user == null)
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), new ArrayList<>());
+        return new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), user.getAuthorities());
 
     }
 
 
-
     //Get All Users
-    public List<User> getAllUser()
-    {
+    public List<User> getAllUser() {
         List<User> users = (List<User>) this.getAllUser();
         return users;
     }
 
     //Get Single User
-    public User getUser(int id)
-    {
+    public User getUser(int id) {
         Optional<com.example.mef.demo.Model.User> optional = this.userRepository.findById(id);
         com.example.mef.demo.Model.User user = optional.get();
         return user;
     }
 
     //Get Single User By Email
-    public User getUserByEmail(String email)
-    {
-        User user=	this.userRepository.findByUsername(email);
+    public User getUserByEmail(String email) {
+        User user = this.userRepository.findByUsername(email);
         return user;
     }
 
     //Update
-    public void updateUser(User user,int id)
-    {
+    public void updateUser(User user, int id) {
         user.setId(id);
         this.userRepository.save(user);
     }
 
     //delete single User
-    public void deleteUser(int id)
-    {
-        this.userRepository.deleteById(id);
+    // @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CustomResponse<String>> deleteUser(int id) {
+
+        Optional<User> user = userRepository.findById(id);
+        if (userRepository.existsById(id)) {
+            CustomResponse<String> response = new CustomResponse<>(
+                    HttpStatus.OK.value(),
+                    "user deleted",
+                    null
+            );
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            this.userRepository.deleteById(id);
+            CustomResponse<String> response = new CustomResponse<>(
+                    HttpStatus.OK.value(),
+                    "user not found",
+                    null
+            );
+            this.userRepository.deleteById(id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+
     }
+
 
     //Add User
     public void addUser(User user)
     {
         this.userRepository.save(user);
     }
+
 
     public boolean validateLoginCredentials(String email,String password)
     {
