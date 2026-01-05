@@ -2,20 +2,24 @@ package com.example.mef.demo.Service;
 
 
 import com.example.mef.demo.Repository.UserRepository;
+import com.example.mef.demo.response.CustomResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
 import com.example.mef.demo.Model.User;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
-public class UserServices  {
+public class UserServices  implements UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
@@ -25,7 +29,7 @@ public class UserServices  {
         User user = userRepository.findByUsername(username);
         if (user == null)
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), new ArrayList<>());
+        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), user.getAuthorities());
 
     }
 
@@ -61,9 +65,30 @@ public class UserServices  {
     }
 
     //delete single User
-    public void deleteUser(int id)
+   // @PreAuthorize("hasRole('ADMIN')")
+    public  ResponseEntity<CustomResponse<String>> deleteUser(int id)
     {
-        this.userRepository.deleteById(id);
+
+        Optional<User> user= userRepository.findById(id);
+        if (user.isPresent()) {
+            CustomResponse<String> response = new CustomResponse<>(
+                HttpStatus.OK.value(),
+                "user deleted" ,
+                null
+        );
+            this.userRepository.deleteById(id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }else {
+            CustomResponse<String> response = new CustomResponse<>(
+                    HttpStatus.OK.value(),
+                    "user deleted" , null     
+            );
+            this.userRepository.deleteById(id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+
+
     }
 
     //Add User
@@ -71,6 +96,7 @@ public class UserServices  {
     {
         this.userRepository.save(user);
     }
+
 
     public boolean validateLoginCredentials(String email,String password)
     {
