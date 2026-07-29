@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.8'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 group = 'com.example.mef'
@@ -10,8 +11,13 @@ description = 'Demo project for Spring Boot'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
+		languageVersion = JavaLanguageVersion.of(23)
 	}
+}
+
+javafx {
+    version = "23"
+    modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.graphics' ]
 }
 
 configurations {
@@ -25,6 +31,11 @@ repositories {
 }
 
 dependencies {
+	// JavaFX explicit dependencies (solves the missing runtime components error)
+	implementation "org.openjfx:javafx-controls:${javafx.version}"
+	implementation "org.openjfx:javafx-fxml:${javafx.version}"
+	implementation "org.openjfx:javafx-graphics:${javafx.version}"
+
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'mysql:mysql-connector-java:8.0.33'
@@ -33,6 +44,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation("org.postgresql:postgresql:42.7.7")
 
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
