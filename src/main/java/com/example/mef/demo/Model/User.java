@@ -1,51 +1,68 @@
 package com.example.mef.demo.Model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.hibernate.annotations.GenericGenerator;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-import java.util.UUID;
+import java.time.LocalDateTime;
 
-
-@Setter
 @Getter
+@Setter
 @Entity
-@Table(name="User")
-@NoArgsConstructor
+@SuperBuilder
+@AllArgsConstructor
+@Table(name = "\"User\"")
 public class User {
-    // Getters and setters
+
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
-    @NotEmpty
-    @Column(name="password", nullable = false, length = 250)
-    @Size(min=3,max=250 , message = "Password must be 3 - 15 characters long")
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    private String password;
-
-    @NotEmpty
-    @Column(name="username", nullable = false, length = 100)
-    @Size(min=4,message = "Username must be minimum of 4 characters")
+    @Column(nullable = false, unique = true, columnDefinition = "TEXT")
     private String username;
 
-    @Email(message = "Email address is not valid")
-    @Column(name="email", nullable = false, length = 100)
-    private String email;
+    @Column(name = "password_hash", nullable = false, columnDefinition = "TEXT")
+    private String passwordHash;
 
-    // Constructor with parameters
-    public User(String username,String password, String email) {
+    @Column(name = "full_name", nullable = false, columnDefinition = "TEXT")
+    private String fullName;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String role; // ADMIN, TEACHER, STAFF
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    public User() {}
+
+    public User(int id, String username, String passwordHash, String fullName, String role) {
+        this.id = id;
         this.username = username;
-        this.email = email;
-        this.password=password;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
     }
 
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    @Override
+    public String toString() {
+        return fullName + " (" + username + ", " + role + ")";
+    }
 }

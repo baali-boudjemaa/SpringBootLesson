@@ -30,7 +30,7 @@ public class UserController {
 
     @PostMapping("/users")
     User saveUser(@RequestBody User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         return userRepository.save(user);
     }
 

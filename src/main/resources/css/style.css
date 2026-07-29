@@ -1,0 +1,243 @@
+/* ===== School Admin ===== */
+
+.root {
+    -bg: #F5F7FA;
+    -surface: #FFFFFF;
+    -ink: #1F2933;
+    -muted: #667085;
+    -line: #D9E0EA;
+    -accent: #2563EB;
+    -accent-hover: #1D4ED8;
+    -danger: #C2410C;
+    -danger-hover: #9A3412;
+
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-background-color: -bg;
+    -fx-font-size: 13px;
+}
+
+.login-root {
+    -fx-background-color: linear-gradient(to bottom right, #2563EB, #0F766E);
+}
+
+.login-card {
+    -fx-background-color: -surface;
+    -fx-background-radius: 16;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.22), 26, 0, 0, 10);
+}
+
+.login-logo {
+    -fx-font-size: 40px;
+}
+
+.login-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+}
+
+.login-subtitle,
+.login-hint,
+.stat-caption {
+    -fx-text-fill: -muted;
+}
+
+.login-hint {
+    -fx-font-size: 11px;
+}
+
+.login-field,
+.text-field,
+.combo-box,
+.text-area {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: -line;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.login-field {
+    -fx-padding: 10 14 10 14;
+}
+
+.login-error {
+    -fx-text-fill: -danger;
+    -fx-font-size: 12px;
+}
+
+.view-root,
+.content-area {
+    -fx-background-color: -bg;
+}
+
+.top-bar {
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent -line transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.page-title {
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+}
+
+.user-label {
+    -fx-text-fill: -ink;
+    -fx-font-weight: bold;
+}
+
+.sidebar {
+    -fx-background-color: #EAF0F8;
+    -fx-border-color: transparent -line transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-pref-width: 190;
+}
+
+.brand-label {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+    -fx-padding: 0 0 10 4;
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ink;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 6;
+    -fx-padding: 9 12 9 12;
+    -fx-cursor: hand;
+}
+
+.nav-button:hover {
+    -fx-background-color: #DCE6F3;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 8 14 8 14;
+    -fx-cursor: hand;
+}
+
+.primary-button {
+    -fx-background-color: -accent;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.primary-button:hover {
+    -fx-background-color: -accent-hover;
+}
+
+.secondary-button {
+    -fx-background-color: transparent;
+    -fx-border-color: -line;
+    -fx-text-fill: -ink;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #EEF2F7;
+}
+
+.danger-button {
+    -fx-background-color: -danger;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.danger-button:hover {
+    -fx-background-color: -danger-hover;
+}
+
+.stat-box {
+    -fx-background-color: -surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -line;
+    -fx-border-radius: 8;
+    -fx-padding: 18;
+}
+
+.stat-number {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+}
+
+.data-table {
+    -fx-background-color: -surface;
+    -fx-border-color: -line;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.side-panel {
+    -fx-background-color: -surface;
+    -fx-border-color: -line;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 18;
+    -fx-min-width: 330;
+    -fx-max-width: 390;
+}
+
+.side-panel > .label {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+}
+
+.form-grid .label {
+    -fx-text-fill: -muted;
+}
+
+.workflow-list {
+    -fx-min-width: 240;
+    -fx-max-width: 260;
+    -fx-padding: 8 0 0 0;
+}
+
+.workflow-list-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+    -fx-padding: 0 0 10 0;
+}
+
+.workflow-step {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ink;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 6;
+    -fx-padding: 11 14 11 14;
+    -fx-cursor: hand;
+}
+
+.workflow-step:hover {
+    -fx-background-color: #EEF2F7;
+}
+
+.workflow-step-active {
+    -fx-background-color: #E5E7EB;
+    -fx-border-color: -accent;
+    -fx-border-width: 0 0 0 4;
+    -fx-font-weight: bold;
+}
+
+.workflow-card {
+    -fx-background-color: -surface;
+    -fx-border-color: -line;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 24;
+    -fx-min-height: 520;
+}
+
+.workflow-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+}

@@ -1,0 +1,13 @@
+package com.example.mef.demo.Model;
+
+
+import com.example.mef.demo.enums.ExpenseCategory;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface ExpenseRepository extends JpaRepository<Expense, String> {
+
+    List<Expense> findByCategory(ExpenseCategory category);
+
+}

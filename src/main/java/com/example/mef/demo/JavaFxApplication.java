@@ -1,13 +1,17 @@
 package com.example.mef.demo;
 
+import com.example.mef.demo.util.SceneManager;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
+
+import java.util.Objects;
 
 public class JavaFxApplication extends Application {
 
@@ -30,7 +34,17 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        this.applicationContext.publishEvent(new StageReadyEvent(primaryStage));
+        SceneManager.init(primaryStage);
+        primaryStage.setTitle("School Admin");
+        primaryStage.setMinWidth(900);
+        primaryStage.setMinHeight(600);
+        primaryStage.getIcons().add(
+                new Image(
+                        Objects.requireNonNull(getClass()
+                                .getResourceAsStream("/icons/school-admin.png"))
+                )
+        );
+        SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
     }
 
     @Override

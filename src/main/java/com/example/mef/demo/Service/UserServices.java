@@ -1,11 +1,11 @@
 package com.example.mef.demo.Service;
 
 
+import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
-import com.example.mef.demo.Model.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -22,10 +22,10 @@ public class UserServices  {
 
 
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username);
+        Optional<User> user = userRepository.findByUsername(username);
         if (user == null)
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.getUsername(), (String) user.getPassword(), new ArrayList<>());
+        return  new org.springframework.security.core.userdetails.User(user.get().getUsername(), (String) user.get().getPasswordHash(), new ArrayList<>());
 
     }
 
@@ -47,16 +47,16 @@ public class UserServices  {
     }
 
     //Get Single User By Email
-    public User getUserByEmail(String email)
+    public Optional<User> getUserByEmail(String email)
     {
-        User user=	this.userRepository.findByUsername(email);
+        Optional<User> user=	this.userRepository.findByUsername(email);
         return user;
     }
 
     //Update
     public void updateUser(User user,int id)
     {
-        user.setId(id);
+//        user.setId(id);
         this.userRepository.save(user);
     }
 
@@ -77,7 +77,7 @@ public class UserServices  {
         List<User> users = (List<User>) this.userRepository.findAll();
         for(User u:users)
         {
-            if(u!=null && u.getPassword().equals(password) && u.getEmail().equals(email))
+            if(u!=null && u.getPasswordHash().equals(password) && u.getUsername().equals(email))
             {
                 return true;
             }
