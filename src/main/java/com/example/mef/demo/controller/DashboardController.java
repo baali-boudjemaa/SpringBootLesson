@@ -5,6 +5,7 @@ import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import com.example.mef.demo.util.SceneManager;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -13,6 +14,7 @@ import javafx.collections.transformation.FilteredList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.NodeOrientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.chart.PieChart;
@@ -27,32 +29,82 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Component
 public class DashboardController {
 
-    @FXML private Label pageTitleLabel;
-    @FXML private Label userLabel;
-    @FXML private VBox navigationBox;
-    @FXML private BorderPane contentPane;
-    
+    @FXML private BorderPane rootPane;
+    @FXML private Label       pageTitleLabel;
+    @FXML private Label       userLabel;
+    @FXML private Label       brandLabel;
+    @FXML private Button      frButton;
+    @FXML private Button      arButton;
+    @FXML private Button      logoutButton;
+    @FXML private VBox        navigationBox;
+    @FXML private BorderPane  contentPane;
+
     @Autowired
     private DynamicDatabaseService dao;
-    
-    private final List<Module> modules = new ArrayList<>();
+
+    private final List<Module> modules      = new ArrayList<>();
+    private       Module       activeModule = null;
 
     @FXML
     private void initialize() {
-
         User current = Session.getCurrentUser();
         if (current != null) {
             userLabel.setText(current.getFullName() + " · " + current.getRole());
         }
+        // Start in French by default
+        I18n.setLocale(Locale.FRENCH);
+        applyLocale();
+    }
 
+    /* ── Language switching ───────────────────────────────────── */
+
+    @FXML
+    private void handleLangFr() {
+        I18n.setLocale(Locale.FRENCH);
+        applyLocale();
+    }
+
+    @FXML
+    private void handleLangAr() {
+        I18n.setLocale(new Locale("ar"));
+        applyLocale();
+    }
+
+    /**
+     * Applies the current locale: sets RTL/LTR, updates static labels,
+     * rebuilds nav, and refreshes the active view.
+     */
+    private void applyLocale() {
+        boolean rtl = I18n.isRTL();
+        rootPane.setNodeOrientation(
+            rtl ? NodeOrientation.RIGHT_TO_LEFT : NodeOrientation.LEFT_TO_RIGHT);
+
+        // Update brand + logout button text
+        if (brandLabel  != null) brandLabel.setText(I18n.t("brand"));
+        if (logoutButton != null) logoutButton.setText(I18n.t("action.logout"));
+
+        // Toggle active style on language buttons
+        if (frButton != null && arButton != null) {
+            frButton.getStyleClass().setAll(rtl  ? "lang-button" : "lang-button-active");
+            arButton.getStyleClass().setAll(rtl  ? "lang-button-active" : "lang-button");
+        }
+
+        modules.clear();
         registerModules();
         buildNavigation();
-        showDashboard();
+
+        // Refresh current view
+        if (activeModule != null) {
+            showModule(activeModule);
+        } else {
+            showDashboard();
+        }
     }
 
     @FXML
@@ -62,105 +114,108 @@ public class DashboardController {
     }
 
     private void registerModules() {
-        modules.add(new Module("Students", "students", "last_name, first_name",
+        String t = "";
+        modules.add(new Module("nav.students", "students", "last_name, first_name",
                 List.of(
-                        new Field("first_name", "First name"),
-                        new Field("last_name", "Last name"),
-                        new Field("gender", "Gender", List.of("Female", "Male", "Other")),
-                        new Field("date_of_birth", "Birth date"),
-                        new Field("classroom", "Classroom"),
-                        new Field("status", "Status", List.of("ACTIVE", "INACTIVE"))
+                        new Field("first_name",    "field.first_name"),
+                        new Field("last_name",     "field.last_name"),
+                        new Field("gender",        "field.gender",    List.of("Female", "Male", "Other")),
+                        new Field("date_of_birth", "field.date_of_birth"),
+                        new Field("classroom",     "field.classroom"),
+                        new Field("status",        "field.status",    List.of("ACTIVE", "INACTIVE"))
                 )));
-        modules.add(new Module("Teachers", "teachers", "last_name, first_name",
+        modules.add(new Module("nav.teachers", "teachers", "last_name, first_name",
                 List.of(
-                        new Field("first_name", "First name"),
-                        new Field("last_name", "Last name"),
-                        new Field("email", "Email"),
-                        new Field("phone", "Phone"),
-                        new Field("specialty", "Specialty"),
-                        new Field("status", "Status", List.of("ACTIVE", "INACTIVE"))
+                        new Field("first_name", "field.first_name"),
+                        new Field("last_name",  "field.last_name"),
+                        new Field("email",      "field.email"),
+                        new Field("phone",      "field.phone"),
+                        new Field("specialty", "field.specialty"),
+                        new Field("status",     "field.status",   List.of("ACTIVE", "INACTIVE"))
                 )));
-        modules.add(new Module("Classes", "classes", "name",
+        modules.add(new Module("nav.classes", "classes", "name",
                 List.of(
-                        new Field("name", "Class"),
-                        new Field("grade_level", "Grade level"),
-                        new Field("room", "Room"),
-                        new Field("teacher_name", "Teacher"),
-                        new Field("capacity", "Capacity"),
-                        new Field("status", "Status", List.of("ACTIVE", "INACTIVE"))
+                        new Field("name",         "field.name"),
+                        new Field("grade_level",  "field.grade_level"),
+                        new Field("room",         "field.room"),
+                        new Field("teacher_name", "field.teacher"),
+                        new Field("capacity",     "field.capacity"),
+                        new Field("status",       "field.status", List.of("ACTIVE", "INACTIVE"))
                 )));
-        modules.add(new Module("Guardians", "guardians", "last_name, first_name",
+        modules.add(new Module("nav.guardians", "guardians", "last_name, first_name",
                 List.of(
-                        new Field("first_name", "First name"),
-                        new Field("last_name", "Last name"),
-                        new Field("relationship", "Relationship"),
-                        new Field("phone", "Phone"),
-                        new Field("email", "Email"),
-                        new Field("student_name", "Student")
+                        new Field("first_name",   "field.first_name"),
+                        new Field("last_name",    "field.last_name"),
+                        new Field("relationship", "field.relationship"),
+                        new Field("phone",        "field.phone"),
+                        new Field("email",        "field.email"),
+                        new Field("student_name", "field.student")
                 )));
-        modules.add(new Module("Courses", "courses", "name",
+        modules.add(new Module("nav.courses", "courses", "name",
                 List.of(
-                        new Field("name", "Course"),
-                        new Field("teacher_name", "Teacher"),
-                        new Field("classroom", "Classroom"),
-                        new Field("schedule", "Schedule"),
-                        new Field("monthly_fee", "Monthly fee"),
-                        new Field("status", "Status", List.of("ACTIVE", "INACTIVE"))
+                        new Field("name",         "field.name"),
+                        new Field("teacher_name", "field.teacher"),
+                        new Field("classroom",    "field.classroom"),
+                        new Field("schedule",     "field.schedule"),
+                        new Field("monthly_fee",  "field.monthly_fee"),
+                        new Field("status",       "field.status", List.of("ACTIVE", "INACTIVE"))
                 )));
-        modules.add(new Module("Attendance", "attendance", "attendance_date DESC",
+        modules.add(new Module("nav.attendance", "attendance", "attendance_date DESC",
                 List.of(
-                        new Field("attendance_date", "Date"),
-                        new Field("student_name", "Student"),
-                        new Field("course_name", "Course"),
-                        new Field("status", "Status", List.of("PRESENT", "ABSENT", "LATE")),
-                        new Field("notes", "Notes")
+                        new Field("attendance_date", "field.date"),
+                        new Field("student_name",    "field.student"),
+                        new Field("course_name",     "field.course"),
+                        new Field("status",          "field.status", List.of("PRESENT", "ABSENT", "LATE")),
+                        new Field("notes",           "field.notes")
                 )));
-        modules.add(new Module("Enrollments", "enrollments", "enrollment_date DESC",
+        modules.add(new Module("nav.enrollments", "enrollments", "enrollment_date DESC",
                 List.of(
-                        new Field("enrollment_date", "Date"),
-                        new Field("student_name", "Student"),
-                        new Field("course_name", "Course"),
-                        new Field("status", "Status", List.of("ACTIVE", "COMPLETED", "DROPPED"))
+                        new Field("enrollment_date", "field.date"),
+                        new Field("student_name",    "field.student"),
+                        new Field("course_name",     "field.course"),
+                        new Field("status",          "field.status", List.of("ACTIVE", "COMPLETED", "DROPPED"))
                 )));
-        modules.add(new Module("Payments", "payments", "payment_date DESC",
+        modules.add(new Module("nav.payments", "payments", "payment_date DESC",
                 List.of(
-                        new Field("payment_date", "Date"),
-                        new Field("student_name", "Student"),
-                        new Field("amount", "Amount"),
-                        new Field("method", "Method", List.of("Cash", "Card", "Transfer", "Check")),
-                        new Field("category", "Category", List.of("Tuition", "Course", "Transport", "Other")),
-                        new Field("status", "Status", List.of("PAID", "PENDING", "OVERDUE"))
+                        new Field("payment_date",  "field.date"),
+                        new Field("student_name",  "field.student"),
+                        new Field("amount",        "field.amount"),
+                        new Field("method",        "field.method",   List.of("Cash", "Card", "Transfer", "Check")),
+                        new Field("category",      "field.category", List.of("Tuition", "Course", "Transport", "Other")),
+                        new Field("status",        "field.status",   List.of("PAID", "PENDING", "OVERDUE"))
                 )));
-        modules.add(new Module("Reports", "reports", "created_at DESC",
+        modules.add(new Module("nav.reports", "reports", "created_at DESC",
                 List.of(
-                        new Field("title", "Title"),
-                        new Field("report_type", "Type", List.of("Academic", "Financial", "Attendance", "General")),
-                        new Field("created_at", "Date"),
-                        new Field("summary", "Summary")
+                        new Field("title",       "field.title"),
+                        new Field("report_type", "field.type", List.of("Academic", "Financial", "Attendance", "General")),
+                        new Field("created_at",  "field.date"),
+                        new Field("summary",     "field.summary")
                 )));
-        modules.add(new Module("Login & Roles", "users", "full_name",
+        modules.add(new Module("nav.users", "users", "full_name",
                 List.of(
-                        new Field("username", "Username"),
-                        new Field("password_hash", "Password"),
-                        new Field("full_name", "Full name"),
-                        new Field("role", "Role", List.of("ADMIN", "TEACHER", "STAFF"))
+                        new Field("username",      "field.username"),
+                        new Field("password_hash", "field.password"),
+                        new Field("full_name",     "field.full_name"),
+                        new Field("role",          "field.role", List.of("ADMIN", "TEACHER", "STAFF"))
                 )));
-        modules.add(new Module("Settings", "settings", "setting_key",
+        modules.add(new Module("nav.settings", "settings", "setting_key",
                 List.of(
-                        new Field("setting_key", "Setting"),
-                        new Field("setting_value", "Value"),
-                        new Field("description", "Description")
+                        new Field("setting_key",   "field.setting"),
+                        new Field("setting_value", "field.value"),
+                        new Field("description",   "field.description")
                 )));
     }
 
     private void buildNavigation() {
-        navigationBox.getChildren().clear();
-        Button dashboard = navButton("Dashboard");
-        dashboard.setOnAction(event -> showDashboard());
+        // Keep the brand label node — clear only the buttons
+        navigationBox.getChildren().removeIf(n -> n instanceof Button);
+
+        Button dashboard = navButton(I18n.t("nav.dashboard"));
+        dashboard.setOnAction(event -> { activeModule = null; showDashboard(); });
         navigationBox.getChildren().add(dashboard);
 
         for (Module module : modules) {
-            Button button = navButton(module.title());
+            Button button = navButton(I18n.t(module.titleKey()));
             button.setOnAction(event -> showModule(module));
             navigationBox.getChildren().add(button);
         }
@@ -174,7 +229,7 @@ public class DashboardController {
     }
 
     private void showDashboard() {
-        pageTitleLabel.setText("Dashboard");
+        pageTitleLabel.setText(I18n.t("nav.dashboard"));
         Label loading = new Label("Loading dashboard…");
         contentPane.setCenter(loading);
 
@@ -199,18 +254,18 @@ public class DashboardController {
             GridPane stats = new GridPane();
             stats.setHgap(14);
             stats.setVgap(14);
-            stats.add(stat("Students",  d.students),  0, 0);
-            stats.add(stat("Teachers",  d.teachers),  1, 0);
-            stats.add(stat("Classes",   d.classes),   2, 0);
-            stats.add(stat("Courses",   d.courses),   3, 0);
-            stats.add(stat("Payments",  "$" + String.format("%.2f", d.totalPayments)), 0, 1);
+            stats.add(stat(I18n.t("dashboard.students"), d.students),  0, 0);
+            stats.add(stat(I18n.t("dashboard.teachers"), d.teachers),  1, 0);
+            stats.add(stat(I18n.t("dashboard.classes"),  d.classes),   2, 0);
+            stats.add(stat(I18n.t("dashboard.courses"),  d.courses),   3, 0);
+            stats.add(stat(I18n.t("dashboard.total"),    "$" + String.format("%.2f", d.totalPayments)), 0, 1);
 
             PieChart chart = new PieChart(FXCollections.observableArrayList(
                     new PieChart.Data("Present", d.attendance.getOrDefault("PRESENT", 0)),
                     new PieChart.Data("Absent",  d.attendance.getOrDefault("ABSENT",  0)),
                     new PieChart.Data("Late",    d.attendance.getOrDefault("LATE",    0))
             ));
-            chart.setTitle("Attendance");
+            chart.setTitle(I18n.t("dashboard.attendance"));
             chart.setLegendVisible(true);
 
             TextArea report = new TextArea();
@@ -416,11 +471,10 @@ public class DashboardController {
         detailCard.getStyleClass().add("workflow-card");
         HBox.setHgrow(detailCard, Priority.ALWAYS);
 
-        List<String> stepTitles = List.of("Student", "Guardian", "Course", "Payment");
+        List<String> stepTitles = List.of("Student", "Guardian", "Payment");
         List<Node> stepContent = List.of(
                 studentForm,
                 guardianForm,
-                courseForm,
                 new VBox(12, firstPayment, paymentForm)
         );
         List<Button> stepButtons = new ArrayList<>();
@@ -501,10 +555,13 @@ public class DashboardController {
     }
 
     private void showModule(Module module) {
-        pageTitleLabel.setText(module.title());
+        activeModule = module;
+        pageTitleLabel.setText(I18n.t(module.titleKey()));
 
         TableView<Map<String, String>> table = new TableView<>();
-        table.getStyleClass().add("data-table");
+        table.getStyleClass().addAll("data-table", module.table() + "-table");
+        table.setFixedCellSize(38);
+        table.setPlaceholder(new Label(I18n.t("table.no_records")));
         buildColumns(table, module);
 
         GridPane form = new GridPane();
@@ -513,11 +570,11 @@ public class DashboardController {
         form.getStyleClass().add("form-grid");
         Map<String, Node> editors = buildForm(module, form);
 
-        Button save = new Button("Save");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
-        Button clear = new Button("Clear");
+        Button clear = new Button(I18n.t("action.clear"));
         clear.getStyleClass().add("secondary-button");
-        Button delete = new Button("Delete");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, clear, delete);
         actions.setAlignment(Pos.CENTER_LEFT);
@@ -526,7 +583,7 @@ public class DashboardController {
         FilteredList<Map<String, String>> filteredRows = new FilteredList<>(rows, row -> true);
         table.setItems(filteredRows);
 
-        TextField filter = textField("Filter " + module.title().toLowerCase());
+        TextField filter = textField(I18n.t("action.filter") + " " + I18n.t(module.titleKey()).toLowerCase());
         filter.getStyleClass().add("filter-field");
         filter.textProperty().addListener((obs, old, query) -> {
             String needle = query == null ? "" : query.trim().toLowerCase();
@@ -539,7 +596,7 @@ public class DashboardController {
         tableToolbar.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(filter, Priority.ALWAYS);
         if ("students".equals(module.table())) {
-            Button newStudent = new Button("New Student");
+            Button newStudent = new Button(I18n.t("action.new_student"));
             newStudent.getStyleClass().add("primary-button");
             newStudent.setMinWidth(120);
             newStudent.setOnAction(event -> showNewStudentWizard());
@@ -610,7 +667,7 @@ public class DashboardController {
                 DialogUtil.info("Select a row", "Choose a record before deleting.");
                 return;
             }
-            if (DialogUtil.confirm("Delete record", "Delete the selected " + module.title().toLowerCase() + " record?")) {
+            if (DialogUtil.confirm("Delete record", "Delete the selected " + I18n.t(module.titleKey()).toLowerCase() + " record?")) {
                 int id = Integer.parseInt(selected.get("id"));
                 delete.setDisable(true);
                 Task<Void> delTask = new Task<>() {
@@ -627,7 +684,7 @@ public class DashboardController {
 
         reload.run();
 
-        VBox formPanel = new VBox(14, new Label("Details"), form, actions);
+        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
         formPanel.getStyleClass().add("side-panel");
         VBox tablePanel = new VBox(10, tableToolbar, table);
         VBox.setVgrow(table, Priority.ALWAYS);
@@ -639,20 +696,61 @@ public class DashboardController {
     }
 
     private void buildColumns(TableView<Map<String, String>> table, Module module) {
-        TableColumn<Map<String, String>, String> id = new TableColumn<>("ID");
+        TableColumn<Map<String, String>, String> id = new TableColumn<>("#");
         id.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().get("id")));
-        id.setPrefWidth(60);
+        id.setPrefWidth(48);
+        id.setStyle("-fx-alignment: CENTER;");
         table.getColumns().add(id);
 
         for (Field field : module.fields()) {
             if ("password_hash".equals(field.column())) {
                 continue;
             }
-            TableColumn<Map<String, String>, String> column = new TableColumn<>(field.label());
+            TableColumn<Map<String, String>, String> column = new TableColumn<>(field.label().toUpperCase());
             column.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().get(field.column())));
             column.setPrefWidth(140);
+
+            // Render status/gender columns as colored badge pills
+            if ("status".equals(field.column()) || "gender".equals(field.column())) {
+                column.setCellFactory(col -> new TableCell<>() {
+                    private final Label badge = new Label();
+                    {
+                        badge.setStyle("-fx-padding: 2 10 2 10; -fx-background-radius: 12; -fx-font-size: 11px; -fx-font-weight: bold;");
+                        setGraphic(badge);
+                        setText(null);
+                        setStyle("-fx-alignment: CENTER-LEFT;");
+                    }
+                    @Override
+                    protected void updateItem(String item, boolean empty) {
+                        super.updateItem(item, empty);
+                        if (empty || item == null || item.isBlank()) {
+                            setGraphic(null);
+                        } else {
+                            badge.setText(item);
+                            badge.setStyle(badge.getStyle() + badgeStyle(item));
+                            setGraphic(badge);
+                        }
+                    }
+                });
+            }
             table.getColumns().add(column);
         }
+    }
+
+    /** Returns inline badge color style based on status/gender value. */
+    private String badgeStyle(String value) {
+        return switch (value.toUpperCase()) {
+            case "ACTIVE", "PRESENT", "PAID", "COMPLETED", "FEMALE" ->
+                "-fx-background-color: #D1FAE5; -fx-text-fill: #065F46;";
+            case "INACTIVE", "ABSENT", "OVERDUE", "DROPPED" ->
+                "-fx-background-color: #FEE2E2; -fx-text-fill: #991B1B;";
+            case "LATE", "PENDING" ->
+                "-fx-background-color: #FEF3C7; -fx-text-fill: #92400E;";
+            case "MALE" ->
+                "-fx-background-color: #DBEAFE; -fx-text-fill: #1E40AF;";
+            default ->
+                "-fx-background-color: #F1F5F9; -fx-text-fill: #475569;";
+        };
     }
 
     private Map<String, Node> buildForm(Module module, GridPane form) {
@@ -786,13 +884,17 @@ public class DashboardController {
         return value == null ? "" : value.trim();
     }
 
-    private record Field(String column, String label, List<String> options) {
-        Field(String column, String label) {
-            this(column, label, List.of());
+    /** Field: column = DB column name, labelKey = i18n key. */
+    private record Field(String column, String labelKey, List<String> options) {
+        Field(String column, String labelKey) {
+            this(column, labelKey, List.of());
         }
+        /** Resolved translated label. */
+        String label() { return I18n.t(labelKey); }
     }
 
-    private record Module(String title, String table, String orderBy, List<Field> fields) {
+    /** Module: titleKey = i18n key for the nav label. */
+    private record Module(String titleKey, String table, String orderBy, List<Field> fields) {
         List<String> columns() {
             return fields.stream().map(Field::column).toList();
         }
