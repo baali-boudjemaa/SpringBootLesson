@@ -1,68 +1,36 @@
 package com.example.mef.demo.Model;
 
+import com.example.mef.demo.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
-
+@Entity
+@Table(name = "\"User\"")
 @Getter
 @Setter
-@Entity
-@SuperBuilder
+@NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "\"User\"")
+@Builder
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(nullable = false, unique = true, columnDefinition = "TEXT")
-    private String username;
+    @Column(nullable = false)
+    private String name;
 
-    @Column(name = "password_hash", nullable = false, columnDefinition = "TEXT")
-    private String passwordHash;
+    @Column(nullable = false, unique = true)
+    private String email;
 
-    @Column(name = "full_name", nullable = false, columnDefinition = "TEXT")
-    private String fullName;
+    @Column(nullable = false)
+    private String password;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String role; // ADMIN, TEACHER, STAFF
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    public User() {}
-
-    public User(int id, String username, String passwordHash, String fullName, String role) {
-        this.id = id;
-        this.username = username;
-        this.passwordHash = passwordHash;
-        this.fullName = fullName;
-        this.role = role;
-    }
-
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    @Override
-    public String toString() {
-        return fullName + " (" + username + ", " + role + ")";
+    public String getFullName() {
+        return name;
     }
 }

@@ -31,10 +31,6 @@ repositories {
 }
 
 dependencies {
-	// JavaFX explicit dependencies (solves the missing runtime components error)
-	implementation "org.openjfx:javafx-controls:${javafx.version}"
-	implementation "org.openjfx:javafx-fxml:${javafx.version}"
-	implementation "org.openjfx:javafx-graphics:${javafx.version}"
 
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

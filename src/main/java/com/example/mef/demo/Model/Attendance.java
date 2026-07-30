@@ -1,14 +1,41 @@
 package com.example.mef.demo.Model;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.mef.demo.enums.AttendanceStatus;
+import jakarta.persistence.*;
+        import lombok.*;
+        import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-public interface AttendanceRepository extends JpaRepository<Attendance, String> {
+@Getter
+@Setter
+@Entity
+@Table(name = "\"Attendance\"")
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+public class Attendance  {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @Column(nullable = false)
+    private Long id;
 
-    List<Attendance> findByStudentId(String studentId);
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "studentId")
+    private Student student;
 
-    List<Attendance> findByDate(LocalDateTime date);
+    @Column(name = "date")
+    private LocalDateTime date;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private AttendanceStatus status = AttendanceStatus.PRESENT;
+
+    @Column
+    private LocalDateTime checkInTime;
+
+    @Column
+    private LocalDateTime checkOutTime;
 }

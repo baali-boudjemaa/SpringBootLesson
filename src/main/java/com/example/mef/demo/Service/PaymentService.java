@@ -1,4 +1,4 @@
-package com.example.mef.demo.Service;
+package com.example.mef.demo.service;
 
 import org.springframework.stereotype.Service;
 

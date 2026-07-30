@@ -1,17 +1,18 @@
 package com.example.mef.demo.Repository;
 
+import com.example.mef.demo.Model.Inscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface InscriptionRepository extends JpaRepository<Inscription, String> {
+public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
 
-    List<Inscription> findByStudentId(String studentId);
+    List<Inscription> findByStudentId(Long studentId);
 
-    List<Inscription> findByClassId(String classId);
+    List<Inscription> findByClassroomId(Long classId);
 
-    List<Inscription> findByAnneeScolaireId(String anneeScolaireId);
+    List<Inscription> findByAnneeScolaireId(Long anneeScolaireId);
 
 }

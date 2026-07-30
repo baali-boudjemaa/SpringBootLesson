@@ -1,4 +1,4 @@
-package com.example.mef.demo.Service;
+package com.example.mef.demo.service;
 
 
 import com.example.mef.demo.Model.User;
@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class UserServices  {
@@ -22,10 +21,10 @@ public class UserServices  {
 
 
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Optional<User> user = userRepository.findByUsername(username);
-        if (user == null)
+        Optional<User> user = userRepository.findByEmail(username);
+        if (user.isEmpty())
             throw new UsernameNotFoundException("User not found");
-        return  new org.springframework.security.core.userdetails.User(user.get().getUsername(), (String) user.get().getPasswordHash(), new ArrayList<>());
+        return new org.springframework.security.core.userdetails.User(user.get().getFullName(), user.get().getPassword(), new ArrayList<>());
 
     }
 
@@ -34,27 +33,25 @@ public class UserServices  {
     //Get All Users
     public List<User> getAllUser()
     {
-        List<User> users = (List<User>) this.getAllUser();
-        return users;
+        return this.userRepository.findAll();
     }
 
     //Get Single User
     public User getUser(int id)
     {
-        Optional<com.example.mef.demo.Model.User> optional = this.userRepository.findById(id);
-        com.example.mef.demo.Model.User user = optional.get();
-        return user;
+        Optional<User> optional = this.userRepository.findById(id);
+        return optional.orElse(null);
     }
 
     //Get Single User By Email
     public Optional<User> getUserByEmail(String email)
     {
-        Optional<User> user=	this.userRepository.findByUsername(email);
+        Optional<User> user =	this.userRepository.findByEmail(email);
         return user;
     }
 
     //Update
-    public void updateUser(User user,int id)
+    public void updateUser(User user, int id)
     {
 //        user.setId(id);
         this.userRepository.save(user);
@@ -77,7 +74,7 @@ public class UserServices  {
         List<User> users = (List<User>) this.userRepository.findAll();
         for(User u:users)
         {
-            if(u!=null && u.getPasswordHash().equals(password) && u.getUsername().equals(email))
+            if(u!=null && u.getPassword().equals(password) && u.getEmail().equals(email))
             {
                 return true;
             }

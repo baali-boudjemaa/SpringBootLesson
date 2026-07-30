@@ -43,6 +43,4 @@ public class Employee {
     private String certifications;
 
 
-    @OneToMany(mappedBy = "employee")
-    private List<DailyLog> dailyLogs = new ArrayList<>();
 }

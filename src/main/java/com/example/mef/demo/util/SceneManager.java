@@ -4,6 +4,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -17,11 +18,16 @@ public final class SceneManager {
 
     private static Stage primaryStage;
     private static Scene scene;
+    private static ApplicationContext applicationContext;
 
     private SceneManager() {}
 
     public static void init(Stage stage) {
         primaryStage = stage;
+    }
+
+    public static void setApplicationContext(ApplicationContext ctx) {
+        applicationContext = ctx;
     }
 
     /**
@@ -32,6 +38,9 @@ public final class SceneManager {
     public static void switchTo(String fxmlPath, String cssPath) {
         try {
             FXMLLoader loader = new FXMLLoader(SceneManager.class.getResource(fxmlPath));
+            if (applicationContext != null) {
+                loader.setControllerFactory(applicationContext::getBean);
+            }
             Parent root = loader.load();
 
             if (scene == null) {

@@ -4,11 +4,13 @@ package com.example.mef.demo.controller;
 import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
 import com.example.mef.demo.config.Session;
+import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.SceneManager;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -17,6 +19,9 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCrypt;
+import org.springframework.stereotype.Component;
+import com.example.mef.demo.service.DynamicDatabaseService;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -24,14 +29,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Component
 public class DashboardController {
 
     @FXML private Label pageTitleLabel;
     @FXML private Label userLabel;
     @FXML private VBox navigationBox;
     @FXML private BorderPane contentPane;
+    
     @Autowired
-    private UserRepository userRepository;
+    private DynamicDatabaseService dao;
+    
     private final List<Module> modules = new ArrayList<>();
 
     @FXML
@@ -167,67 +175,106 @@ public class DashboardController {
 
     private void showDashboard() {
         pageTitleLabel.setText("Dashboard");
+        Label loading = new Label("Loading dashboard…");
+        contentPane.setCenter(loading);
 
-        GridPane stats = new GridPane();
-        stats.setHgap(14);
-        stats.setVgap(14);
-        stats.add(stat("Students", dao.count("students")), 0, 0);
-        stats.add(stat("Teachers", dao.count("teachers")), 1, 0);
-        stats.add(stat("Classes", dao.count("classes")), 2, 0);
-        stats.add(stat("Courses", dao.count("courses")), 3, 0);
-        stats.add(stat("Payments", "$" + String.format("%.2f", dao.sum("payments", "amount"))), 0, 1);
+        Task<DashboardData> task = new Task<>() {
+            @Override
+            protected DashboardData call() {
+                long students  = dao.count("students");
+                long teachers  = dao.count("teachers");
+                long classes   = dao.count("classes");
+                long courses   = dao.count("courses");
+                long guardians = dao.count("guardians");
+                long payments  = dao.count("payments");
+                double total   = dao.sum("payments", "amount");
+                Map<String, Integer> attendance = dao.attendanceSummary();
+                return new DashboardData(students, teachers, classes, courses,
+                        guardians, payments, total, attendance);
+            }
+        };
+        task.setOnSucceeded(e -> {
+            DashboardData d = task.getValue();
 
-        Map<String, Integer> attendance = dao.attendanceSummary();
-        PieChart chart = new PieChart(FXCollections.observableArrayList(
-                new PieChart.Data("Present", attendance.get("PRESENT")),
-                new PieChart.Data("Absent", attendance.get("ABSENT")),
-                new PieChart.Data("Late", attendance.get("LATE"))
-        ));
-        chart.setTitle("Attendance");
-        chart.setLegendVisible(true);
+            GridPane stats = new GridPane();
+            stats.setHgap(14);
+            stats.setVgap(14);
+            stats.add(stat("Students",  d.students),  0, 0);
+            stats.add(stat("Teachers",  d.teachers),  1, 0);
+            stats.add(stat("Classes",   d.classes),   2, 0);
+            stats.add(stat("Courses",   d.courses),   3, 0);
+            stats.add(stat("Payments",  "$" + String.format("%.2f", d.totalPayments)), 0, 1);
 
-        TextArea report = new TextArea();
-        report.setEditable(false);
-        report.setWrapText(true);
-        report.setText("""
-                School summary
+            PieChart chart = new PieChart(FXCollections.observableArrayList(
+                    new PieChart.Data("Present", d.attendance.getOrDefault("PRESENT", 0)),
+                    new PieChart.Data("Absent",  d.attendance.getOrDefault("ABSENT",  0)),
+                    new PieChart.Data("Late",    d.attendance.getOrDefault("LATE",    0))
+            ));
+            chart.setTitle("Attendance");
+            chart.setLegendVisible(true);
 
-                Students: %d
-                Teachers: %d
-                Classes: %d
-                Guardians: %d
-                Active courses: %d
-                Payments recorded: %d
-                Total collected: $%.2f
-                """.formatted(
-                dao.count("students"),
-                dao.count("teachers"),
-                dao.count("classes"),
-                dao.count("guardians"),
-                dao.count("courses"),
-                dao.count("payments"),
-                dao.sum("payments", "amount")
-        ));
+            TextArea report = new TextArea();
+            report.setEditable(false);
+            report.setWrapText(true);
+            report.setText("""
+                    School summary
 
-        HBox bottom = new HBox(16, chart, report);
-        HBox.setHgrow(chart, Priority.ALWAYS);
-        HBox.setHgrow(report, Priority.ALWAYS);
+                    Students: %d
+                    Teachers: %d
+                    Classes: %d
+                    Guardians: %d
+                    Active courses: %d
+                    Payments recorded: %d
+                    Total collected: $%.2f
+                    """.formatted(
+                    d.students, d.teachers, d.classes,
+                    d.guardians, d.courses, d.payments, d.totalPayments));
 
-        VBox root = new VBox(18, stats, bottom);
-        root.setPadding(new Insets(24));
-        contentPane.setCenter(root);
+            HBox bottom = new HBox(16, chart, report);
+            HBox.setHgrow(chart, Priority.ALWAYS);
+            HBox.setHgrow(report, Priority.ALWAYS);
+
+            VBox root = new VBox(18, stats, bottom);
+            root.setPadding(new Insets(24));
+            contentPane.setCenter(root);
+        });
+        task.setOnFailed(e -> contentPane.setCenter(new Label("Failed to load dashboard.")));
+        startDaemonThread(task);
     }
+
+    private record DashboardData(
+            long students, long teachers, long classes, long courses,
+            long guardians, long payments, double totalPayments,
+            Map<String, Integer> attendance) {}
 
     private void showNewStudentWizard() {
         pageTitleLabel.setText("New Student");
+        contentPane.setCenter(new Label("Loading…"));
 
+        // Load combo data off the FX thread first, then build the form
+        Task<WizardData> loadTask = new Task<>() {
+            @Override
+            protected WizardData call() {
+                List<String> classrooms = dao.findAll("classes", List.of("name"), "name").stream()
+                        .map(row -> row.get("name")).toList();
+                List<String> courses = dao.findAll("courses", List.of("name"), "name").stream()
+                        .map(row -> row.get("name")).toList();
+                return new WizardData(classrooms, courses);
+            }
+        };
+        loadTask.setOnSucceeded(e -> buildStudentWizard(loadTask.getValue()));
+        loadTask.setOnFailed(e -> contentPane.setCenter(new Label("Failed to load wizard data.")));
+        startDaemonThread(loadTask);
+    }
+
+    private record WizardData(List<String> classrooms, List<String> courses) {}
+
+    private void buildStudentWizard(WizardData data) {
         TextField firstName = textField("First name");
         TextField lastName = textField("Last name");
         ComboBox<String> gender = comboBox(List.of("Female", "Male", "Other"));
         DatePicker birthDate = new DatePicker();
-        ComboBox<String> classroom = comboBox(dao.findAll("classes", List.of("name"), "name").stream()
-                .map(row -> row.get("name"))
-                .toList());
+        ComboBox<String> classroom = comboBox(data.classrooms());
         classroom.setEditable(true);
 
         TextField guardianFirstName = textField("First name");
@@ -236,9 +283,7 @@ public class DashboardController {
         TextField phone = textField("Phone");
         TextField email = textField("Email");
 
-        ComboBox<String> course = comboBox(dao.findAll("courses", List.of("name"), "name").stream()
-                .map(row -> row.get("name"))
-                .toList());
+        ComboBox<String> course = comboBox(data.courses());
         course.setEditable(true);
 
         CheckBox firstPayment = new CheckBox("Record first payment");
@@ -337,13 +382,32 @@ public class DashboardController {
                     payment.put("status", "PAID");
                 }
 
-                dao.createStudentEnrollment(student, guardian, value(course), payment);
-                DialogUtil.info("Student enrolled", firstName.getText().trim() + " " + lastName.getText().trim() + " has been added.");
-                clear.fire();
+                final Map<String, String> paymentFinal = payment;
+                final String studentFirst = firstName.getText().trim();
+                final String studentLast = lastName.getText().trim();
+                enroll.setDisable(true);
+                Task<Void> enrollTask = new Task<>() {
+                    @Override
+                    protected Void call() {
+                        dao.createStudentEnrollment(student, guardian, value(course), paymentFinal);
+                        return null;
+                    }
+                };
+                enrollTask.setOnSucceeded(ev -> {
+                    enroll.setDisable(false);
+                    DialogUtil.info("Student enrolled", studentFirst + " " + studentLast + " has been added.");
+                    clear.fire();
+                });
+                enrollTask.setOnFailed(ev -> {
+                    enroll.setDisable(false);
+                    DialogUtil.error("Could not enroll student", enrollTask.getException().getMessage());
+                });
+                startDaemonThread(enrollTask);
             } catch (RuntimeException e) {
                 DialogUtil.error("Could not enroll student", e.getMessage());
             }
         });
+
 
         Label detailTitle = new Label();
         detailTitle.getStyleClass().add("workflow-title");
@@ -482,7 +546,17 @@ public class DashboardController {
             tableToolbar.getChildren().add(newStudent);
         }
 
-        Runnable reload = () -> rows.setAll(dao.findAll(module.table(), module.columns(), module.orderBy()));
+        Runnable reload = () -> {
+            Task<List<Map<String, String>>> loadTask = new Task<>() {
+                @Override
+                protected List<Map<String, String>> call() {
+                    return dao.findAll(module.table(), module.columns(), module.orderBy());
+                }
+            };
+            loadTask.setOnSucceeded(e -> rows.setAll(loadTask.getValue()));
+            loadTask.setOnFailed(e -> DialogUtil.error("Load failed", loadTask.getException().getMessage()));
+            startDaemonThread(loadTask);
+        };
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
             if (selected != null) {
@@ -507,14 +581,24 @@ public class DashboardController {
                         && getEditorValue(editors.get("password_hash")).isBlank()) {
                     values.put("password_hash", selected.get("password_hash"));
                 }
-                if (selected == null) {
-                    dao.insert(module.table(), module.columns(), values);
-                } else {
-                    values.put("id", selected.get("id"));
-                    dao.update(module.table(), module.columns(), values);
-                }
-                reload.run();
-                clear.fire();
+                final boolean isInsert = (selected == null);
+                if (!isInsert) values.put("id", selected.get("id"));
+
+                save.setDisable(true);
+                Task<Void> saveTask = new Task<>() {
+                    @Override
+                    protected Void call() {
+                        if (isInsert) dao.insert(module.table(), module.columns(), values);
+                        else          dao.update(module.table(), module.columns(), values);
+                        return null;
+                    }
+                };
+                saveTask.setOnSucceeded(e -> { save.setDisable(false); reload.run(); clear.fire(); });
+                saveTask.setOnFailed(e -> {
+                    save.setDisable(false);
+                    DialogUtil.error("Could not save", saveTask.getException().getMessage());
+                });
+                startDaemonThread(saveTask);
             } catch (RuntimeException e) {
                 DialogUtil.error("Could not save", e.getMessage());
             }
@@ -527,9 +611,17 @@ public class DashboardController {
                 return;
             }
             if (DialogUtil.confirm("Delete record", "Delete the selected " + module.title().toLowerCase() + " record?")) {
-                dao.delete(module.table(), Integer.parseInt(selected.get("id")));
-                reload.run();
-                clear.fire();
+                int id = Integer.parseInt(selected.get("id"));
+                delete.setDisable(true);
+                Task<Void> delTask = new Task<>() {
+                    @Override protected Void call() { dao.delete(module.table(), id); return null; }
+                };
+                delTask.setOnSucceeded(e -> { delete.setDisable(false); reload.run(); clear.fire(); });
+                delTask.setOnFailed(e -> {
+                    delete.setDisable(false);
+                    DialogUtil.error("Delete failed", delTask.getException().getMessage());
+                });
+                startDaemonThread(delTask);
             }
         });
 
@@ -704,5 +796,11 @@ public class DashboardController {
         List<String> columns() {
             return fields.stream().map(Field::column).toList();
         }
+    }
+
+    private void startDaemonThread(Runnable r) {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.start();
     }
 }

@@ -28,8 +28,10 @@ public class JavaFxApplication extends Application {
         this.applicationContext = new SpringApplicationBuilder()
                 .sources(DemoApplication.class)
                 .web(WebApplicationType.NONE) // Disable the web server since we only need JavaFX
+                .headless(false) // CRITICAL: Allow JavaFX to show GUI windows
                 .initializers(initializer)
                 .run(getParameters().getRaw().toArray(new String[0]));
+        SceneManager.setApplicationContext(this.applicationContext);
     }
 
     @Override
@@ -38,12 +40,10 @@ public class JavaFxApplication extends Application {
         primaryStage.setTitle("School Admin");
         primaryStage.setMinWidth(900);
         primaryStage.setMinHeight(600);
-        primaryStage.getIcons().add(
-                new Image(
-                        Objects.requireNonNull(getClass()
-                                .getResourceAsStream("/icons/school-admin.png"))
-                )
-        );
+        var iconStream = getClass().getResourceAsStream("/icons/school-admin.png");
+        if (iconStream != null) {
+            primaryStage.getIcons().add(new Image(iconStream));
+        }
         SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
     }
 

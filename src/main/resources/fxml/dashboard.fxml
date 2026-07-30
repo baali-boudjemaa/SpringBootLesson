@@ -10,7 +10,7 @@
 
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.schooladmin.controller.DashboardController"
+            fx:controller="com.example.mef.demo.controller.DashboardController"
             styleClass="view-root">
 
     <top>
