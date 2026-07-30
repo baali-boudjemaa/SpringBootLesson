@@ -38,8 +38,8 @@ public class JavaFxApplication extends Application {
     public void start(Stage primaryStage) {
         SceneManager.init(primaryStage);
         primaryStage.setTitle("School Admin");
-        primaryStage.setMinWidth(900);
-        primaryStage.setMinHeight(600);
+        primaryStage.setFullScreen(true);
+        primaryStage.setFullScreenExitHint("");
         var iconStream = getClass().getResourceAsStream("/icons/school-admin.png");
         if (iconStream != null) {
             primaryStage.getIcons().add(new Image(iconStream));

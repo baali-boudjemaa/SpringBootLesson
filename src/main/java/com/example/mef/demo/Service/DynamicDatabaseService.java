@@ -111,6 +111,49 @@ public class DynamicDatabaseService {
         jdbcTemplate.update("DELETE FROM " + table + " WHERE id = ?", id);
     }
 
+    /**
+     * Aggregate data for the monthly report screen.
+     * @param startDate inclusive start date string (yyyy-MM-dd)
+     * @param endDate   inclusive end date string   (yyyy-MM-dd)
+     */
+    public MonthlyReportData monthlyReport(String startDate, String endDate) {
+        // Payment totals
+        Double income = null;
+        int paymentCount = 0;
+        try {
+            income = jdbcTemplate.queryForObject(
+                "SELECT SUM(amount) FROM payments WHERE payment_date >= ? AND payment_date <= ?",
+                Double.class, startDate, endDate);
+            Integer cnt = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payments WHERE payment_date >= ? AND payment_date <= ?",
+                Integer.class, startDate, endDate);
+            paymentCount = cnt != null ? cnt : 0;
+        } catch (Exception ignored) {}
+
+        // Attendance
+        int present = 0, absent = 0, late = 0;
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) as cnt FROM attendance "
+                + "WHERE attendance_date >= ? AND attendance_date <= ? GROUP BY status",
+                startDate, endDate);
+            for (Map<String, Object> row : rows) {
+                String st = (String) row.get("status");
+                Number n  = (Number)  row.get("cnt");
+                if (st == null || n == null) continue;
+                switch (st.toUpperCase()) {
+                    case "PRESENT" -> present = n.intValue();
+                    case "ABSENT"  -> absent  = n.intValue();
+                    case "LATE"    -> late    = n.intValue();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return new MonthlyReportData(income != null ? income : 0.0, paymentCount, present, absent, late);
+    }
+
+    public record MonthlyReportData(double income, int paymentCount, int present, int absent, int late) {}
+
     @Transactional
     public void createStudentEnrollment(Map<String, String> student, Map<String, String> guardian, String course, Map<String, String> payment) {
         // Insert student

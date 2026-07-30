@@ -16,28 +16,33 @@
             styleClass="view-root">
 
     <top>
-        <HBox alignment="CENTER_LEFT" spacing="12" styleClass="top-bar">
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="top-bar">
             <padding>
-                <Insets top="14" right="24" bottom="14" left="24"/>
+                <Insets top="12" right="20" bottom="12" left="20"/>
             </padding>
             <Label fx:id="pageTitleLabel" text="Dashboard" styleClass="page-title"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Label fx:id="userLabel" styleClass="user-label"/>
-            <!-- Language switcher -->
-            <Button fx:id="frButton" text="FR" styleClass="lang-button" onAction="#handleLangFr"/>
+            <!-- Quick search trigger -->
+            <Button fx:id="searchBarBtn" text="🔍  Recherche rapide...  Ctrl+K"
+                    styleClass="search-bar-btn" onAction="#openGlobalSearchFromBtn"/>
             <Separator orientation="VERTICAL"/>
-            <Button fx:id="arButton" text="AR" styleClass="lang-button-active" onAction="#handleLangAr"/>
+            <Label fx:id="userLabel" styleClass="user-label"/>
+            <Separator orientation="VERTICAL"/>
+            <!-- Language switcher -->
+            <Button fx:id="frButton" text="FR" styleClass="lang-button-active" onAction="#handleLangFr"/>
+            <Button fx:id="arButton" text="DZ AR" styleClass="lang-button" onAction="#handleLangAr"/>
             <Separator orientation="VERTICAL"/>
             <Button fx:id="logoutButton" text="Déconnexion" styleClass="secondary-button" onAction="#handleLogout"/>
         </HBox>
     </top>
 
     <left>
-        <VBox fx:id="navigationBox" spacing="8" styleClass="sidebar">
+        <VBox fx:id="navigationBox" spacing="4" styleClass="sidebar">
             <padding>
-                <Insets top="18" right="14" bottom="18" left="14"/>
+                <Insets top="18" right="12" bottom="18" left="12"/>
             </padding>
-            <Label fx:id="brandLabel" text="School Admin" styleClass="brand-label"/>
+            <Label fx:id="brandLabel" text="Rawdati" styleClass="brand-label"/>
+            <Label fx:id="brandSubtitleLabel" text="Gestion de Crèche" styleClass="brand-subtitle"/>
         </VBox>
     </left>
 
