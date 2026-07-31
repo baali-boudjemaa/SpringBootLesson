@@ -11,16 +11,15 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"AnneeScolaire\"")
+@Table(name = "AnneeScolaire")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class AnneeScolaire  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
-
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
     @Column(name = "libelleAnneesc", nullable = false)
     private String libelleAnneesc;
 

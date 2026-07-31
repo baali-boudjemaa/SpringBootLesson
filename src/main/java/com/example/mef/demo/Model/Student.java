@@ -7,7 +7,7 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"Student\"")
+@Table(name = "Student")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,9 +15,9 @@ import java.time.LocalDateTime;
 @SuperBuilder
 public class Student  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column(nullable = false, unique = true)
     private String studentNumber;

@@ -8,15 +8,15 @@ import lombok.experimental.SuperBuilder;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"PurchaseItem\"")
+@Table(name = "PurchaseItem")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class PurchaseItem  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column(nullable = false)
     private Double quantity;

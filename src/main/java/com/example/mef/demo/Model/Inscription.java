@@ -14,15 +14,15 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"Inscription\"")
+@Table(name = "Inscription")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class Inscription  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "studentId", nullable = false)

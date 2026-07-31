@@ -6,13 +6,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
-public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
-
-    List<Inscription> findByStudentId(Long studentId);
-
-    List<Inscription> findByClassroomId(Long classId);
-
-    List<Inscription> findByAnneeScolaireId(Long anneeScolaireId);
-
+public interface InscriptionRepository extends JpaRepository<Inscription, String> {
+    List<Inscription> findByStudentId(String studentId);
+    List<Inscription> findByClassroomId(String classId);
+    List<Inscription> findByAnneeScolaireId(String anneeScolaireId);
 }

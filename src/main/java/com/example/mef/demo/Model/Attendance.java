@@ -11,15 +11,15 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"Attendance\"")
+@Table(name = "Attendance")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class Attendance  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "studentId")

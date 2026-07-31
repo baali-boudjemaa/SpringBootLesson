@@ -13,15 +13,15 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"Payment\"")
+@Table(name = "Payment")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class Payment {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inscriptionId", nullable = false)

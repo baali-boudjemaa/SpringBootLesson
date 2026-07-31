@@ -8,9 +8,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface KitchenNeedRepository extends JpaRepository<KitchenNeed, Long> {
+public interface KitchenNeedRepository extends JpaRepository<KitchenNeed, String> {
 
-    List<KitchenNeed> findByIngredientId(Long ingredientId);
+    List<KitchenNeed> findByIngredientId(String ingredientId);
 
     List<KitchenNeed> findByStatus(NeedStatus status);
 

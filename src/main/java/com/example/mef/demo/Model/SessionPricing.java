@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 @Setter
 @Entity
 @Table(
-        name = "\"SessionPricing\"",
+        name = "SessionPricing",
         uniqueConstraints = {
                 @UniqueConstraint(columnNames = "session")
         }
@@ -19,9 +19,9 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 public class SessionPricing  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, unique = true)

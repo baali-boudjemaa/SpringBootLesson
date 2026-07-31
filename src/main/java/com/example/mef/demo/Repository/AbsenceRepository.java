@@ -7,8 +7,8 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface AbsenceRepository extends JpaRepository<Absence, Long> {
+public interface AbsenceRepository extends JpaRepository<Absence, String> {
 
-    List<Absence> findByStudentId(Long studentId);
+    List<Absence> findByStudentId(String studentId);
 
 }

@@ -5,8 +5,6 @@ import com.example.mef.demo.Model.Classroom;
 
 import java.util.List;
 
-public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
-
+public interface ClassroomRepository extends JpaRepository<Classroom, String> {
     List<Classroom> findByNameContainingIgnoreCase(String name);
-
 }

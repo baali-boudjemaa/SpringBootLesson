@@ -19,14 +19,14 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"Expense\"")
+@Table(name = "Expense")
 @NoArgsConstructor
 @AllArgsConstructor
 public class Expense  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column(nullable = false)
     private String title;

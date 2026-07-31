@@ -16,16 +16,16 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"KitchenPurchase\"")
+@Table(name = "KitchenPurchase")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 
 public class KitchenPurchase {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column
     private String supplier;

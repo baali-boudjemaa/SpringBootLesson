@@ -1,10 +1,11 @@
 package com.example.mef.demo.controller;
 
 
-import com.example.mef.demo.Model.Field;
+import com.example.mef.demo.Model.*;
 import com.example.mef.demo.Model.Module;
-import com.example.mef.demo.Model.User;
+import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.DynamicDatabaseService;
+import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.dashboard.report.MonthlyReport;
 import com.example.mef.demo.dashboard.search.GlobalSearch;
@@ -26,6 +27,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -37,8 +39,13 @@ import javafx.stage.FileChooser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Component;
-import com.example.mef.demo.Model.ModuleRegistry;
-
+import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Services.ClassroomService;
+import com.example.mef.demo.Services.StudentService;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.scene.Scene;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.Period;
@@ -59,7 +66,10 @@ public class DashboardController {
     @FXML private Button      logoutButton;
     @FXML private VBox        navigationBox;
     @FXML private BorderPane  contentPane;
-
+    @Autowired
+    private ClassroomService classroomService;
+    @Autowired
+    private StudentService studentService;
     @Autowired
     private DynamicDatabaseService dao;
     @Autowired
@@ -620,7 +630,7 @@ public class DashboardController {
             return;
         }
         if ("classes".equals(module.table())) {
-            showClassesPage(module);
+            showClassroomsPage();
             return;
         }
         TableView<Map<String, String>> table = new TableView<>();
@@ -857,48 +867,54 @@ public class DashboardController {
             typed.setValue(value == null || value.isBlank() ? null : value);
         }
     }
-    private void showClassesPage(Module module) {
+    private void showClassroomsPage() {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
 
-        GridPane form = new GridPane();
-        form.setHgap(12);
-        form.setVgap(10);
-        form.getStyleClass().add("form-grid");
-        Map<String, Node> editors = buildForm(module, form);
+        TextField nameField = textField("Nom de la section");
+        TextField ageGroupField = textField("Tranche d'âge");
+        TextField capacityField = textField("Capacité max");
+
+        GridPane form = sectionGrid();
+        addRow(form, 0, "Nom", nameField);
+        addRow(form, 1, "Tranche d'âge", ageGroupField);
+        addRow(form, 2, "Capacité", capacityField);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
         Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, clear, delete);
-        actions.setAlignment(Pos.CENTER_LEFT);
 
-        Map<String, String>[] selectedRow = new Map[]{null}; // holder so lambdas can read/write it
+        Classroom[] selected = new Classroom[]{null};
+        Runnable[] reload = new Runnable[1];
 
-        Runnable clearSelection = () -> {
-            selectedRow[0] = null;
-            editors.values().forEach(ed -> setEditorValue(ed, ""));
+        Runnable clearForm = () -> {
+            selected[0] = null;
+            nameField.setText("");
+            ageGroupField.setText("");
+            capacityField.setText("");
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
 
-        Runnable[] reload = new Runnable[1];
         reload[0] = () -> {
-            Task<List<Map<String, String>>> loadTask = new Task<>() {
-                @Override
-                protected List<Map<String, String>> call() {
-                    return dao.findAll(module.table(), module.columns(), module.orderBy());
-                }
+            Task<List<Classroom>> loadTask = new Task<>() {
+                @Override protected List<Classroom> call() { return classroomService.findAll(); }
             };
             loadTask.setOnSucceeded(e -> {
                 cardGrid.getChildren().clear();
-                for (Map<String, String> row : loadTask.getValue()) {
-                    VBox card = buildClassCard(row);
+                for (Classroom c : loadTask.getValue()) {
+                    VBox card = buildClassroomCard(c);
                     card.setOnMouseClicked(ev -> {
-                        selectedRow[0] = row;
+                        if (ev.getClickCount() == 2) {
+                            showClassStudentsDialog(c);
+                            return;
+                        }
+                        selected[0] = c;
                         cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
                         card.getStyleClass().add("class-card-selected");
-                        module.fields().forEach(field ->
-                                setEditorValue(editors.get(field.column()), row.get(field.column())));
+                        nameField.setText(c.getName());
+                        ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+                        capacityField.setText(String.valueOf(c.getCapacity()));
                     });
                     cardGrid.getChildren().add(card);
                 }
@@ -907,46 +923,51 @@ public class DashboardController {
             startDaemonThread(loadTask);
         };
 
-        clear.setOnAction(event -> clearSelection.run());
+        clear.setOnAction(e -> clearForm.run());
 
-        save.setOnAction(event -> {
+        save.setOnAction(e -> {
             try {
-                Map<String, String> values = readEditors(module, editors);
-                final boolean isInsert = (selectedRow[0] == null);
-                if (!isInsert) values.put("id", selectedRow[0].get("id"));
+                if (nameField.getText().isBlank()) throw new IllegalArgumentException("Le nom est requis.");
+                int capacity;
+                try {
+                    capacity = Integer.parseInt(capacityField.getText().trim());
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("Capacité doit être un nombre.");
+                }
+
+                Classroom c = selected[0] != null ? selected[0] : Classroom.builder().build();
+                c.setName(nameField.getText().trim());
+                c.setAgeGroup(ageGroupField.getText().trim());
+                c.setCapacity(capacity);
 
                 save.setDisable(true);
                 Task<Void> saveTask = new Task<>() {
-                    @Override protected Void call() {
-                        if (isInsert) dao.insert(module.table(), module.columns(), values);
-                        else          dao.update(module.table(), module.columns(), values);
-                        return null;
-                    }
+                    @Override protected Void call() { classroomService.save(c); return null; }
                 };
-                saveTask.setOnSucceeded(e -> { save.setDisable(false); reload[0].run(); clearSelection.run(); });
-                saveTask.setOnFailed(e -> {
+                saveTask.setOnSucceeded(ev -> { save.setDisable(false); reload[0].run(); clearForm.run(); });
+                saveTask.setOnFailed(ev -> {
                     save.setDisable(false);
                     DialogUtil.error(I18n.t("action.save"), saveTask.getException().getMessage());
                 });
                 startDaemonThread(saveTask);
-            } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("action.save"), e.getMessage());
+            } catch (RuntimeException ex) {
+                DialogUtil.error(I18n.t("action.save"), ex.getMessage());
             }
         });
 
-        delete.setOnAction(event -> {
-            if (selectedRow[0] == null) {
+        delete.setOnAction(e -> {
+            if (selected[0] == null) {
                 DialogUtil.info(I18n.t("action.delete"), "Sélectionnez une classe avant de supprimer.");
                 return;
             }
             if (DialogUtil.confirm(I18n.t("action.delete"), "Supprimer cette classe ?")) {
-                int id = Integer.parseInt(selectedRow[0].get("id"));
+                String id = selected[0].getId();
                 delete.setDisable(true);
                 Task<Void> delTask = new Task<>() {
-                    @Override protected Void call() { dao.delete(module.table(), id); return null; }
+                    @Override protected Void call() { classroomService.delete(id); return null; }
                 };
-                delTask.setOnSucceeded(e -> { delete.setDisable(false); reload[0].run(); clearSelection.run(); });
-                delTask.setOnFailed(e -> {
+                delTask.setOnSucceeded(ev -> { delete.setDisable(false); reload[0].run(); clearForm.run(); });
+                delTask.setOnFailed(ev -> {
                     delete.setDisable(false);
                     DialogUtil.error(I18n.t("action.delete"), delTask.getException().getMessage());
                 });
@@ -954,9 +975,9 @@ public class DashboardController {
             }
         });
 
-        Button addNew = new Button("➕  Nouvelle Classe");
+        Button addNew = new Button("➕  Nouvelle Section");
         addNew.getStyleClass().add("primary-button");
-        addNew.setOnAction(event -> clearSelection.run());
+        addNew.setOnAction(e -> clearForm.run());
 
         reload[0].run();
 
@@ -976,6 +997,153 @@ public class DashboardController {
         contentPane.setCenter(workspace);
     }
 
+    private VBox buildClassroomCard(Classroom c) {
+        Label name = new Label(c.getName());
+        name.getStyleClass().add("section-title");
+
+        Label meta = new Label(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+        meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+
+        int enrolled = classroomService.countStudentsInClassroom(c.getId());
+        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " places");
+        capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
+
+        Label hint = new Label("Double-clic pour voir les élèves");
+        hint.setStyle("-fx-font-size: 10px; -fx-text-fill: #94A3B8;");
+
+        VBox card = new VBox(6, name, meta, capacity, hint);
+        card.getStyleClass().add("class-card");
+        card.setPadding(new Insets(16));
+        card.setPrefWidth(220);
+        return card;
+    }
+
+    /** Modal dialog listing all students enrolled in this classroom. */
+    private void showClassStudentsDialog(Classroom classroom) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Élèves — " + classroom.getName());
+
+        ListView<Student> listView = new ListView<>();
+        listView.setCellFactory(lv -> new ListCell<>() {
+            @Override protected void updateItem(Student s, boolean empty) {
+                super.updateItem(s, empty);
+                setText(empty || s == null ? null : s.getFirstName() + " " + s.getLastName()
+                        + "  (" + s.getStudentNumber() + ")");
+            }
+        });
+
+        Label loading = new Label("Chargement...");
+        VBox root = new VBox(12, loading);
+        root.setPadding(new Insets(20));
+
+        Task<List<Student>> task = new Task<>() {
+            @Override protected List<Student> call() {
+                return classroomService.getStudentsInClassroom(classroom.getId());
+            }
+        };
+        task.setOnSucceeded(e -> {
+            root.getChildren().remove(loading);
+
+            List<Student> students = task.getValue();
+            listView.getItems().setAll(students);
+            listView.setPrefSize(400, 280);
+
+            TextArea reportArea = new TextArea();
+            reportArea.setEditable(false);
+            reportArea.setWrapText(false);
+            reportArea.getStyleClass().add("monthly-report-area");
+            reportArea.setPrefRowCount(10);
+            reportArea.setVisible(false);
+            reportArea.setManaged(false);
+
+            Button reportBtn = new Button("📋  Générer le rapport");
+            reportBtn.getStyleClass().add("primary-button");
+
+            Button copyBtn = new Button("📋  Copier");
+            copyBtn.getStyleClass().add("secondary-button");
+            copyBtn.setVisible(false);
+            copyBtn.setManaged(false);
+            copyBtn.setOnAction(ev -> {
+                javafx.scene.input.Clipboard cb = javafx.scene.input.Clipboard.getSystemClipboard();
+                javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                content.putString(reportArea.getText());
+                cb.setContent(content);
+            });
+
+            reportBtn.setOnAction(ev -> {
+                listView.setVisible(false);
+                listView.setManaged(false);
+                reportArea.setVisible(true);
+                reportArea.setManaged(true);
+                copyBtn.setVisible(true);
+                copyBtn.setManaged(true);
+                reportArea.setText(buildClassReportText(classroom, students));
+            });
+
+            Button closeBtn = new Button("Fermer");
+            closeBtn.getStyleClass().add("secondary-button");
+            closeBtn.setOnAction(ev -> dialog.close());
+
+            HBox buttons = new HBox(10, reportBtn, copyBtn, closeBtn);
+            root.getChildren().addAll(listView, reportArea, buttons);
+        });
+        task.setOnFailed(e -> {
+            root.getChildren().remove(loading);
+            root.getChildren().add(new Label("Erreur : " + task.getException().getMessage()));
+        });
+        startDaemonThread(task);
+
+        dialog.setScene(new Scene(root));
+        dialog.showAndWait();
+    }
+
+    private String buildClassReportText(Classroom classroom, List<Student> students) {
+        String line = "═".repeat(48);
+        StringBuilder studentLines = new StringBuilder();
+        for (int i = 0; i < students.size(); i++) {
+            Student s = students.get(i);
+            studentLines.append(String.format("%3d. %-25s %-15s%n",
+                    i + 1, s.getLastName() + " " + s.getFirstName(), s.getStudentNumber()));
+        }
+
+        return """
+           %s
+           RAPPORT DE CLASSE — %s
+           %s
+
+           Tranche d'âge : %s
+           Effectif      : %d / %d places
+
+           ── LISTE DES ÉLÈVES ──
+           %s
+           %s
+           """.formatted(
+                line,
+                classroom.getName().toUpperCase(),
+                line,
+                classroom.getAgeGroup() == null ? "—" : classroom.getAgeGroup(),
+                students.size(), classroom.getCapacity(),
+                studentLines,
+                line
+        );
+    }
+    private void printClassReport(Classroom classroom, List<Student> students) {
+        VBox reportRoot = new VBox(8);
+        reportRoot.setPadding(new Insets(20));
+        reportRoot.getChildren().add(new Label("Rapport de classe : " + classroom.getName()));
+        reportRoot.getChildren().add(new Label("Effectif : " + students.size() + " / " + classroom.getCapacity()));
+        for (Student s : students) {
+            reportRoot.getChildren().add(new Label("• " + s.getFirstName() + " " + s.getLastName()
+                    + " (" + s.getStudentNumber() + ")"));
+        }
+
+        javafx.print.PrinterJob job = javafx.print.PrinterJob.createPrinterJob();
+        if (job != null && job.showPrintDialog(rootPane.getScene().getWindow())) {
+            boolean success = job.printPage(reportRoot);
+            if (success) job.endJob();
+        }
+    }
     /** Builds a single class card for the grid, from a row's column values. */
     private VBox buildClassCard(Map<String, String> row) {
         Label name = new Label(row.getOrDefault("name", "—"));

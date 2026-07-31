@@ -11,15 +11,15 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"Classroom\"")
+@Table(name = "Classroom")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class Classroom  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column(nullable = false)
     private String name;

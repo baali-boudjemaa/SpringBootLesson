@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface SessionPricingRepository extends JpaRepository<SessionPricing, Long> {
+public interface SessionPricingRepository extends JpaRepository<SessionPricing, String> {
 
     Optional<SessionPricing> findBySession(SessionName session);
 

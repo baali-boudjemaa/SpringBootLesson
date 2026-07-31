@@ -9,15 +9,15 @@ import lombok.experimental.SuperBuilder;
 @Getter
 @Setter
 @Entity
-@Table(name = "\"KitchenNeed\"")
+@Table(name = "KitchenNeed")
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 public class KitchenNeed  {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    @Column(nullable = false)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false)
+    private String id;
 
     @Column(nullable = false)
     private Double quantityNeeded;

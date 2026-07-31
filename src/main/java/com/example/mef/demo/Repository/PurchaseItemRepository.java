@@ -8,10 +8,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface PurchaseItemRepository extends JpaRepository<PurchaseItem, Long> {
+public interface PurchaseItemRepository extends JpaRepository<PurchaseItem, String> {
 
-    List<PurchaseItem> findByPurchaseId(Long purchaseId);
+    List<PurchaseItem> findByPurchaseId(String purchaseId);
 
-    List<PurchaseItem> findByIngredientId(Long ingredientId);
+    List<PurchaseItem> findByIngredientId(String ingredientId);
 
 }
