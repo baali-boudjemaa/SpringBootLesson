@@ -4,6 +4,8 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
@@ -18,16 +20,14 @@ public final class SceneManager {
 
     private static Stage primaryStage;
     private static Scene scene;
+    @Setter
+    @Getter
     private static ApplicationContext applicationContext;
 
     private SceneManager() {}
 
     public static void init(Stage stage) {
         primaryStage = stage;
-    }
-
-    public static void setApplicationContext(ApplicationContext ctx) {
-        applicationContext = ctx;
     }
 
     /**

@@ -25,7 +25,6 @@
 .login-card {
     -fx-background-color: -surface;
     -fx-background-radius: 18;
-    -fx-effect: dropshadow(gaussian, rgba(15,23,42,0.25), 32, 0, 0, 12);
 }
 .login-logo  { -fx-font-size: 40px; }
 .login-title {
@@ -499,4 +498,32 @@
 }
 .filter-field:focused {
     -fx-border-color: -accent;
+}
+.login-root {
+    -fx-background-color: white;
+}
+
+.login-brand-panel {
+    -fx-background-color: #6D5EF5; /* matches the mockup's blue/purple */
+    -fx-min-width: 400;
+}
+
+.login-form-panel {
+    -fx-background-color: white;
+    -fx-padding: 40;
+}
+
+.field-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #475569;
+    -fx-font-weight: bold;
+}
+
+.trial-expired-banner {
+    -fx-background-color: #FEF3C7;
+    -fx-background-radius: 8;
+    -fx-border-color: #FDE68A;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 14 18 14 18;
 }

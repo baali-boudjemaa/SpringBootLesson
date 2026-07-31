@@ -32,10 +32,12 @@
             <Button fx:id="frButton" text="FR" styleClass="lang-button-active" onAction="#handleLangFr"/>
             <Button fx:id="arButton" text="DZ AR" styleClass="lang-button" onAction="#handleLangAr"/>
             <Separator orientation="VERTICAL"/>
+            <Button fx:id="backupButton" text="💾  Sauvegarder" styleClass="secondary-button" onAction="#handleBackup"/>
+            <Button fx:id="restoreButton" text="📂  Restaurer" styleClass="secondary-button" onAction="#handleRestore"/>
+            <Separator orientation="VERTICAL"/>
             <Button fx:id="logoutButton" text="Déconnexion" styleClass="secondary-button" onAction="#handleLogout"/>
         </HBox>
     </top>
-
     <left>
         <VBox fx:id="navigationBox" spacing="4" styleClass="sidebar">
             <padding>

@@ -1,6 +1,7 @@
 package com.example.mef.demo.controller;
 
 import com.example.mef.demo.Model.User;
+import com.example.mef.demo.license.LicenseActivationDialog;
 import com.example.mef.demo.service.AuthService;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.enums.UserRole;
@@ -41,18 +42,35 @@ public class LoginController {
 
     @Autowired
     private AuthService authService;
-
+    @FXML private VBox     trialBanner;
+    @FXML private Button   activateNowButton;
     private boolean registerMode = false;
+    @Autowired
+    private LicenseActivationDialog licenseActivationDialog;
 
+    private boolean trialExpired = false;
     @FXML
     private void initialize() {
         regRoleCombo.setItems(FXCollections.observableArrayList("USER", "ADMIN"));
         regRoleCombo.setValue("USER");
+
+        trialExpired = !licenseActivationDialog.isUsable();
+        if (trialExpired) {
+            trialBanner.setVisible(true);
+            trialBanner.setManaged(true);
+            primaryButton.setDisable(true);
+            toggleButton.setDisable(true);
+            usernameField.setDisable(true);
+            passwordField.setDisable(true);
+            formSubtitle.setText("Activation requise pour continuer");
+        }
     }
 
     /* ── toggle between login / register ── */
     @FXML
     private void handleToggleMode() {
+        if (trialExpired) return; // block toggling into register mode too
+
         registerMode = !registerMode;
         clearMessages();
 
@@ -77,6 +95,8 @@ public class LoginController {
     /* ── main action button ── */
     @FXML
     private void handlePrimary() {
+        if (trialExpired) return; // safety net even if disable somehow bypassed
+
         if (registerMode) {
             handleRegister();
         } else {
@@ -159,7 +179,14 @@ public class LoginController {
         });
         startDaemonThread(task);
     }
-
+    @FXML
+    private void handleActivateNow() {
+        SceneManager.switchTo("/fxml/activation.fxml", "/css/style.css");
+        ActivationController controller = SceneManager.getApplicationContext()
+                .getBean(ActivationController.class);
+        controller.setOnActivated(() ->
+                SceneManager.switchTo("/fxml/login.fxml", "/css/style.css"));
+    }
     /* ── helpers ── */
     private void setBusy(boolean busy) {
         primaryButton.setDisable(busy);

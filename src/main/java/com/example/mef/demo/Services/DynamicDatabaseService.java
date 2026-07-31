@@ -1,11 +1,10 @@
-package com.example.mef.demo.service;
+package com.example.mef.demo.Services;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class DynamicDatabaseService {
