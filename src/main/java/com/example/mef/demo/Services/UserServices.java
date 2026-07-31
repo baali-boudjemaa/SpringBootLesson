@@ -1,5 +1,4 @@
-package com.example.mef.demo.service;
-
+package com.example.mef.demo.Services;
 
 import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;

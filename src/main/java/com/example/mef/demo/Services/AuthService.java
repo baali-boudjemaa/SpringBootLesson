@@ -42,7 +42,7 @@ public class AuthService {
                 .email(email)
                 .password(hashed)
                 .role(role)
-                .build();
+                .id().build();
         userRepository.save(user);
         return true;
     }

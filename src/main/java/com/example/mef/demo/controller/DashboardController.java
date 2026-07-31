@@ -619,6 +619,10 @@ public class DashboardController {
             showSettingsPage();
             return;
         }
+        if ("classes".equals(module.table())) {
+            showClassesPage(module);
+            return;
+        }
         TableView<Map<String, String>> table = new TableView<>();
         table.getStyleClass().addAll("data-table", module.table() + "-table");
         table.setFixedCellSize(38);
@@ -853,7 +857,147 @@ public class DashboardController {
             typed.setValue(value == null || value.isBlank() ? null : value);
         }
     }
+    private void showClassesPage(Module module) {
+        FlowPane cardGrid = new FlowPane(16, 16);
+        cardGrid.setPadding(new Insets(4));
 
+        GridPane form = new GridPane();
+        form.setHgap(12);
+        form.setVgap(10);
+        form.getStyleClass().add("form-grid");
+        Map<String, Node> editors = buildForm(module, form);
+
+        Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
+        Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
+        Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
+        HBox actions = new HBox(10, save, clear, delete);
+        actions.setAlignment(Pos.CENTER_LEFT);
+
+        Map<String, String>[] selectedRow = new Map[]{null}; // holder so lambdas can read/write it
+
+        Runnable clearSelection = () -> {
+            selectedRow[0] = null;
+            editors.values().forEach(ed -> setEditorValue(ed, ""));
+            cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+        };
+
+        Runnable[] reload = new Runnable[1];
+        reload[0] = () -> {
+            Task<List<Map<String, String>>> loadTask = new Task<>() {
+                @Override
+                protected List<Map<String, String>> call() {
+                    return dao.findAll(module.table(), module.columns(), module.orderBy());
+                }
+            };
+            loadTask.setOnSucceeded(e -> {
+                cardGrid.getChildren().clear();
+                for (Map<String, String> row : loadTask.getValue()) {
+                    VBox card = buildClassCard(row);
+                    card.setOnMouseClicked(ev -> {
+                        selectedRow[0] = row;
+                        cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+                        card.getStyleClass().add("class-card-selected");
+                        module.fields().forEach(field ->
+                                setEditorValue(editors.get(field.column()), row.get(field.column())));
+                    });
+                    cardGrid.getChildren().add(card);
+                }
+            });
+            loadTask.setOnFailed(e -> DialogUtil.error("Chargement échoué", loadTask.getException().getMessage()));
+            startDaemonThread(loadTask);
+        };
+
+        clear.setOnAction(event -> clearSelection.run());
+
+        save.setOnAction(event -> {
+            try {
+                Map<String, String> values = readEditors(module, editors);
+                final boolean isInsert = (selectedRow[0] == null);
+                if (!isInsert) values.put("id", selectedRow[0].get("id"));
+
+                save.setDisable(true);
+                Task<Void> saveTask = new Task<>() {
+                    @Override protected Void call() {
+                        if (isInsert) dao.insert(module.table(), module.columns(), values);
+                        else          dao.update(module.table(), module.columns(), values);
+                        return null;
+                    }
+                };
+                saveTask.setOnSucceeded(e -> { save.setDisable(false); reload[0].run(); clearSelection.run(); });
+                saveTask.setOnFailed(e -> {
+                    save.setDisable(false);
+                    DialogUtil.error(I18n.t("action.save"), saveTask.getException().getMessage());
+                });
+                startDaemonThread(saveTask);
+            } catch (RuntimeException e) {
+                DialogUtil.error(I18n.t("action.save"), e.getMessage());
+            }
+        });
+
+        delete.setOnAction(event -> {
+            if (selectedRow[0] == null) {
+                DialogUtil.info(I18n.t("action.delete"), "Sélectionnez une classe avant de supprimer.");
+                return;
+            }
+            if (DialogUtil.confirm(I18n.t("action.delete"), "Supprimer cette classe ?")) {
+                int id = Integer.parseInt(selectedRow[0].get("id"));
+                delete.setDisable(true);
+                Task<Void> delTask = new Task<>() {
+                    @Override protected Void call() { dao.delete(module.table(), id); return null; }
+                };
+                delTask.setOnSucceeded(e -> { delete.setDisable(false); reload[0].run(); clearSelection.run(); });
+                delTask.setOnFailed(e -> {
+                    delete.setDisable(false);
+                    DialogUtil.error(I18n.t("action.delete"), delTask.getException().getMessage());
+                });
+                startDaemonThread(delTask);
+            }
+        });
+
+        Button addNew = new Button("➕  Nouvelle Classe");
+        addNew.getStyleClass().add("primary-button");
+        addNew.setOnAction(event -> clearSelection.run());
+
+        reload[0].run();
+
+        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
+        formPanel.getStyleClass().add("side-panel");
+
+        ScrollPane cardScroll = new ScrollPane(cardGrid);
+        cardScroll.setFitToWidth(true);
+        cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        VBox cardPanel = new VBox(10, addNew, cardScroll);
+        VBox.setVgrow(cardScroll, Priority.ALWAYS);
+
+        HBox workspace = new HBox(18, cardPanel, formPanel);
+        HBox.setHgrow(cardPanel, Priority.ALWAYS);
+        workspace.setPadding(new Insets(24));
+        contentPane.setCenter(workspace);
+    }
+
+    /** Builds a single class card for the grid, from a row's column values. */
+    private VBox buildClassCard(Map<String, String> row) {
+        Label name = new Label(row.getOrDefault("name", "—"));
+        name.getStyleClass().add("section-title");
+
+        Label meta = new Label(
+                row.getOrDefault("level", "") + " · " + row.getOrDefault("room", "")
+        );
+        meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+
+        Label teacher = new Label("👤 " + row.getOrDefault("teacher", "—"));
+        teacher.setStyle("-fx-font-size: 12px;");
+
+        Label capacity = new Label(row.getOrDefault("capacity", "0") + " places");
+        capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
+
+        VBox card = new VBox(6, name, meta, teacher, capacity);
+        card.getStyleClass().add("class-card");
+        card.setPadding(new Insets(16));
+        card.setPrefWidth(220);
+        return card;
+    }
     /* ── Helpers ─────────────────────────────────────────────────── */
 
     private TextField textField(String prompt) {

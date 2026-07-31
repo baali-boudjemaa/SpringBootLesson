@@ -527,3 +527,16 @@
     -fx-border-width: 1;
     -fx-padding: 14 18 14 18;
 }
+.class-card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.class-card-selected {
+    -fx-border-color: #6D5EF5;
+    -fx-border-width: 2;
+}
