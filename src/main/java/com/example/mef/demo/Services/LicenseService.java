@@ -38,7 +38,7 @@ public class LicenseService {
     }
 
     public String machineId() {
-        return machineIdentifier.get();
+        return machineIdentifier.getOrCreateMachineId();
     }
 
     public boolean verify(String activationKey) {
