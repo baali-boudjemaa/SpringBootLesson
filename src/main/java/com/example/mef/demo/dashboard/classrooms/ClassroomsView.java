@@ -1,0 +1,294 @@
+package com.example.mef.demo.dashboard.classrooms;
+
+import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Services.ClassroomService;
+import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+/**
+ * The classrooms screen: a card grid of sections with a create/edit form,
+ * plus the "students in this class" dialog and report. Extracted verbatim
+ * (behavior unchanged) from DashboardController.showClassroomsPage /
+ * buildClassroomCard / showClassStudentsDialog / buildClassReportText.
+ *
+ * Note: DashboardController.printClassReport and buildClassCard were not
+ * called from anywhere in the original file (dead code) and were not
+ * carried over here. Flag if you want them preserved elsewhere.
+ */
+@Component
+public class ClassroomsView {
+
+    @Autowired
+    private ClassroomService classroomService;
+
+    public void render(BorderPane contentPane) {
+        FlowPane cardGrid = new FlowPane(16, 16);
+        cardGrid.setPadding(new Insets(4));
+
+        TextField nameField = FormFactory.textField("Nom de la section");
+        TextField ageGroupField = FormFactory.textField("Tranche d'âge");
+        TextField capacityField = FormFactory.textField("Capacité max");
+
+        GridPane form = FormFactory.sectionGrid();
+        FormFactory.addRow(form, 0, "Nom", nameField);
+        FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
+        FormFactory.addRow(form, 2, "Capacité", capacityField);
+
+        Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
+        Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
+        Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
+        HBox actions = new HBox(10, save, clear, delete);
+
+        Classroom[] selected = new Classroom[]{null};
+        Runnable[] reload = new Runnable[1];
+
+        Runnable clearForm = () -> {
+            selected[0] = null;
+            nameField.setText("");
+            ageGroupField.setText("");
+            capacityField.setText("");
+            cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+        };
+
+        reload[0] = () -> AsyncTasks.run(
+                () -> classroomService.findAll(),
+                classrooms -> {
+                    cardGrid.getChildren().clear();
+                    for (Classroom c : classrooms) {
+                        VBox card = buildClassroomCard(c);
+                        card.setOnMouseClicked(ev -> {
+                            if (ev.getClickCount() == 2) {
+                                showClassStudentsDialog(contentPane, c);
+                                return;
+                            }
+                            selected[0] = c;
+                            cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+                            card.getStyleClass().add("class-card-selected");
+                            nameField.setText(c.getName());
+                            ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+                            capacityField.setText(String.valueOf(c.getCapacity()));
+                        });
+                        cardGrid.getChildren().add(card);
+                    }
+                },
+                err -> DialogUtil.error("Chargement échoué", err.getMessage())
+        );
+
+        clear.setOnAction(e -> clearForm.run());
+
+        save.setOnAction(e -> {
+            try {
+                if (nameField.getText().isBlank()) throw new IllegalArgumentException("Le nom est requis.");
+                int capacity;
+                try {
+                    capacity = Integer.parseInt(capacityField.getText().trim());
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("Capacité doit être un nombre.");
+                }
+
+                Classroom c = selected[0] != null ? selected[0] : Classroom.builder().build();
+                c.setName(nameField.getText().trim());
+                c.setAgeGroup(ageGroupField.getText().trim());
+                c.setCapacity(capacity);
+
+                save.setDisable(true);
+                AsyncTasks.run(
+                        () -> classroomService.save(c),
+                        () -> { save.setDisable(false); reload[0].run(); clearForm.run(); },
+                        err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
+                );
+            } catch (RuntimeException ex) {
+                DialogUtil.error(I18n.t("action.save"), ex.getMessage());
+            }
+        });
+
+        delete.setOnAction(e -> {
+            if (selected[0] == null) {
+                DialogUtil.info(I18n.t("action.delete"), "Sélectionnez une classe avant de supprimer.");
+                return;
+            }
+            if (DialogUtil.confirm(I18n.t("action.delete"), "Supprimer cette classe ?")) {
+                String id = selected[0].getId();
+                delete.setDisable(true);
+                AsyncTasks.run(
+                        () -> classroomService.delete(id),
+                        () -> { delete.setDisable(false); reload[0].run(); clearForm.run(); },
+                        err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete"), err.getMessage()); }
+                );
+            }
+        });
+
+        Button addNew = new Button("➕  Nouvelle Section");
+        addNew.getStyleClass().add("primary-button");
+        addNew.setOnAction(e -> clearForm.run());
+
+        reload[0].run();
+
+        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
+        formPanel.getStyleClass().add("side-panel");
+
+        ScrollPane cardScroll = new ScrollPane(cardGrid);
+        cardScroll.setFitToWidth(true);
+        cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        VBox cardPanel = new VBox(10, addNew, cardScroll);
+        VBox.setVgrow(cardScroll, Priority.ALWAYS);
+
+        HBox workspace = new HBox(18, cardPanel, formPanel);
+        HBox.setHgrow(cardPanel, Priority.ALWAYS);
+        workspace.setPadding(new Insets(24));
+        contentPane.setCenter(workspace);
+    }
+
+    private VBox buildClassroomCard(Classroom c) {
+        Label name = new Label(c.getName());
+        name.getStyleClass().add("section-title");
+
+        Label meta = new Label(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+        meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+
+        int enrolled = classroomService.countStudentsInClassroom(c.getId());
+        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " places");
+        capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
+
+        Label hint = new Label("Double-clic pour voir les élèves");
+        hint.setStyle("-fx-font-size: 10px; -fx-text-fill: #94A3B8;");
+
+        VBox card = new VBox(6, name, meta, capacity, hint);
+        card.getStyleClass().add("class-card");
+        card.setPadding(new Insets(16));
+        card.setPrefWidth(220);
+        return card;
+    }
+
+    /** Modal dialog listing all students enrolled in this classroom. */
+    private void showClassStudentsDialog(BorderPane contentPane, Classroom classroom) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Élèves — " + classroom.getName());
+
+        ListView<Student> listView = new ListView<>();
+        listView.setCellFactory(lv -> new ListCell<>() {
+            @Override protected void updateItem(Student s, boolean empty) {
+                super.updateItem(s, empty);
+                setText(empty || s == null ? null : s.getFirstName() + " " + s.getLastName()
+                        + "  (" + s.getStudentNumber() + ")");
+            }
+        });
+
+        Label loading = new Label("Chargement...");
+        VBox root = new VBox(12, loading);
+        root.setPadding(new Insets(20));
+
+        AsyncTasks.run(
+                () -> classroomService.getStudentsInClassroom(classroom.getId()),
+                students -> {
+                    root.getChildren().remove(loading);
+
+                    listView.getItems().setAll(students);
+                    listView.setPrefSize(400, 280);
+
+                    TextArea reportArea = new TextArea();
+                    reportArea.setEditable(false);
+                    reportArea.setWrapText(false);
+                    reportArea.getStyleClass().add("monthly-report-area");
+                    reportArea.setPrefRowCount(10);
+                    reportArea.setVisible(false);
+                    reportArea.setManaged(false);
+
+                    Button reportBtn = new Button("📋  Générer le rapport");
+                    reportBtn.getStyleClass().add("primary-button");
+
+                    Button copyBtn = new Button("📋  Copier");
+                    copyBtn.getStyleClass().add("secondary-button");
+                    copyBtn.setVisible(false);
+                    copyBtn.setManaged(false);
+                    copyBtn.setOnAction(ev -> {
+                        javafx.scene.input.Clipboard cb = javafx.scene.input.Clipboard.getSystemClipboard();
+                        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                        content.putString(reportArea.getText());
+                        cb.setContent(content);
+                    });
+
+                    reportBtn.setOnAction(ev -> {
+                        listView.setVisible(false);
+                        listView.setManaged(false);
+                        reportArea.setVisible(true);
+                        reportArea.setManaged(true);
+                        copyBtn.setVisible(true);
+                        copyBtn.setManaged(true);
+                        reportArea.setText(buildClassReportText(classroom, students));
+                    });
+
+                    Button closeBtn = new Button("Fermer");
+                    closeBtn.getStyleClass().add("secondary-button");
+                    closeBtn.setOnAction(ev -> dialog.close());
+
+                    HBox buttons = new HBox(10, reportBtn, copyBtn, closeBtn);
+                    root.getChildren().addAll(listView, reportArea, buttons);
+                },
+                err -> {
+                    root.getChildren().remove(loading);
+                    root.getChildren().add(new Label("Erreur : " + err.getMessage()));
+                }
+        );
+
+        dialog.setScene(new Scene(root));
+        dialog.showAndWait();
+    }
+
+    private String buildClassReportText(Classroom classroom, List<Student> students) {
+        String line = "═".repeat(48);
+        StringBuilder studentLines = new StringBuilder();
+        for (int i = 0; i < students.size(); i++) {
+            Student s = students.get(i);
+            studentLines.append(String.format("%3d. %-25s %-15s%n",
+                    i + 1, s.getLastName() + " " + s.getFirstName(), s.getStudentNumber()));
+        }
+
+        return """
+           %s
+           RAPPORT DE CLASSE — %s
+           %s
+
+           Tranche d'âge : %s
+           Effectif      : %d / %d places
+
+           ── LISTE DES ÉLÈVES ──
+           %s
+           %s
+           """.formatted(
+                line,
+                classroom.getName().toUpperCase(),
+                line,
+                classroom.getAgeGroup() == null ? "—" : classroom.getAgeGroup(),
+                students.size(), classroom.getCapacity(),
+                studentLines,
+                line
+        );
+    }
+}
