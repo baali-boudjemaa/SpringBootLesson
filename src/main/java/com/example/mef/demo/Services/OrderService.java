@@ -8,13 +8,11 @@ import org.springframework.stereotype.Service;
 public class OrderService {
     private PaymentService paymentService=null;
     public void passOrder(){
-        
+
     }
     @Autowired
     public void ServicePayment(PaymentService paymentService){
         this.paymentService=paymentService;
     }
-    public void placeOrder(){
-        paymentService.processPayment();
-    }
+
     }
