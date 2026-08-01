@@ -38,9 +38,11 @@ public class StudentService {
         }
         List<Student> byFirst = studentRepository.findByFirstNameContainingIgnoreCase(needle);
         List<Student> byLast = studentRepository.findByLastNameContainingIgnoreCase(needle);
+        List<Student> byPhone = studentRepository.findByPhoneContainingIgnoreCase(needle);
         java.util.LinkedHashMap<String, Student> merged = new java.util.LinkedHashMap<>();
         byFirst.forEach(s -> merged.put(s.getId(), s));
         byLast.forEach(s -> merged.put(s.getId(), s));
+        byPhone.forEach(s -> merged.put(s.getId(), s));
         return List.copyOf(merged.values());
     }
 }

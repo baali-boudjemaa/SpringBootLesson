@@ -34,6 +34,7 @@ public class TeachersView {
 
     private final ObservableList<Employee> rows = FXCollections.observableArrayList();
     private final TableView<Employee> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "teachers"); }
 
     private final TextField searchField = FormFactory.textField("Rechercher un employé...");
     private final TextField firstNameField = FormFactory.textField("Prénom");

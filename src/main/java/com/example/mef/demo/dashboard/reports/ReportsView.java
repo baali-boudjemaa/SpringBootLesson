@@ -43,6 +43,7 @@ public class ReportsView {
 
     private final ObservableList<Report> rows = FXCollections.observableArrayList();
     private final TableView<Report> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "reports"); }
 
     private final TextField titleField = FormFactory.textField("Titre");
     private final ComboBox<ReportType> typeField = new ComboBox<>(FXCollections.observableArrayList(ReportType.values()));

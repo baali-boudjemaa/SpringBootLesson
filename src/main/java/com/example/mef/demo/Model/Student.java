@@ -37,6 +37,14 @@ public class Student  {
 
     private LocalDateTime enrollmentDate;
 
+    /** Blood type, e.g. "A+", "O-". Shown as the "Groupage" badge in the students table. */
+    private String bloodType;
+
+    private String phone;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
     @PrePersist
     void prePersist() {
         if (studentNumber == null || studentNumber.isBlank()) {

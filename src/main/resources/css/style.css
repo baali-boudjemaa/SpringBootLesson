@@ -319,6 +319,7 @@
     -fx-border-color: -line;
     -fx-border-radius: 10;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 8, 0, 0, 2);
+    -fx-font-size: 13px;
 }
 .data-table .column-header-background {
     -fx-background-color: #1E293B;
@@ -328,24 +329,50 @@
     -fx-background-color: transparent;
     -fx-border-color: transparent rgba(255,255,255,0.09) transparent transparent;
     -fx-border-width: 0 1 0 0;
-    -fx-size: 36px;
+    -fx-size: 42px;
 }
 .data-table .column-header .label {
     -fx-text-fill: #CBD5E1;
     -fx-font-size: 11px; -fx-font-weight: bold;
-    -fx-padding: 0 8 0 8; -fx-alignment: CENTER-LEFT;
+    -fx-padding: 0 16 0 16; -fx-alignment: CENTER-LEFT;
 }
 .data-table .table-row-cell {
     -fx-background-color: -surface;
     -fx-border-color: transparent transparent -line transparent;
     -fx-border-width: 0 0 1 0;
-    -fx-cell-size: 38px;
+    -fx-cell-size: 44px;
 }
-.data-table .table-row-cell:odd  { -fx-background-color: #F8FAFC; }
+.data-table .table-row-cell:filled:odd  { -fx-background-color: #F8FAFC; }
+.data-table .table-row-cell:empty { -fx-border-color: transparent; }
 .data-table .table-row-cell:hover { -fx-background-color: #EFF6FF; }
 .data-table .table-cell {
-    -fx-text-fill: -ink; -fx-padding: 0 8 0 8;
+    -fx-text-fill: -ink; -fx-padding: 0 16 0 16;
     -fx-alignment: CENTER-LEFT; -fx-border-color: transparent;
+    -fx-font-size: 13px;
+}
+
+/* Avatar + name/subtitle cell (used by the "person" column of redesigned tables) */
+.avatar-initials {
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+.cell-title {
+    -fx-text-fill: -ink;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+.cell-subtitle {
+    -fx-text-fill: -muted;
+    -fx-font-size: 11.5px;
+}
+
+/* Small rounded pill used for age/status/blood-type badges in table cells */
+.table-pill {
+    -fx-background-radius: 12;
+    -fx-padding: 3 10 3 10;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
 }
 /* Scrollbars */
 .data-table .scroll-bar:vertical  { -fx-pref-width: 6px; -fx-background-color: transparent; }

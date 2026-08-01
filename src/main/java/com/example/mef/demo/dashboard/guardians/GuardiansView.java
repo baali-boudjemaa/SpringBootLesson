@@ -36,6 +36,7 @@ public class GuardiansView {
 
     private final ObservableList<Guardian> rows = FXCollections.observableArrayList();
     private final TableView<Guardian> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "guardians"); }
 
     private final TextField searchField = FormFactory.textField("Rechercher un tuteur...");
     private final TextField firstNameField = FormFactory.textField("Prénom");

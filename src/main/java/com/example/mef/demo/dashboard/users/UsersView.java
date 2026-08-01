@@ -42,6 +42,7 @@ public class UsersView {
 
     private final ObservableList<User> rows = FXCollections.observableArrayList();
     private final TableView<User> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "users"); }
 
     private final TextField nameField = FormFactory.textField("Nom complet");
     private final TextField emailField = FormFactory.textField("Email");

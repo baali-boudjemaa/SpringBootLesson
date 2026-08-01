@@ -43,6 +43,7 @@ public class EnrollmentsView {
 
     private final ObservableList<Inscription> rows = FXCollections.observableArrayList();
     private final TableView<Inscription> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "enrollments"); }
 
     private final ComboBox<Student> studentField = new ComboBox<>();
     private final ComboBox<Classroom> classroomField = new ComboBox<>();

@@ -41,6 +41,7 @@ public class PaymentsView {
 
     private final ObservableList<Payment> rows = FXCollections.observableArrayList();
     private final TableView<Payment> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "payments"); }
 
     private final ComboBox<Inscription> inscriptionField = new ComboBox<>();
     private final TextField amountField = FormFactory.textField("Montant");

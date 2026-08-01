@@ -40,6 +40,7 @@ public class CoursesView {
 
     private final ObservableList<Course> rows = FXCollections.observableArrayList();
     private final TableView<Course> table = new TableView<>(rows);
+    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "courses"); }
 
     private final TextField searchField = FormFactory.textField("Rechercher un cours...");
     private final TextField nameField = FormFactory.textField("Nom du cours");
