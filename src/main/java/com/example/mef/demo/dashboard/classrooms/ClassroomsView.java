@@ -3,6 +3,8 @@ package com.example.mef.demo.dashboard.classrooms;
 import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
+import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
+import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.util.DialogUtil;
@@ -27,6 +29,7 @@ import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -189,28 +192,37 @@ public class ClassroomsView {
     private void showClassStudentsDialog(BorderPane contentPane, Classroom classroom) {
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.initOwner(contentPane.getScene().getWindow());
         dialog.setTitle("Élèves — " + classroom.getName());
+        dialog.setMinWidth(460);
+        dialog.setMinHeight(420);
 
-        ListView<Student> listView = new ListView<>();
+        ListView<ClassStudentAttendance> listView = new ListView<>();
+        listView.setPrefSize(420, 280);
+        listView.setPlaceholder(new Label("Aucun élève inscrit dans cette classe."));
         listView.setCellFactory(lv -> new ListCell<>() {
-            @Override protected void updateItem(Student s, boolean empty) {
-                super.updateItem(s, empty);
-                setText(empty || s == null ? null : s.getFirstName() + " " + s.getLastName()
-                        + "  (" + s.getStudentNumber() + ")");
+            @Override protected void updateItem(ClassStudentAttendance row, boolean empty) {
+                super.updateItem(row, empty);
+                if (empty || row == null) {
+                    setText(null);
+                    return;
+                }
+
+                setText(row.fullName() + "  (" + row.studentNumber() + ")  -  " + row.statusLabel());
             }
         });
 
         Label loading = new Label("Chargement...");
         VBox root = new VBox(12, loading);
         root.setPadding(new Insets(20));
+        root.setMinSize(420, 340);
 
         AsyncTasks.run(
-                () -> classroomService.getStudentsInClassroom(classroom.getId()),
-                students -> {
+                () -> classroomService.getClassAttendanceReport(classroom.getId(), LocalDate.now()),
+                report -> {
                     root.getChildren().remove(loading);
 
-                    listView.getItems().setAll(students);
-                    listView.setPrefSize(400, 280);
+                    listView.getItems().setAll(report.students());
 
                     TextArea reportArea = new TextArea();
                     reportArea.setEditable(false);
@@ -241,7 +253,7 @@ public class ClassroomsView {
                         reportArea.setManaged(true);
                         copyBtn.setVisible(true);
                         copyBtn.setManaged(true);
-                        reportArea.setText(buildClassReportText(classroom, students));
+                        reportArea.setText(buildClassReportText(classroom, report));
                     });
 
                     Button closeBtn = new Button("Fermer");
@@ -257,17 +269,21 @@ public class ClassroomsView {
                 }
         );
 
-        dialog.setScene(new Scene(root));
+        dialog.setScene(new Scene(root, 460, 420));
         dialog.showAndWait();
     }
 
-    private String buildClassReportText(Classroom classroom, List<Student> students) {
+    private String buildClassReportText(Classroom classroom, ClassAttendanceReport report) {
         String line = "═".repeat(48);
         StringBuilder studentLines = new StringBuilder();
+        List<ClassStudentAttendance> students = report.students();
         for (int i = 0; i < students.size(); i++) {
-            Student s = students.get(i);
-            studentLines.append(String.format("%3d. %-25s %-15s%n",
-                    i + 1, s.getLastName() + " " + s.getFirstName(), s.getStudentNumber()));
+            ClassStudentAttendance student = students.get(i);
+            studentLines.append(String.format("%3d. %-25s %-15s %-10s%n",
+                    i + 1,
+                    student.lastName() + " " + student.firstName(),
+                    student.studentNumber(),
+                    student.statusLabel()));
         }
 
         return """
@@ -275,8 +291,12 @@ public class ClassroomsView {
            RAPPORT DE CLASSE — %s
            %s
 
+           Date          : %s
            Tranche d'âge : %s
            Effectif      : %d / %d places
+           Présents      : %d
+           Absents       : %d
+           Excusés       : %d
 
            ── LISTE DES ÉLÈVES ──
            %s
@@ -285,8 +305,12 @@ public class ClassroomsView {
                 line,
                 classroom.getName().toUpperCase(),
                 line,
+                report.date(),
                 classroom.getAgeGroup() == null ? "—" : classroom.getAgeGroup(),
                 students.size(), classroom.getCapacity(),
+                report.present(),
+                report.absent(),
+                report.excused(),
                 studentLines,
                 line
         );

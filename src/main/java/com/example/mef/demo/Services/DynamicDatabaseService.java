@@ -1,23 +1,105 @@
 package com.example.mef.demo.Services;
 
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.example.mef.demo.Model.Attendance;
+import com.example.mef.demo.Model.AnneeScolaire;
+import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.Guardian;
+import com.example.mef.demo.Model.Inscription;
+import com.example.mef.demo.Model.Payment;
+import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Model.User;
+import com.example.mef.demo.enums.AttendanceStatus;
+import com.example.mef.demo.enums.EmployeeRole;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @Service
+@Transactional
 public class DynamicDatabaseService {
 
-    /** Table/column names: letters, digits, underscore only. Blocks quotes, spaces, SQL punctuation. */
     private static final Pattern SAFE_IDENTIFIER = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
 
-    private final JdbcTemplate jdbcTemplate;
+    private static final Map<String, Class<?>> ENTITIES = Map.ofEntries(
+            Map.entry("students", Student.class),
+            Map.entry("teachers", Employee.class),
+            Map.entry("classes", Classroom.class),
+            Map.entry("guardians", Guardian.class),
+            Map.entry("attendance", Attendance.class),
+            Map.entry("enrollments", Inscription.class),
+            Map.entry("payments", Payment.class),
+            Map.entry("users", User.class)
+    );
 
-    public DynamicDatabaseService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    private static final Map<String, Map<String, String>> PROPERTY_ALIASES = Map.ofEntries(
+            Map.entry("students", Map.ofEntries(
+                    Map.entry("student_number", "studentNumber"),
+                    Map.entry("first_name", "firstName"),
+                    Map.entry("last_name", "lastName"),
+                    Map.entry("date_of_birth", "dateOfBirth"),
+                    Map.entry("medical_info", "medicalInfo"),
+                    Map.entry("enrollment_date", "enrollmentDate")
+            )),
+            Map.entry("teachers", Map.ofEntries(
+                    Map.entry("employee_number", "employeeNumber"),
+                    Map.entry("first_name", "firstName"),
+                    Map.entry("last_name", "lastName"),
+                    Map.entry("phone", "phoneNumber"),
+                    Map.entry("phone_number", "phoneNumber"),
+                    Map.entry("specialty", "certifications"),
+                    Map.entry("status", "role")
+            )),
+            Map.entry("guardians", Map.ofEntries(
+                    Map.entry("first_name", "firstName"),
+                    Map.entry("last_name", "lastName"),
+                    Map.entry("phone", "phoneNumber"),
+                    Map.entry("phone_number", "phoneNumber"),
+                    Map.entry("relationship", "relation")
+            )),
+            Map.entry("classes", Map.ofEntries(
+                    Map.entry("age_group", "ageGroup"),
+                    Map.entry("grade_level", "ageGroup")
+            )),
+            Map.entry("attendance", Map.ofEntries(
+                    Map.entry("attendance_date", "date"),
+                    Map.entry("student_id", "student"),
+                    Map.entry("student_name", "student")
+            )),
+            Map.entry("enrollments", Map.ofEntries(
+                    Map.entry("student_id", "student"),
+                    Map.entry("class_id", "classroom"),
+                    Map.entry("course_name", "classroom"),
+                    Map.entry("enrollment_date", "dateInscription")
+            )),
+            Map.entry("payments", Map.ofEntries(
+                    Map.entry("inscription_id", "inscription"),
+                    Map.entry("student_name", "inscription"),
+                    Map.entry("payment_date", "datePay"),
+                    Map.entry("method", "paymentMethod")
+            )),
+            Map.entry("users", Map.ofEntries(
+                    Map.entry("full_name", "name"),
+                    Map.entry("username", "email"),
+                    Map.entry("password_hash", "password")
+            ))
+    );
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private static String validIdentifier(String identifier) {
         if (identifier == null || !SAFE_IDENTIFIER.matcher(identifier).matches()) {
@@ -26,168 +108,195 @@ public class DynamicDatabaseService {
         return identifier;
     }
 
+    private static Class<?> entityType(String table) {
+        validIdentifier(table);
+        Class<?> entityType = ENTITIES.get(table);
+        if (entityType == null) {
+            throw new IllegalArgumentException("No JPA entity is registered for module table: " + table);
+        }
+        return entityType;
+    }
+
+    private static Class<?> entityTypeOrNull(String table) {
+        validIdentifier(table);
+        return ENTITIES.get(table);
+    }
+
+    private static String propertyName(String table, String column) {
+        validIdentifier(column);
+        return PROPERTY_ALIASES.getOrDefault(table, Map.of()).getOrDefault(column, column);
+    }
+
     private static List<String> validIdentifiers(List<String> identifiers) {
         identifiers.forEach(DynamicDatabaseService::validIdentifier);
         return identifiers;
     }
 
-    /** ORDER BY needs a slightly looser pattern: "col" or "col ASC"/"col DESC". */
-    private static String validOrderBy(String orderBy) {
-        if (orderBy == null || orderBy.isBlank()) return null;
-        if (!Pattern.matches("^[a-zA-Z_][a-zA-Z0-9_]*(\\s+(ASC|DESC))?$", orderBy.trim())) {
-            throw new IllegalArgumentException("Invalid ORDER BY clause: " + orderBy);
+    private static String orderBy(String table, String orderBy) {
+        if (orderBy == null || orderBy.isBlank()) {
+            return "";
         }
-        return orderBy.trim();
+
+        String[] terms = orderBy.trim().split(",");
+        List<String> jpqlTerms = new ArrayList<>();
+        for (String term : terms) {
+            String trimmed = term.trim();
+            if (!Pattern.matches("^[a-zA-Z_][a-zA-Z0-9_]*(\\s+(?i:ASC|DESC))?$", trimmed)) {
+                throw new IllegalArgumentException("Invalid ORDER BY clause: " + orderBy);
+            }
+
+            String[] parts = trimmed.split("\\s+");
+            String property = propertyName(table, parts[0]);
+            String direction = parts.length == 2 ? " " + parts[1].toUpperCase(Locale.ROOT) : "";
+            jpqlTerms.add("e." + property + direction);
+        }
+        return " ORDER BY " + String.join(", ", jpqlTerms);
     }
 
+    @Transactional(readOnly = true)
     public long count(String table) {
-        validIdentifier(table);
-        Long result = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
+        Class<?> entityType = entityTypeOrNull(table);
+        if (entityType == null) {
+            return 0;
+        }
+        Long result = entityManager.createQuery(
+                        "select count(e) from " + entityType.getSimpleName() + " e", Long.class)
+                .getSingleResult();
         return result != null ? result : 0;
     }
 
+    @Transactional(readOnly = true)
     public Double sum(String table, String column) {
-        validIdentifier(table);
-        validIdentifier(column);
-        Double result = jdbcTemplate.queryForObject("SELECT SUM(" + column + ") FROM " + table, Double.class);
-        return result != null ? result : 0.0;
+        Class<?> entityType = entityTypeOrNull(table);
+        if (entityType == null) {
+            return 0.0;
+        }
+        String property = propertyName(table, column);
+        Number result = (Number) entityManager.createQuery(
+                        "select coalesce(sum(e." + property + "), 0) from " + entityType.getSimpleName() + " e")
+                .getSingleResult();
+        return result != null ? result.doubleValue() : 0.0;
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Integer> attendanceSummary() {
         Map<String, Integer> summary = new HashMap<>();
         summary.put("PRESENT", 0);
         summary.put("ABSENT", 0);
         summary.put("LATE", 0);
+        summary.put("EXCUSED", 0);
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT status, COUNT(*) as count FROM attendance GROUP BY status");
-        for (Map<String, Object> row : rows) {
-            String status = (String) row.get("status");
-            Number count = (Number) row.get("count");
+        List<Object[]> rows = entityManager.createQuery(
+                        "select a.status, count(a) from Attendance a group by a.status", Object[].class)
+                .getResultList();
+        for (Object[] row : rows) {
+            AttendanceStatus status = (AttendanceStatus) row[0];
+            Number count = (Number) row[1];
             if (status != null && count != null) {
-                summary.put(status.toUpperCase(), count.intValue());
+                summary.put(status.name(), count.intValue());
             }
         }
         return summary;
     }
 
+    @Transactional(readOnly = true)
     public List<Map<String, String>> findAll(String table, List<String> columns, String orderBy) {
-        validIdentifier(table);
+        Class<?> entityType = entityTypeOrNull(table);
+        if (entityType == null) {
+            return List.of();
+        }
         validIdentifiers(columns);
-        String safeOrderBy = validOrderBy(orderBy);
 
-        // Always SELECT * so every column (including id) is available to the UI,
-        // regardless of which subset the Module declared.
-        String sql = "SELECT * FROM " + table + (safeOrderBy != null ? " ORDER BY " + safeOrderBy : "");
+        List<?> rows = entityManager.createQuery(
+                        "select e from " + entityType.getSimpleName() + " e" + orderBy(table, orderBy),
+                        entityType)
+                .getResultList();
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         List<Map<String, String>> result = new ArrayList<>();
-
-        for (Map<String, Object> row : rows) {
-            Map<String, String> stringRow = new LinkedHashMap<>();
-            for (Map.Entry<String, Object> entry : row.entrySet()) {
-                stringRow.put(entry.getKey(), entry.getValue() == null ? "" : entry.getValue().toString());
-            }
-            result.add(stringRow);
+        for (Object entity : rows) {
+            Map<String, String> row = toRow(table, entity);
+            addLogicalColumnAliases(table, row);
+            result.add(row);
         }
         return result;
     }
 
     @Transactional
     public void insert(String table, List<String> columns, Map<String, String> values) {
-        validIdentifier(table);
+        Class<?> entityType = entityType(table);
         validIdentifiers(columns);
-
-        List<String> insertCols = new ArrayList<>();
-        List<Object> insertVals = new ArrayList<>();
-        List<String> placeholders = new ArrayList<>();
-
-        for (String col : columns) {
-            if (values.containsKey(col)) {
-                insertCols.add(col);
-                insertVals.add(values.get(col));
-                placeholders.add("?");
-            }
+        try {
+            Object entity = entityType.getDeclaredConstructor().newInstance();
+            applyValues(table, entity, columns, values);
+            prepareForInsert(table, entity);
+            entityManager.persist(entity);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not create " + entityType.getSimpleName(), e);
         }
-
-        if (insertCols.isEmpty()) return;
-
-        String sql = "INSERT INTO " + table + " (" + String.join(", ", insertCols)
-                + ") VALUES (" + String.join(", ", placeholders) + ")";
-        jdbcTemplate.update(sql, insertVals.toArray());
     }
 
     @Transactional
     public void update(String table, List<String> columns, Map<String, String> values) {
-        validIdentifier(table);
+        Class<?> entityType = entityType(table);
         validIdentifiers(columns);
 
-        String idStr = values.get("id");
-        if (idStr == null || idStr.isBlank()) {
+        String id = values.get("id");
+        if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("ID is required for update");
         }
-        int id = Integer.parseInt(idStr);
 
-        List<String> setClauses = new ArrayList<>();
-        List<Object> updateVals = new ArrayList<>();
-
-        for (String col : columns) {
-            if (!"id".equals(col) && values.containsKey(col)) {
-                setClauses.add(col + " = ?");
-                updateVals.add(values.get(col));
-            }
+        Object entity = entityManager.find(entityType, parseId(entityType, id));
+        if (entity == null) {
+            throw new IllegalArgumentException("No " + entityType.getSimpleName() + " found with id " + id);
         }
-
-        if (setClauses.isEmpty()) return;
-
-        updateVals.add(id);
-        String sql = "UPDATE " + table + " SET " + String.join(", ", setClauses) + " WHERE id = ?";
-        jdbcTemplate.update(sql, updateVals.toArray());
+        applyValues(table, entity, columns, values);
     }
 
     @Transactional
-    public void delete(String table, int id) {
-        validIdentifier(table);
-        jdbcTemplate.update("DELETE FROM " + table + " WHERE id = ?", id);
+    public void delete(String table, String id) {
+        Class<?> entityType = entityType(table);
+        Object entity = entityManager.find(entityType, parseId(entityType, id));
+        if (entity != null) {
+            entityManager.remove(entity);
+        }
     }
 
-    /**
-     * Aggregate data for the monthly report screen.
-     * @param startDate inclusive start date string (yyyy-MM-dd)
-     * @param endDate   inclusive end date string   (yyyy-MM-dd)
-     */
+    @Transactional(readOnly = true)
     public MonthlyReportData monthlyReport(String startDate, String endDate) {
-        Double income = null;
-        int paymentCount = 0;
-        try {
-            income = jdbcTemplate.queryForObject(
-                    "SELECT SUM(amount) FROM payments WHERE payment_date >= ? AND payment_date <= ?",
-                    Double.class, startDate, endDate);
-            Integer cnt = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM payments WHERE payment_date >= ? AND payment_date <= ?",
-                    Integer.class, startDate, endDate);
-            paymentCount = cnt != null ? cnt : 0;
-        } catch (Exception ignored) {}
+        LocalDateTime start = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime end = LocalDate.parse(endDate).atTime(LocalTime.MAX);
 
-        int present = 0, absent = 0, late = 0;
-        try {
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "SELECT status, COUNT(*) as cnt FROM attendance "
-                            + "WHERE attendance_date >= ? AND attendance_date <= ? GROUP BY status",
-                    startDate, endDate);
-            for (Map<String, Object> row : rows) {
-                String st = (String) row.get("status");
-                Number n = (Number) row.get("cnt");
-                if (st == null || n == null) continue;
-                switch (st.toUpperCase()) {
-                    case "PRESENT" -> present = n.intValue();
-                    case "ABSENT" -> absent = n.intValue();
-                    case "LATE" -> late = n.intValue();
-                }
+        Number income = (Number) entityManager.createQuery(
+                        "select coalesce(sum(p.amount), 0) from Payment p where p.datePay between :start and :end")
+                .setParameter("start", start)
+                .setParameter("end", end)
+                .getSingleResult();
+        Long paymentCount = entityManager.createQuery(
+                        "select count(p) from Payment p where p.datePay between :start and :end", Long.class)
+                .setParameter("start", start)
+                .setParameter("end", end)
+                .getSingleResult();
+
+        int present = 0;
+        int absent = 0;
+        int late = 0;
+        List<Object[]> rows = entityManager.createQuery(
+                        "select a.status, count(a) from Attendance a where a.date between :start and :end group by a.status",
+                        Object[].class)
+                .setParameter("start", start)
+                .setParameter("end", end)
+                .getResultList();
+        for (Object[] row : rows) {
+            AttendanceStatus status = (AttendanceStatus) row[0];
+            Number count = (Number) row[1];
+            if (status == AttendanceStatus.PRESENT) {
+                present = count.intValue();
+            } else if (status == AttendanceStatus.ABSENT) {
+                absent = count.intValue();
             }
-        } catch (Exception ignored) {}
+        }
 
-        return new MonthlyReportData(income != null ? income : 0.0, paymentCount, present, absent, late);
+        return new MonthlyReportData(income.doubleValue(), paymentCount.intValue(), present, absent, late);
     }
 
     public record MonthlyReportData(double income, int paymentCount, int present, int absent, int late) {}
@@ -195,25 +304,240 @@ public class DynamicDatabaseService {
     @Transactional
     public void createStudentEnrollment(Map<String, String> student, Map<String, String> guardian,
                                         String course, Map<String, String> payment) {
-        insert("students", new ArrayList<>(student.keySet()), student);
+        Classroom classroom = findClassroom(student.get("classroom"));
+        AnneeScolaire schoolYear = findOrCreateCurrentSchoolYear();
 
-        Integer studentId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM students", Integer.class);
-        String studentName = student.get("first_name") + " " + student.get("last_name");
-
-        guardian.put("student_name", studentName);
-        insert("guardians", new ArrayList<>(guardian.keySet()), guardian);
-
-        Map<String, String> enrollment = new LinkedHashMap<>();
-        enrollment.put("enrollment_date", java.time.LocalDate.now().toString());
-        enrollment.put("student_name", studentName);
-        enrollment.put("course_name", course);
-        enrollment.put("status", "ACTIVE");
-        insert("enrollments", new ArrayList<>(enrollment.keySet()), enrollment);
-
-        if (payment != null) {
-            payment.put("payment_date", java.time.LocalDate.now().toString());
-            payment.put("student_name", studentName);
-            insert("payments", new ArrayList<>(payment.keySet()), payment);
+        Student savedStudent = new Student();
+        applyValues("students", savedStudent, new ArrayList<>(student.keySet()), student);
+        if (savedStudent.getStudentNumber() == null || savedStudent.getStudentNumber().isBlank()) {
+            savedStudent.setStudentNumber("STU-" + System.currentTimeMillis());
         }
+        if (savedStudent.getEnrollmentDate() == null) {
+            savedStudent.setEnrollmentDate(LocalDateTime.now());
+        }
+        entityManager.persist(savedStudent);
+
+        Guardian savedGuardian = new Guardian();
+        applyValues("guardians", savedGuardian, new ArrayList<>(guardian.keySet()), guardian);
+        entityManager.persist(savedGuardian);
+
+        Inscription inscription = new Inscription();
+        inscription.setStudent(savedStudent);
+        inscription.setClassroom(classroom);
+        inscription.setAnneeScolaire(schoolYear);
+        inscription.setDateInscription(LocalDateTime.now());
+        entityManager.persist(inscription);
+
+        if (payment != null && payment.containsKey("amount")) {
+            Payment savedPayment = new Payment();
+            savedPayment.setInscription(inscription);
+            setFieldValue(savedPayment, "amount", payment.get("amount"));
+            setFieldValue(savedPayment, "label", payment.getOrDefault("category", course == null ? "Enrollment" : course));
+            setFieldValue(savedPayment, "paymentMethod", payment.getOrDefault("method", "CASH"));
+            setFieldValue(savedPayment, "datePay", payment.getOrDefault("payment_date", LocalDateTime.now().toString()));
+            entityManager.persist(savedPayment);
+        }
+    }
+
+    private Classroom findClassroom(String classroomName) {
+        if (classroomName == null || classroomName.isBlank()) {
+            throw new IllegalArgumentException("Classroom is required for enrollment.");
+        }
+        return entityManager.createQuery(
+                        "select c from Classroom c where lower(c.name) = lower(:name)", Classroom.class)
+                .setParameter("name", classroomName.trim())
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("No classroom found named " + classroomName));
+    }
+
+    private AnneeScolaire findOrCreateCurrentSchoolYear() {
+        String label = currentSchoolYearLabel();
+        return entityManager.createQuery(
+                        "select a from AnneeScolaire a where a.libelleAnneesc = :label", AnneeScolaire.class)
+                .setParameter("label", label)
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst()
+                .orElseGet(() -> {
+                    AnneeScolaire schoolYear = new AnneeScolaire();
+                    schoolYear.setLibelleAnneesc(label);
+                    entityManager.persist(schoolYear);
+                    return schoolYear;
+                });
+    }
+
+    private static String currentSchoolYearLabel() {
+        LocalDate today = LocalDate.now();
+        int startYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
+        return startYear + "-" + (startYear + 1);
+    }
+
+    private static Map<String, String> toRow(String table, Object entity) {
+        Map<String, String> row = new LinkedHashMap<>();
+        for (Field field : entity.getClass().getDeclaredFields()) {
+            field.setAccessible(true);
+            try {
+                Object value = field.get(entity);
+                row.put(field.getName(), formatValue(value));
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException("Could not read " + field.getName(), e);
+            }
+        }
+        addDerivedColumns(table, entity, row);
+        return row;
+    }
+
+    private static void addLogicalColumnAliases(String table, Map<String, String> row) {
+        PROPERTY_ALIASES.getOrDefault(table, Map.of()).forEach((logical, property) -> {
+            if (row.containsKey(property)) {
+                row.putIfAbsent(logical, row.get(property));
+            }
+        });
+    }
+
+    private static void addDerivedColumns(String table, Object entity, Map<String, String> row) {
+        if (entity instanceof Attendance attendance && attendance.getStudent() != null) {
+            row.put("student_name", fullName(attendance.getStudent()));
+            row.put("student_id", attendance.getStudent().getId());
+        } else if (entity instanceof Inscription inscription) {
+            if (inscription.getStudent() != null) {
+                row.put("student_name", fullName(inscription.getStudent()));
+                row.put("student_id", inscription.getStudent().getId());
+            }
+            if (inscription.getClassroom() != null) {
+                row.put("course_name", inscription.getClassroom().getName());
+                row.put("class_id", inscription.getClassroom().getId());
+            }
+        } else if (entity instanceof Payment payment && payment.getInscription() != null) {
+            row.put("inscription_id", payment.getInscription().getId());
+            if (payment.getInscription().getStudent() != null) {
+                row.put("student_name", fullName(payment.getInscription().getStudent()));
+            }
+        } else if ("classes".equals(table)) {
+            row.putIfAbsent("status", "ACTIVE");
+        }
+    }
+
+    private static String fullName(Student student) {
+        return ((student.getFirstName() == null ? "" : student.getFirstName()) + " "
+                + (student.getLastName() == null ? "" : student.getLastName())).trim();
+    }
+
+    private static String formatValue(Object value) {
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name();
+        }
+        if (value instanceof Student student) {
+            return fullName(student);
+        }
+        if (value instanceof Classroom classroom) {
+            return classroom.getName();
+        }
+        if (value instanceof Inscription inscription) {
+            return inscription.getId();
+        }
+        return value.toString();
+    }
+
+    private static void applyValues(String table, Object entity, List<String> columns, Map<String, String> values) {
+        for (String column : columns) {
+            if ("id".equals(column) || !values.containsKey(column)) {
+                continue;
+            }
+            String property = propertyName(table, column);
+            if (findField(entity.getClass(), property) != null) {
+                setFieldValue(entity, property, values.get(column));
+            }
+        }
+    }
+
+    private static void prepareForInsert(String table, Object entity) {
+        if (entity instanceof Student student) {
+            if (student.getStudentNumber() == null || student.getStudentNumber().isBlank()) {
+                student.setStudentNumber("STU-" + System.currentTimeMillis());
+            }
+            if (student.getEnrollmentDate() == null) {
+                student.setEnrollmentDate(LocalDateTime.now());
+            }
+        }
+        if (entity instanceof Employee employee) {
+            if (employee.getEmployeeNumber() == null || employee.getEmployeeNumber().isBlank()) {
+                employee.setEmployeeNumber("EMP-" + System.currentTimeMillis());
+            }
+            if (employee.getRole() == null) {
+                employee.setRole(EmployeeRole.TEACHER);
+            }
+        }
+    }
+
+    private static void setFieldValue(Object entity, String property, String rawValue) {
+        Field field = findField(entity.getClass(), property);
+        if (field == null || rawValue == null || rawValue.isBlank()) {
+            return;
+        }
+        field.setAccessible(true);
+        try {
+            field.set(entity, convertValue(field.getType(), rawValue));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Could not set " + property, e);
+        }
+    }
+
+    private static Field findField(Class<?> type, String name) {
+        Class<?> current = type;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object convertValue(Class<?> targetType, String rawValue) {
+        if (String.class.equals(targetType)) {
+            return rawValue;
+        }
+        if (Integer.class.equals(targetType) || int.class.equals(targetType)) {
+            return Integer.parseInt(rawValue);
+        }
+        if (Double.class.equals(targetType) || double.class.equals(targetType)) {
+            return Double.parseDouble(rawValue);
+        }
+        if (LocalDateTime.class.equals(targetType)) {
+            return rawValue.length() == 10
+                    ? LocalDate.parse(rawValue).atStartOfDay()
+                    : LocalDateTime.parse(rawValue);
+        }
+        if (targetType.isEnum()) {
+            return Enum.valueOf((Class<? extends Enum>) targetType, normalizeEnumValue(rawValue));
+        }
+        return rawValue;
+    }
+
+    private static String normalizeEnumValue(String rawValue) {
+        return rawValue.trim()
+                .replace("Garçon", "MALE")
+                .replace("Fille", "FEMALE")
+                .replace("Carte", "CARD")
+                .replace("Virement", "TRANSFER")
+                .replace("Cash", "CASH")
+                .replace("Chèque", "CASH")
+                .toUpperCase(Locale.ROOT);
+    }
+
+    private static Object parseId(Class<?> entityType, String rawId) {
+        Field idField = findField(entityType, "id");
+        if (idField != null && (Integer.class.equals(idField.getType()) || int.class.equals(idField.getType()))) {
+            return Integer.parseInt(rawId);
+        }
+        return rawId;
     }
 }

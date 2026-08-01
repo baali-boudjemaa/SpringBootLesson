@@ -16,10 +16,12 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -158,7 +160,7 @@ public class ModuleTableView {
             }
             if (DialogUtil.confirm(I18n.t("action.delete"),
                     "Supprimer cet enregistrement de " + I18n.t(module.titleKey()).toLowerCase() + " ?")) {
-                int id = Integer.parseInt(selected.get("id"));
+                String id = selected.get("id");
                 delete.setDisable(true);
                 AsyncTasks.run(
                         () -> dao.delete(module.table(), id),
@@ -219,13 +221,27 @@ public class ModuleTableView {
         int row = 0;
         for (Field field : module.fields()) {
             Label label = new Label(field.label());
-            Node editor = field.options().isEmpty() ? new TextField() : new ComboBox<String>();
-            if (editor instanceof TextField tf) tf.setPromptText(field.label());
+            Node editor = editorFor(module, field);
+            if (editor instanceof TextField tf) {
+                tf.setPromptText(field.label());
+                if (isPhoneField(field)) {
+                    tf.setTextFormatter(new TextFormatter<>(change ->
+                            change.getControlNewText().matches("[0-9+()\\-\\s]*") ? change : null));
+                }
+            }
+            if (editor instanceof DatePicker dp) {
+                dp.setPromptText(field.label());
+                dp.setMaxWidth(Double.MAX_VALUE);
+            }
             if (editor instanceof ComboBox<?> cb) {
                 @SuppressWarnings("unchecked")
                 ComboBox<String> typed = (ComboBox<String>) cb;
-                typed.setItems(FXCollections.observableArrayList(field.options()));
+                if (!field.options().isEmpty()) {
+                    typed.setItems(FXCollections.observableArrayList(field.options()));
+                }
+                typed.setPromptText(field.label());
                 typed.setMaxWidth(Double.MAX_VALUE);
+                loadLookupOptions(module, field, typed);
             }
             editors.put(field.column(), editor);
             form.add(label, 0, row);
@@ -234,6 +250,55 @@ public class ModuleTableView {
             row++;
         }
         return editors;
+    }
+
+    private Node editorFor(Module module, Field field) {
+        if (isDateField(field)) {
+            return new DatePicker();
+        }
+        if (!field.options().isEmpty() || isLookupField(module, field)) {
+            ComboBox<String> comboBox = new ComboBox<>();
+            comboBox.setEditable(true);
+            return comboBox;
+        }
+        return new TextField();
+    }
+
+    private boolean isDateField(Field field) {
+        return field.column().contains("date") || "created_at".equals(field.column());
+    }
+
+    private boolean isPhoneField(Field field) {
+        return "phone".equals(field.column()) || "phone_number".equals(field.column());
+    }
+
+    private boolean isLookupField(Module module, Field field) {
+        return "teacher_name".equals(field.column())
+                || "classroom".equals(field.column());
+    }
+
+    private void loadLookupOptions(Module module, Field field, ComboBox<String> comboBox) {
+        if ("teacher_name".equals(field.column())) {
+            AsyncTasks.run(
+                    () -> dao.findAll("teachers", List.of("first_name", "last_name"), "last_name, first_name").stream()
+                            .map(row -> (row.getOrDefault("last_name", "") + " " + row.getOrDefault("first_name", "")).trim())
+                            .filter(name -> !name.isBlank())
+                            .toList(),
+                    options -> comboBox.setItems(FXCollections.observableArrayList(options)),
+                    err -> DialogUtil.error("Chargement échoué", err.getMessage())
+            );
+        }
+
+        if ("classroom".equals(field.column())) {
+            AsyncTasks.run(
+                    () -> dao.findAll("classes", List.of("name"), "name").stream()
+                            .map(row -> row.getOrDefault("name", "").trim())
+                            .filter(name -> !name.isBlank())
+                            .toList(),
+                    options -> comboBox.setItems(FXCollections.observableArrayList(options)),
+                    err -> DialogUtil.error("Chargement échoué", err.getMessage())
+            );
+        }
     }
 
     private Map<String, String> readEditors(Module module, Map<String, Node> editors) {

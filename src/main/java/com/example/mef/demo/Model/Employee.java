@@ -7,6 +7,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -42,5 +43,14 @@ public class Employee {
     @Column(columnDefinition = "TEXT")
     private String certifications;
 
+    @PrePersist
+    void prePersist() {
+        if (employeeNumber == null || employeeNumber.isBlank()) {
+            employeeNumber = "EMP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+        if (role == null) {
+            role = EmployeeRole.TEACHER;
+        }
+    }
 
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "Student")
@@ -35,4 +36,14 @@ public class Student  {
     private String medicalInfo;
 
     private LocalDateTime enrollmentDate;
+
+    @PrePersist
+    void prePersist() {
+        if (studentNumber == null || studentNumber.isBlank()) {
+            studentNumber = "STU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+        if (enrollmentDate == null) {
+            enrollmentDate = LocalDateTime.now();
+        }
+    }
 }

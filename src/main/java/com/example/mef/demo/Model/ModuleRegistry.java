@@ -1,5 +1,7 @@
 package com.example.mef.demo.Model;
 
+import org.springframework.stereotype.Component;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +12,7 @@ import java.util.List;
  * GlobalSearch, and ModuleView can all share the same list instead
  * of each depending on the controller directly.
  */
+@Component
 public final class ModuleRegistry {
 
     private final List<Module> modules = new ArrayList<>();
@@ -55,7 +58,7 @@ public final class ModuleRegistry {
                         new Field("email",      "field.email"),
                         new Field("phone",      "field.phone"),
                         new Field("specialty",  "field.specialty"),
-                        new Field("status",     "field.status",   List.of("ACTIVE", "INACTIVE"))
+                        new Field("status",     "field.status",   List.of("TEACHER", "ASSISTANT", "KITCHEN", "CLEANER", "ADMIN"))
                 )));
         modules.add(new Module("nav.classes", "classes", "name",
                 List.of(
