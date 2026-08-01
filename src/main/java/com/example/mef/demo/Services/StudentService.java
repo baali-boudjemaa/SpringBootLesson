@@ -27,4 +27,20 @@ public class StudentService {
     public Student save(Student student) {
         return studentRepository.save(student);
     }
+
+    public void delete(String id) {
+        studentRepository.deleteById(id);
+    }
+
+    public List<Student> search(String needle) {
+        if (needle == null || needle.isBlank()) {
+            return findAll();
+        }
+        List<Student> byFirst = studentRepository.findByFirstNameContainingIgnoreCase(needle);
+        List<Student> byLast = studentRepository.findByLastNameContainingIgnoreCase(needle);
+        java.util.LinkedHashMap<String, Student> merged = new java.util.LinkedHashMap<>();
+        byFirst.forEach(s -> merged.put(s.getId(), s));
+        byLast.forEach(s -> merged.put(s.getId(), s));
+        return List.copyOf(merged.values());
+    }
 }

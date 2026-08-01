@@ -2,6 +2,7 @@ package com.example.mef.demo.Model;
 
 import com.example.mef.demo.Model.Payment;
 import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.SessionName;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,6 +45,11 @@ public class Inscription  {
     @Column(nullable = false)
     @Builder.Default
     private LocalDateTime dateInscription = LocalDateTime.now();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
 
     @OneToMany(
             mappedBy = "inscription",

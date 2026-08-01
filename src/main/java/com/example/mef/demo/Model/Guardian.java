@@ -2,8 +2,8 @@ package com.example.mef.demo.Model;
 
 
 import jakarta.persistence.*;
-        import lombok.*;
-        import lombok.experimental.SuperBuilder;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,5 +37,9 @@ public class Guardian {
     private String relation;
 
     private String address;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "studentId")
+    private Student student;
 
 }

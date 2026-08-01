@@ -3,10 +3,11 @@ package com.example.mef.demo.Model;
 
 
 
+import com.example.mef.demo.enums.PaymentStatus;
 import com.example.mef.demo.enums.PaymentType;
 import jakarta.persistence.*;
-        import lombok.*;
-        import lombok.experimental.SuperBuilder;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
 
@@ -39,6 +40,12 @@ public class Payment {
     @Builder.Default
     private LocalDateTime datePay = LocalDateTime.now();
 
+    /** Also used as the payment "category" (Scolarité, Cours, Transport, ...) shown in the UI. */
     @Column(nullable = false)
     private String label;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private PaymentStatus status = PaymentStatus.PAID;
 }

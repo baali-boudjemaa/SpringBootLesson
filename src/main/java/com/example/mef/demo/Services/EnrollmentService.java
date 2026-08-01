@@ -1,0 +1,93 @@
+package com.example.mef.demo.Services;
+
+import com.example.mef.demo.Model.AnneeScolaire;
+import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Inscription;
+import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Repository.AnneeScolaireRepository;
+import com.example.mef.demo.Repository.ClassroomRepository;
+import com.example.mef.demo.Repository.InscriptionRepository;
+import com.example.mef.demo.Repository.StudentRepository;
+import com.example.mef.demo.enums.EnrollmentStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+/** Typed service backing the "enrollments" module (Inscription entity). */
+@Service
+@Transactional
+public class EnrollmentService {
+
+    private final InscriptionRepository inscriptionRepository;
+    private final StudentRepository studentRepository;
+    private final ClassroomRepository classroomRepository;
+    private final AnneeScolaireRepository anneeScolaireRepository;
+
+    public EnrollmentService(InscriptionRepository inscriptionRepository,
+                             StudentRepository studentRepository,
+                             ClassroomRepository classroomRepository,
+                             AnneeScolaireRepository anneeScolaireRepository) {
+        this.inscriptionRepository = inscriptionRepository;
+        this.studentRepository = studentRepository;
+        this.classroomRepository = classroomRepository;
+        this.anneeScolaireRepository = anneeScolaireRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Inscription> findAll() {
+        return inscriptionRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Inscription> findById(String id) {
+        return inscriptionRepository.findById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Inscription> findByStudentId(String studentId) {
+        return inscriptionRepository.findByStudentId(studentId);
+    }
+
+    /** Creates or updates an enrollment for the given student/classroom, in the current school year. */
+    public Inscription save(Inscription inscription, String studentId, String classroomId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("No student found with id " + studentId));
+        Classroom classroom = classroomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("No classroom found with id " + classroomId));
+
+        inscription.setStudent(student);
+        inscription.setClassroom(classroom);
+        inscription.setAnneeScolaire(findOrCreateCurrentSchoolYear());
+        if (inscription.getDateInscription() == null) {
+            inscription.setDateInscription(LocalDateTime.now());
+        }
+        if (inscription.getStatus() == null) {
+            inscription.setStatus(EnrollmentStatus.ACTIVE);
+        }
+        return inscriptionRepository.save(inscription);
+    }
+
+    public void delete(String id) {
+        inscriptionRepository.deleteById(id);
+    }
+
+    public AnneeScolaire findOrCreateCurrentSchoolYear() {
+        String label = currentSchoolYearLabel();
+        return anneeScolaireRepository.findByLibelleAnneesc(label)
+                .orElseGet(() -> {
+                    AnneeScolaire schoolYear = new AnneeScolaire();
+                    schoolYear.setLibelleAnneesc(label);
+                    return anneeScolaireRepository.save(schoolYear);
+                });
+    }
+
+    private static String currentSchoolYearLabel() {
+        LocalDate today = LocalDate.now();
+        int startYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
+        return startYear + "-" + (startYear + 1);
+    }
+}

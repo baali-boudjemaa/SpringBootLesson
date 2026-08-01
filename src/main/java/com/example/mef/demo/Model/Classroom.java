@@ -30,6 +30,20 @@ public class Classroom  {
     @Column(nullable = false)
     private Integer capacity;
 
+    @Column
+    private String room;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
+    /**
+     * Lead teacher assigned to this classroom (optional).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacherId")
+    private Employee teacher;
+
     /**
      * Students enrolled in this classroom.
      */
@@ -40,8 +54,4 @@ public class Classroom  {
     )
     @Builder.Default
     private List<Inscription> inscriptions = new ArrayList<>();
-
-    /**
-     * Employees assigned to this classroom.
-     */
 }
