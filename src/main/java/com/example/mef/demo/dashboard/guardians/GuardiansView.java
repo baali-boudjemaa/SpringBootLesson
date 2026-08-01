@@ -186,7 +186,7 @@ public class GuardiansView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer ce tuteur ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { guardianService.delete(id); return null; },
+                () -> guardianService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

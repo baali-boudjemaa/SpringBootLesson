@@ -209,7 +209,7 @@ public class CoursesView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer ce cours ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { courseService.delete(id); return null; },
+                () -> courseService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

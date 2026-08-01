@@ -190,7 +190,7 @@ public class EnrollmentsView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer cette inscription ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { enrollmentService.delete(id); return null; },
+                () -> enrollmentService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

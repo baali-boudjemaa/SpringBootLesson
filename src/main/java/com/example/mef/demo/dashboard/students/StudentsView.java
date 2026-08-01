@@ -182,7 +182,7 @@ public class StudentsView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer cet élève ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { studentService.delete(id); return null; },
+                () -> studentService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

@@ -29,7 +29,7 @@ public class Attendance  {
     private LocalDateTime date;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'PRESENT'")
     @Builder.Default
     private AttendanceStatus status = AttendanceStatus.PRESENT;
 

@@ -7,15 +7,23 @@ import com.example.mef.demo.Services.DynamicDatabaseService;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.dashboard.attendance.AttendanceView;
 import com.example.mef.demo.dashboard.classrooms.ClassroomsView;
+import com.example.mef.demo.dashboard.courses.CoursesView;
+import com.example.mef.demo.dashboard.enrollments.EnrollmentsView;
+import com.example.mef.demo.dashboard.guardians.GuardiansView;
 import com.example.mef.demo.dashboard.home.DashboardHomeView;
 import com.example.mef.demo.dashboard.modules.ModuleTableView;
 import com.example.mef.demo.dashboard.nav.NavigationBuilder;
+import com.example.mef.demo.dashboard.payments.PaymentsView;
 import com.example.mef.demo.dashboard.report.MonthlyReport;
+import com.example.mef.demo.dashboard.reports.ReportsView;
 import com.example.mef.demo.dashboard.search.GlobalSearch;
 import com.example.mef.demo.dashboard.settings.BackupRestorePanel;
 import com.example.mef.demo.dashboard.settings.LicenseCardBuilder;
 import com.example.mef.demo.dashboard.settings.SettingsView;
 import com.example.mef.demo.dashboard.students.StudentEnrollmentWizard;
+import com.example.mef.demo.dashboard.students.StudentsView;
+import com.example.mef.demo.dashboard.teachers.TeachersView;
+import com.example.mef.demo.dashboard.users.UsersView;
 import com.example.mef.demo.util.BackupRestoreService;
 import com.example.mef.demo.util.I18n;
 import com.example.mef.demo.util.SceneManager;
@@ -54,6 +62,14 @@ public class DashboardController {
     private final ModuleRegistry registry;
     private final NavigationBuilder navigationBuilder;
     private final SettingsView settingsView;
+    private final StudentsView studentsView;
+    private final TeachersView teachersView;
+    private final GuardiansView guardiansView;
+    private final CoursesView coursesView;
+    private final EnrollmentsView enrollmentsView;
+    private final PaymentsView paymentsView;
+    private final ReportsView reportsView;
+    private final UsersView usersView;
 
     private GlobalSearch globalSearch;
     private MonthlyReport monthlyReport;
@@ -67,7 +83,15 @@ public class DashboardController {
             DashboardHomeView dashboardHomeView,
             LicenseCardBuilder licenseCardBuilder,
             ModuleRegistry registry,
-            NavigationBuilder navigationBuilder) {
+            NavigationBuilder navigationBuilder,
+            StudentsView studentsView,
+            TeachersView teachersView,
+            GuardiansView guardiansView,
+            CoursesView coursesView,
+            EnrollmentsView enrollmentsView,
+            PaymentsView paymentsView,
+            ReportsView reportsView,
+            UsersView usersView) {
 
         this.dao = dao;
         this.backupRestorePanel = new BackupRestorePanel(backupRestoreService);
@@ -77,6 +101,14 @@ public class DashboardController {
         this.registry = registry;
         this.navigationBuilder = navigationBuilder;
         this.settingsView = new SettingsView(licenseCardBuilder);
+        this.studentsView = studentsView;
+        this.teachersView = teachersView;
+        this.guardiansView = guardiansView;
+        this.coursesView = coursesView;
+        this.enrollmentsView = enrollmentsView;
+        this.paymentsView = paymentsView;
+        this.reportsView = reportsView;
+        this.usersView = usersView;
     }
 
     @FXML
@@ -191,6 +223,50 @@ public class DashboardController {
             return;
         }
 
+        if ("students".equals(module.table())) {
+            studentsView.render(contentPane, pageTitleLabel,
+                    () -> new StudentEnrollmentWizard(dao, registry, this::showModule).show(contentPane, pageTitleLabel));
+            return;
+        }
+
+        if ("teachers".equals(module.table())) {
+            teachersView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("guardians".equals(module.table())) {
+            guardiansView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("courses".equals(module.table())) {
+            coursesView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("enrollments".equals(module.table())) {
+            enrollmentsView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("payments".equals(module.table())) {
+            paymentsView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("reports".equals(module.table())) {
+            reportsView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        if ("users".equals(module.table())) {
+            usersView.render(contentPane, pageTitleLabel);
+            return;
+        }
+
+        // No modules currently fall through to the generic table view —
+        // every registered module now has a typed screen. Kept as a safety
+        // net in case a new module is registered before its typed view exists.
         new ModuleTableView(dao).render(
                 contentPane,
                 module,

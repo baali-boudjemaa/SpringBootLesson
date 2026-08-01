@@ -2,8 +2,8 @@ package com.example.mef.demo.Services;
 
 import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Repository.UserRepository;
+import com.example.mef.demo.util.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,8 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/** Typed service backing the "users" module screen (account management). */
 @Service
-public class UserServices  {
+public class UserServices {
 
     @Autowired
     private UserRepository userRepository;
@@ -49,10 +50,18 @@ public class UserServices  {
         return user;
     }
 
-    //Update
-    public void updateUser(User user, int id)
+    /**
+     * Updates an existing user. If rawPassword is null/blank, the existing
+     * password hash is kept unchanged; otherwise it is re-hashed with BCrypt.
+     */
+    public void updateUser(User user, int id, String rawPassword)
     {
-//        user.setId(id);
+        user.setId(id);
+        if (rawPassword == null || rawPassword.isBlank()) {
+            userRepository.findById(id).ifPresent(existing -> user.setPassword(existing.getPassword()));
+        } else {
+            user.setPassword(PasswordUtil.hash(rawPassword));
+        }
         this.userRepository.save(user);
     }
 
@@ -62,23 +71,18 @@ public class UserServices  {
         this.userRepository.deleteById(id);
     }
 
-    //Add User
-    public void addUser(User user)
+    /** Creates a new user, hashing rawPassword with BCrypt before storing it. */
+    public User addUser(User user, String rawPassword)
     {
-        this.userRepository.save(user);
+        user.setPassword(PasswordUtil.hash(rawPassword));
+        return this.userRepository.save(user);
     }
 
-    public boolean validateLoginCredentials(String email,String password)
+    public boolean validateLoginCredentials(String email, String password)
     {
-        List<User> users = (List<User>) this.userRepository.findAll();
-        for(User u:users)
-        {
-            if(u!=null && u.getPassword().equals(password) && u.getEmail().equals(email))
-            {
-                return true;
-            }
-        }
-        return false;
+        return userRepository.findByEmail(email)
+                .map(u -> PasswordUtil.matches(password, u.getPassword()))
+                .orElse(false);
     }
 
 }

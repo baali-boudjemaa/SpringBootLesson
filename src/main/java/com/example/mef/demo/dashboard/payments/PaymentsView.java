@@ -189,7 +189,7 @@ public class PaymentsView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer ce paiement ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { paymentService.delete(id); return null; },
+                () -> paymentService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

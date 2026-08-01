@@ -157,7 +157,7 @@ public class TeachersView {
         if (!DialogUtil.confirm("Confirmer", "Supprimer cet employé ?")) return;
         String id = selected.getId();
         AsyncTasks.run(
-                () -> { employeeService.delete(id); return null; },
+                () -> employeeService.delete(id),
                 () -> { clearForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );

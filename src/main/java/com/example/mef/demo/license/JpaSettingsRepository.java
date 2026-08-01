@@ -5,9 +5,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class JpaSettingsRepository implements SettingsRepository {
 
-    private final SettingRepository settingRepository;
+    private final LicenseSettingRepository settingRepository;
 
-    public JpaSettingsRepository(SettingRepository settingRepository) {
+    public JpaSettingsRepository(LicenseSettingRepository settingRepository) {
         this.settingRepository = settingRepository;
     }
 

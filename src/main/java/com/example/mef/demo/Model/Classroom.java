@@ -33,7 +33,7 @@ public class Classroom  {
     @Column
     private String room;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default true")
     @Builder.Default
     private boolean active = true;
 

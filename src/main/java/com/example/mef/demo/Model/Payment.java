@@ -32,7 +32,7 @@ public class Payment {
     private Double amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'CASH'")
     @Builder.Default
     private PaymentType paymentMethod = PaymentType.CASH;
 
@@ -45,7 +45,7 @@ public class Payment {
     private String label;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'PAID'")
     @Builder.Default
     private PaymentStatus status = PaymentStatus.PAID;
 }

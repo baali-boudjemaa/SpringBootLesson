@@ -38,16 +38,16 @@ public class Inscription  {
     private Classroom classroom;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'JOURNEE_COMPLETE'")
     @Builder.Default
     private SessionName session = SessionName.JOURNEE_COMPLETE;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "timestamp default now()")
     @Builder.Default
     private LocalDateTime dateInscription = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'ACTIVE'")
     @Builder.Default
     private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
 
