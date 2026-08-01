@@ -147,7 +147,10 @@ public class ClassroomsView {
 
         Button addNew = new Button("➕  Nouvelle Section");
         addNew.getStyleClass().add("primary-button");
-        addNew.setOnAction(e -> clearForm.run());
+        addNew.setOnAction(e -> {
+            clearForm.run();
+            nameField.requestFocus();
+        });
 
         reload[0].run();
 

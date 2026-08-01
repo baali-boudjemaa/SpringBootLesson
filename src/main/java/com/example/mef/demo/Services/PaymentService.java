@@ -28,7 +28,7 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public List<Payment> findAll() {
-        return paymentRepository.findAll();
+        return paymentRepository.findAllWithDetails();
     }
 
     @Transactional(readOnly = true)

@@ -23,7 +23,7 @@ public class GuardianService {
 
     @Transactional(readOnly = true)
     public List<Guardian> findAll() {
-        return guardianRepository.findAll();
+        return guardianRepository.findAllWithDetails();
     }
 
     @Transactional(readOnly = true)

@@ -39,7 +39,7 @@ public class EnrollmentService {
 
     @Transactional(readOnly = true)
     public List<Inscription> findAll() {
-        return inscriptionRepository.findAll();
+        return inscriptionRepository.findAllWithDetails();
     }
 
     @Transactional(readOnly = true)
