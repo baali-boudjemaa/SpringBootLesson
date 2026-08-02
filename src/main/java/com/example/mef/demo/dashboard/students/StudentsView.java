@@ -132,7 +132,7 @@ public class StudentsView {
 
         TableColumn<Student, String> groupage = new TableColumn<>("GROUPAGE");
         groupage.setCellValueFactory(d -> {
-            return new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getBloodType().name());
+            return new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getBloodType().getLabel());
         });
         groupage.setCellFactory(col -> bloodCell());
         groupage.setPrefWidth(110);
@@ -277,7 +277,7 @@ public class StudentsView {
         lastNameField.setText(student.getLastName());
         genderField.setValue(student.getGender());
         dobField.setValue(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toLocalDate());
-        bloodTypeField.setValue(student.getBloodType().name());
+        bloodTypeField.setValue(student.getBloodType().getLabel());
         phoneField.setText(student.getPhone());
         medicalInfoField.setText(student.getMedicalInfo());
         showFormPanel();
@@ -305,7 +305,7 @@ public class StudentsView {
         student.setLastName(lastNameField.getText().trim());
         student.setGender(genderField.getValue());
         student.setDateOfBirth(dobField.getValue() == null ? null : dobField.getValue().atStartOfDay());
-        student.setBloodType(BloodType.valueOf(bloodTypeField.getValue()));
+        student.setBloodType(BloodType.fromLabel(bloodTypeField.getValue()));
         student.setPhone(phoneField.getText());
         student.setMedicalInfo(medicalInfoField.getText());
 
