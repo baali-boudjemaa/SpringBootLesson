@@ -5,6 +5,7 @@ import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
+import com.example.mef.demo.enums.BloodType;
 import com.example.mef.demo.enums.Sexe;
 import com.example.mef.demo.util.DateUtil;
 import com.example.mef.demo.util.DialogUtil;
@@ -56,8 +57,8 @@ public class StudentsView {
     private final DatePicker dobField = new DatePicker();
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
     private final TextField phoneField = FormFactory.textField("Téléphone");
-    private final TextArea medicalInfoField = new TextArea();
-    private final TextArea notesField = new TextArea();
+    private final TextField medicalInfoField = FormFactory.textField("Informations médicales");;
+
 
     private BorderPane layout;
     private VBox form;
@@ -67,10 +68,6 @@ public class StudentsView {
     public StudentsView(StudentService studentService) {
         this.studentService = studentService;
         genderField.setMaxWidth(Double.MAX_VALUE);
-        medicalInfoField.setPromptText("Informations médicales");
-        medicalInfoField.setPrefRowCount(2);
-        notesField.setPromptText("Notes");
-        notesField.setPrefRowCount(2);
     }
 
     /** @param onEnrollNew invoked when the user wants to run the full enrollment wizard instead of a bare add. */
@@ -134,7 +131,9 @@ public class StudentsView {
         section.setPrefWidth(100);
 
         TableColumn<Student, String> groupage = new TableColumn<>("GROUPAGE");
-        groupage.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getBloodType()));
+        groupage.setCellValueFactory(d -> {
+            return new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getBloodType().name());
+        });
         groupage.setCellFactory(col -> bloodCell());
         groupage.setPrefWidth(110);
 
@@ -148,7 +147,7 @@ public class StudentsView {
         phone.setCellFactory(col -> dashIfBlankCell());
         phone.setPrefWidth(130);
 
-        TableColumn<Student, String> notes = new TableColumn<>("NOTES");
+        TableColumn<Student, String> notes = new TableColumn<>("INFORMATIONS MÉDICALES");
         notes.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getNotes()));
         notes.setCellFactory(col -> dashIfBlankCell());
         notes.setPrefWidth(140);
@@ -234,7 +233,6 @@ public class StudentsView {
         FormFactory.addRow(grid, 4, "Groupage", bloodTypeField);
         FormFactory.addRow(grid, 5, "Téléphone", phoneField);
         FormFactory.addRow(grid, 6, "Médical", medicalInfoField);
-        FormFactory.addRow(grid, 7, "Notes", notesField);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -279,10 +277,9 @@ public class StudentsView {
         lastNameField.setText(student.getLastName());
         genderField.setValue(student.getGender());
         dobField.setValue(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toLocalDate());
-        bloodTypeField.setValue(student.getBloodType());
+        bloodTypeField.setValue(student.getBloodType().name());
         phoneField.setText(student.getPhone());
         medicalInfoField.setText(student.getMedicalInfo());
-        notesField.setText(student.getNotes());
         showFormPanel();
     }
 
@@ -295,7 +292,6 @@ public class StudentsView {
         bloodTypeField.setValue(null);
         phoneField.clear();
         medicalInfoField.clear();
-        notesField.clear();
         table.getSelectionModel().clearSelection();
     }
 
@@ -309,10 +305,9 @@ public class StudentsView {
         student.setLastName(lastNameField.getText().trim());
         student.setGender(genderField.getValue());
         student.setDateOfBirth(dobField.getValue() == null ? null : dobField.getValue().atStartOfDay());
-        student.setBloodType(bloodTypeField.getValue());
+        student.setBloodType(BloodType.valueOf(bloodTypeField.getValue()));
         student.setPhone(phoneField.getText());
         student.setMedicalInfo(medicalInfoField.getText());
-        student.setNotes(notesField.getText());
 
         AsyncTasks.run(
                 () -> studentService.save(student),

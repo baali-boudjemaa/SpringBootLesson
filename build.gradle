@@ -65,6 +65,10 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// JavaFX Icons
+	implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
+	implementation 'org.kordamp.ikonli:ikonli-feather-pack:12.3.1'
 }
 
 tasks.named('test') {

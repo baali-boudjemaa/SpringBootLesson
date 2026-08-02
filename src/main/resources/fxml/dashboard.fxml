@@ -7,7 +7,9 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
@@ -23,28 +25,56 @@
             <Label fx:id="pageTitleLabel" text="Dashboard" styleClass="page-title"/>
             <Region HBox.hgrow="ALWAYS"/>
             <!-- Quick search trigger -->
-            <Button fx:id="searchBarBtn" text="🔍  Recherche rapide...  Ctrl+K"
-                    styleClass="search-bar-btn" onAction="#openGlobalSearchFromBtn"/>
+            <Button fx:id="searchBarBtn" text="Recherche rapide...  Ctrl+K"
+                    styleClass="search-bar-btn" onAction="#openGlobalSearchFromBtn">
+                <graphic>
+                    <FontIcon iconLiteral="fth-search" iconSize="14" iconColor="#64748B"/>
+                </graphic>
+            </Button>
             <Separator orientation="VERTICAL"/>
-            <Label fx:id="userLabel" styleClass="user-label"/>
+            <HBox fx:id="userChip" alignment="CENTER_LEFT" spacing="8" styleClass="user-chip">
+                <StackPane styleClass="user-avatar">
+                    <Label fx:id="userInitialsLabel" text="A" styleClass="user-avatar-text"/>
+                </StackPane>
+                <VBox spacing="0">
+                    <Label fx:id="userNameLabel" styleClass="user-name"/>
+                    <Label fx:id="userRoleLabel" styleClass="user-role"/>
+                </VBox>
+            </HBox>
             <Separator orientation="VERTICAL"/>
             <!-- Language switcher -->
             <Button fx:id="frButton" text="FR" styleClass="lang-button-active" onAction="#handleLangFr"/>
             <Button fx:id="arButton" text="DZ AR" styleClass="lang-button" onAction="#handleLangAr"/>
             <Separator orientation="VERTICAL"/>
-            <Button fx:id="backupButton" text="💾  Sauvegarder" styleClass="secondary-button" onAction="#handleBackup"/>
-            <Button fx:id="restoreButton" text="📂  Restaurer" styleClass="secondary-button" onAction="#handleRestore"/>
+            <Button fx:id="backupButton" text="Sauvegarder" styleClass="secondary-button" onAction="#handleBackup">
+                <graphic>
+                    <FontIcon iconLiteral="fth-save" iconSize="14"/>
+                </graphic>
+            </Button>
+            <Button fx:id="restoreButton" text="Restaurer" styleClass="secondary-button" onAction="#handleRestore">
+                <graphic>
+                    <FontIcon iconLiteral="fth-upload-cloud" iconSize="14"/>
+                </graphic>
+            </Button>
             <Separator orientation="VERTICAL"/>
-            <Button fx:id="logoutButton" text="Déconnexion" styleClass="secondary-button" onAction="#handleLogout"/>
+            <Button fx:id="logoutButton" text="Déconnexion" styleClass="secondary-button" onAction="#handleLogout">
+                <graphic>
+                    <FontIcon iconLiteral="fth-log-out" iconSize="14"/>
+                </graphic>
+            </Button>
         </HBox>
     </top>
     <left>
-        <VBox fx:id="navigationBox" spacing="4" styleClass="sidebar">
-            <padding>
-                <Insets top="18" right="12" bottom="18" left="12"/>
-            </padding>
-            <Label fx:id="brandLabel" text="Rawdati" styleClass="brand-label"/>
-            <Label fx:id="brandSubtitleLabel" text="Gestion de Crèche" styleClass="brand-subtitle"/>
+        <VBox styleClass="sidebar">
+            <VBox spacing="2" styleClass="sidebar-brand-box">
+                <Label fx:id="brandLabel" text="Rawdati" styleClass="brand-label"/>
+                <Label fx:id="brandSubtitleLabel" text="Gestion de Crèche" styleClass="brand-subtitle"/>
+            </VBox>
+            <VBox fx:id="navigationBox" spacing="2" VBox.vgrow="ALWAYS">
+                <padding>
+                    <Insets top="8" right="10" bottom="18" left="10"/>
+                </padding>
+            </VBox>
         </VBox>
     </left>
 

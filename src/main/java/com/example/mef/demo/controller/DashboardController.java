@@ -45,7 +45,9 @@ public class DashboardController {
 
     @FXML private BorderPane rootPane;
     @FXML private Label pageTitleLabel;
-    @FXML private Label userLabel;
+    @FXML private Label userInitialsLabel;
+    @FXML private Label userNameLabel;
+    @FXML private Label userRoleLabel;
     @FXML private Label brandLabel;
     @FXML private Label brandSubtitleLabel;
     @FXML private Button frButton;
@@ -74,6 +76,7 @@ public class DashboardController {
     private GlobalSearch globalSearch;
     private MonthlyReport monthlyReport;
     private Module activeModule;
+    private String activeNavKey = "dashboard";
 
     public DashboardController(
             DynamicDatabaseService dao,
@@ -115,7 +118,10 @@ public class DashboardController {
     public void initialize() {
         User current = Session.getCurrentUser();
         if (current != null) {
-            userLabel.setText(current.getFullName() + " · " + current.getRole());
+            String name = current.getFullName() != null ? current.getFullName() : "Admin";
+            userNameLabel.setText(name);
+            userRoleLabel.setText(current.getRole() != null ? current.getRole().name() : "ADMIN");
+            userInitialsLabel.setText(initialsOf(name));
         }
 
         monthlyReport = new MonthlyReport(contentPane, pageTitleLabel, dao);
@@ -182,15 +188,10 @@ public class DashboardController {
 
         navigationBuilder.build(
                 navigationBox,
-                () -> {
-                    activeModule = null;
-                    showDashboard();
-                },
-                () -> {
-                    activeModule = null;
-                    monthlyReport.show();
-                },
-                this::showModule
+                activeNavKey,
+                this::navigateDashboard,
+                this::navigateMonthly,
+                this::navigateModule
         );
 
         if (activeModule != null) {
@@ -198,6 +199,45 @@ public class DashboardController {
         } else {
             showDashboard();
         }
+    }
+
+    private void navigateDashboard() {
+        activeModule = null;
+        activeNavKey = "dashboard";
+        showDashboard();
+        rebuildNav();
+    }
+
+    private void navigateMonthly() {
+        activeModule = null;
+        activeNavKey = "monthly";
+        monthlyReport.show();
+        rebuildNav();
+    }
+
+    private void navigateModule(Module module) {
+        activeNavKey = module.table();
+        showModule(module);
+        rebuildNav();
+    }
+
+    private void rebuildNav() {
+        navigationBuilder.build(
+                navigationBox,
+                activeNavKey,
+                this::navigateDashboard,
+                this::navigateMonthly,
+                this::navigateModule
+        );
+    }
+
+    private static String initialsOf(String name) {
+        if (name == null || name.isBlank()) return "A";
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length >= 2) {
+            return ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        }
+        return name.substring(0, 1).toUpperCase();
     }
 
     private void showDashboard() {

@@ -9,15 +9,20 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.chart.PieChart;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.util.List;
 import java.util.Map;
@@ -62,10 +67,10 @@ public class DashboardHomeView {
     private void buildDashboardUI(BorderPane contentPane, DashboardData d) {
         // ── Top stat cards ──────────────────────────────────────
         HBox statsRow = new HBox(14,
-                statCard("👶", String.valueOf(d.students),  I18n.t("dashboard.students"), "#4F46E5"),
-                statCard("👨‍🏫", String.valueOf(d.teachers), I18n.t("dashboard.teachers"), "#7C3AED"),
-                statCard("🏫", String.valueOf(d.classes),   I18n.t("dashboard.classes"),  "#0F766E"),
-                statCard("💳", String.valueOf(d.payments),  I18n.t("dashboard.payments"), "#15803D")
+                statCard("fth-users",       String.valueOf(d.students),  I18n.t("dashboard.students"),  "#2563EB", "#DBEAFE"),
+                statCard("fth-briefcase",   String.valueOf(d.teachers),  I18n.t("dashboard.teachers"),  "#7C3AED", "#EDE9FE"),
+                statCard("fth-layout",      String.valueOf(d.classes),   I18n.t("dashboard.classes"),   "#0D9488", "#CCFBF1"),
+                statCard("fth-credit-card", String.valueOf(d.payments),  I18n.t("dashboard.payments"),  "#059669", "#D1FAE5")
         );
         for (Node n : statsRow.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
 
@@ -88,9 +93,30 @@ public class DashboardHomeView {
         chartCard.setPrefWidth(320);
 
         // ── Total revenue card ───────────────────────────────────
+        NumberAxis xAxis = new NumberAxis();
+        xAxis.setTickLabelsVisible(false); xAxis.setMinorTickVisible(false); xAxis.setTickMarkVisible(false);
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setTickLabelsVisible(false); yAxis.setMinorTickVisible(false); yAxis.setTickMarkVisible(false);
+        LineChart<Number,Number> revenueChart = new LineChart<>(xAxis,yAxis);
+        revenueChart.setLegendVisible(false);
+        revenueChart.setPrefHeight(160);
+        revenueChart.setHorizontalGridLinesVisible(false);
+        revenueChart.setVerticalGridLinesVisible(false);
+        XYChart.Series<Number, Number> series = new XYChart.Series<>();
+        series.getData().add(new XYChart.Data<>(1, 10));
+        series.getData().add(new XYChart.Data<>(2, 20));
+        series.getData().add(new XYChart.Data<>(3, 15));
+        series.getData().add(new XYChart.Data<>(4, 30));
+        series.getData().add(new XYChart.Data<>(5, 25));
+        series.getData().add(new XYChart.Data<>(6, 45));
+        series.getData().add(new XYChart.Data<>(7, 35));
+        series.getData().add(new XYChart.Data<>(8, 60));
+        revenueChart.getData().add(series);
+
         VBox revenueCard = new VBox(8,
                 new Label(I18n.t("dashboard.monthly_income")),
-                labelWith(String.format("%.2f DA", d.totalPayments), "stat-number")
+                labelWith(String.format("%.2f DA", d.totalPayments), "stat-number"),
+                revenueChart
         );
         revenueCard.getStyleClass().add("monthly-card");
         revenueCard.setPadding(new Insets(20));
@@ -143,15 +169,23 @@ public class DashboardHomeView {
         contentPane.setCenter(scroll);
     }
 
-    private VBox statCard(String icon, String value, String label, String accentColor) {
-        Label iconLbl  = new Label(icon);
-        iconLbl.setStyle("-fx-font-size: 24px;");
-        Label valLbl   = new Label(value);
-        valLbl.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: " + accentColor + ";");
-        Label captLbl  = new Label(label);
-        captLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748B;");
+    private HBox statCard(String icon, String value, String label, String accentColor, String iconBg) {
+        FontIcon fontIcon = new FontIcon(icon);
+        fontIcon.setIconSize(22);
+        fontIcon.setStyle("-fx-icon-color: " + accentColor + ";");
 
-        VBox card = new VBox(6, iconLbl, valLbl, captLbl);
+        StackPane iconWrap = new StackPane(fontIcon);
+        iconWrap.getStyleClass().add("stat-icon-wrap");
+        iconWrap.setStyle("-fx-background-color: " + iconBg + ";");
+
+        Label valLbl  = new Label(value);
+        valLbl.getStyleClass().add("stat-number");
+        Label captLbl = new Label(label);
+        captLbl.getStyleClass().add("stat-caption");
+
+        VBox text = new VBox(2, valLbl, captLbl);
+        HBox card = new HBox(14, iconWrap, text);
+        card.setAlignment(Pos.CENTER_LEFT);
         card.getStyleClass().add("stat-box");
         card.setPadding(new Insets(18));
         card.setMinWidth(150);

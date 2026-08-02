@@ -1,10 +1,13 @@
 package com.example.mef.demo.Model;
 
+import com.example.mef.demo.enums.BloodType;
 import com.example.mef.demo.enums.Sexe;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -37,13 +40,22 @@ public class Student  {
 
     private LocalDateTime enrollmentDate;
 
-    /** Blood type, e.g. "A+", "O-". Shown as the "Groupage" badge in the students table. */
-    private String bloodType;
+    @Enumerated(EnumType.STRING)
+    private BloodType bloodType;
 
     private String phone;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Attendance> attendanceRecords = new ArrayList<>();
+
+    // Example 2: Deletes all registrations/enrollments when this student is deleted
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Enrollment> enrollments = new ArrayList<>();
 
     @PrePersist
     void prePersist() {
