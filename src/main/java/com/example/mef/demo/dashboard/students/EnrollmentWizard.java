@@ -83,6 +83,8 @@ public class EnrollmentWizard {
             DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY);
     /** Full-week plan = every day except Friday & Saturday. */
     private static final String FULL_WEEK_DAYS = "SUNDAY,MONDAY,TUESDAY,WEDNESDAY,THURSDAY";
+    /** Alternate-days plan = Sunday, Tuesday, Thursday. */
+    private static final String ALTERNATE_DAYS_DAYS = "SUNDAY,TUESDAY,THURSDAY";
 
     private final StudentService studentService;
     private final GuardianService guardianService;
@@ -511,6 +513,13 @@ public class EnrollmentWizard {
                 Classroom classroomValue = classroom.getValue();
                 SessionName sessionValue = session.getValue();
                 double feeValue = parseAmount(registrationFee.getText());
+                LocalDate startDateValue = startDate.getValue();
+                AttendancePlan attendancePlanValue = attendancePlan.getValue();
+                String attendanceDaysValue = switch (attendancePlanValue == null ? AttendancePlan.FULL_WEEK : attendancePlanValue) {
+                    case FULL_WEEK -> FULL_WEEK_DAYS;
+                    case ALTERNATE_DAYS -> ALTERNATE_DAYS_DAYS;
+                    case CUSTOM_DAYS -> customDaysValue(dayChecks);
+                };
 
                 boolean paymentChecked = recordPayment.isSelected();
                 double paymentAmountValue = paymentChecked ? parseAmount(paymentAmount.getText()) : 0.0;
@@ -555,6 +564,9 @@ public class EnrollmentWizard {
                             Inscription inscription = new Inscription();
                             inscription.setSession(sessionValue == null ? SessionName.JOURNEE_COMPLETE : sessionValue);
                             inscription.setStatus(EnrollmentStatus.ACTIVE);
+                            inscription.setStartDate(startDateValue);
+                            inscription.setAttendancePlan(attendancePlanValue == null ? AttendancePlan.FULL_WEEK : attendancePlanValue);
+                            inscription.setAttendanceDays(attendanceDaysValue);
                             Inscription savedInscription = enrollmentService.save(
                                     inscription, studentId, classroomValue.getId(), schoolYear.getId());
 
@@ -674,14 +686,62 @@ public class EnrollmentWizard {
         };
     }
 
-    private ListCell<Classroom> classroomCell() {
+    private ListCell<Classroom> classroomCell(Map<String, Integer> remainingSeats) {
         return new ListCell<>() {
             @Override
             protected void updateItem(Classroom item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.getName());
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    Integer seats = remainingSeats.get(item.getId());
+                    String seatsInfo = seats == null || seats == Integer.MAX_VALUE
+                            ? ""
+                            : " (" + seats + " " + I18n.t("ewizard.seats_remaining") + ")";
+                    setText(item.getName() + seatsInfo);
+                }
             }
         };
+    }
+
+    private ListCell<AttendancePlan> attendancePlanCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(AttendancePlan item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : attendancePlanLabel(item));
+            }
+        };
+    }
+
+    private String attendancePlanLabel(AttendancePlan plan) {
+        return switch (plan) {
+            case FULL_WEEK -> I18n.t("attendance_plan.full_week");
+            case ALTERNATE_DAYS -> I18n.t("attendance_plan.alternate_days");
+            case CUSTOM_DAYS -> I18n.t("attendance_plan.custom_days");
+        };
+    }
+
+    /** Comma-separated short labels of the checked days, e.g. "Lun, Mer, Ven". */
+    private String customDaysSummary(List<CheckBox> dayChecks) {
+        List<String> selected = new ArrayList<>();
+        for (CheckBox cb : dayChecks) {
+            if (cb.isSelected()) {
+                selected.add(cb.getText());
+            }
+        }
+        return selected.isEmpty() ? "—" : String.join(", ", selected);
+    }
+
+    /** Comma-separated {@link DayOfWeek} names for the checked days, matching {@link #WEEK_DAYS} order. */
+    private String customDaysValue(List<CheckBox> dayChecks) {
+        List<String> selected = new ArrayList<>();
+        for (int i = 0; i < dayChecks.size() && i < WEEK_DAYS.size(); i++) {
+            if (dayChecks.get(i).isSelected()) {
+                selected.add(WEEK_DAYS.get(i).name());
+            }
+        }
+        return String.join(",", selected);
     }
 
     private ListCell<SessionName> sessionCell() {
@@ -767,11 +827,13 @@ public class EnrollmentWizard {
     }
 
     private void validateStep(int step,
-                              CheckBox existingStudentCheck, ComboBox<Student> existingStudentCombo, TextField firstName, TextField lastName,
+                              CheckBox existingStudentCheck, ComboBox<Student> existingStudentCombo, TextField firstName, TextField lastName, DatePicker dateOfBirth,
                               CheckBox existingGuardianCheck, ComboBox<Guardian> existingGuardianCombo, TextField guardianFirstName, TextField guardianLastName,
                               ComboBox<String> relation, TextField guardianPhone, TextField guardianEmail,
                               ComboBox<String> academicYear, ComboBox<Classroom> classroom, ComboBox<SessionName> session, TextField registrationFee,
-                              CheckBox recordPayment, TextField paymentAmount, ComboBox<PaymentType> paymentMethod) {
+                              ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks,
+                              CheckBox recordPayment, TextField paymentAmount, ComboBox<PaymentType> paymentMethod,
+                              Map<String, Integer> remainingSeats, int minAge) {
         if (step == 0) {
             if (existingStudentCheck.isSelected()) {
                 if (existingStudentCombo.getValue() == null) {
@@ -788,6 +850,17 @@ public class EnrollmentWizard {
                     throw new IllegalArgumentException(I18n.t("field.last_name") + " est requis.");
                 }
                 lastName.getStyleClass().remove("field-error");
+                if (minAge > 0) {
+                    if (dateOfBirth.getValue() == null) {
+                        dateOfBirth.getStyleClass().add("field-error");
+                        throw new IllegalArgumentException(I18n.t("field.date_of_birth") + " est requis.");
+                    }
+                    dateOfBirth.getStyleClass().remove("field-error");
+                    int age = Period.between(dateOfBirth.getValue(), LocalDate.now()).getYears();
+                    if (age < minAge) {
+                        throw new IllegalArgumentException(I18n.t("ewizard.min_age").replace("{0}", String.valueOf(minAge)));
+                    }
+                }
             }
         }
         if (step == 1) {
@@ -825,8 +898,16 @@ public class EnrollmentWizard {
             if (classroom.getValue() == null) {
                 throw new IllegalArgumentException(I18n.t("ewizard.select_classroom"));
             }
+            Integer seats = remainingSeats.get(classroom.getValue().getId());
+            if (seats != null && seats <= 0) {
+                throw new IllegalArgumentException(I18n.t("ewizard.classroom_full"));
+            }
             if (session.getValue() == null) {
                 throw new IllegalArgumentException(I18n.t("ewizard.select_session"));
+            }
+            if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
+                    && dayChecks.stream().noneMatch(CheckBox::isSelected)) {
+                throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days"));
             }
             parseAmount(registrationFee.getText());
         }

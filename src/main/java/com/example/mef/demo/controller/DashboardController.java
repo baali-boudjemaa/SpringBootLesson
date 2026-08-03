@@ -4,6 +4,7 @@ import com.example.mef.demo.Model.Module;
 import com.example.mef.demo.Model.ModuleRegistry;
 import com.example.mef.demo.Model.User;
 import com.example.mef.demo.Services.DynamicDatabaseService;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.dashboard.attendance.AttendanceView;
 import com.example.mef.demo.dashboard.classrooms.ClassroomsView;
@@ -88,6 +89,7 @@ public class DashboardController {
             LicenseCardBuilder licenseCardBuilder,
             ModuleRegistry registry,
             NavigationBuilder navigationBuilder,
+            SettingService settingService,
             StudentsView studentsView,
             TeachersView teachersView,
             GuardiansView guardiansView,
@@ -105,7 +107,7 @@ public class DashboardController {
         this.dashboardHomeView = dashboardHomeView;
         this.registry = registry;
         this.navigationBuilder = navigationBuilder;
-        this.settingsView = new SettingsView(licenseCardBuilder);
+        this.settingsView = new SettingsView(licenseCardBuilder, settingService);
         this.studentsView = studentsView;
         this.teachersView = teachersView;
         this.guardiansView = guardiansView;

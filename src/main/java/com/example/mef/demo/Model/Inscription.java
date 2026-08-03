@@ -2,12 +2,14 @@ package com.example.mef.demo.Model;
 
 import com.example.mef.demo.Model.Payment;
 import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.enums.AttendancePlan;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.SessionName;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,19 @@ public class Inscription  {
     @Column(nullable = false, columnDefinition = "varchar(255) default 'ACTIVE'")
     @Builder.Default
     private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
+
+    /** Day the child starts attending (from the enrollment wizard). */
+    @Column
+    private LocalDate startDate;
+
+    /** Attendance plan chosen in the enrollment wizard. */
+    @Enumerated(EnumType.STRING)
+    @Column
+    private AttendancePlan attendancePlan;
+
+    /** Comma-separated {@link java.time.DayOfWeek} names the child attends, e.g. "MONDAY,WEDNESDAY,FRIDAY". */
+    @Column
+    private String attendanceDays;
 
     @OneToMany(
             mappedBy = "inscription",
