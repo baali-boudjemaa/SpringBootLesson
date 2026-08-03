@@ -20,6 +20,7 @@ import com.example.mef.demo.dashboard.search.GlobalSearch;
 import com.example.mef.demo.dashboard.settings.BackupRestorePanel;
 import com.example.mef.demo.dashboard.settings.LicenseCardBuilder;
 import com.example.mef.demo.dashboard.settings.SettingsView;
+import com.example.mef.demo.dashboard.students.EnrollmentWizard;
 import com.example.mef.demo.dashboard.students.StudentEnrollmentWizard;
 import com.example.mef.demo.dashboard.students.StudentsView;
 import com.example.mef.demo.dashboard.teachers.TeachersView;
@@ -69,6 +70,7 @@ public class DashboardController {
     private final GuardiansView guardiansView;
     private final CoursesView coursesView;
     private final EnrollmentsView enrollmentsView;
+    private final EnrollmentWizard enrollmentWizard;
     private final PaymentsView paymentsView;
     private final ReportsView reportsView;
     private final UsersView usersView;
@@ -92,6 +94,7 @@ public class DashboardController {
             GuardiansView guardiansView,
             CoursesView coursesView,
             EnrollmentsView enrollmentsView,
+            EnrollmentWizard enrollmentWizard,
             PaymentsView paymentsView,
             ReportsView reportsView,
             UsersView usersView) {
@@ -109,6 +112,7 @@ public class DashboardController {
         this.guardiansView = guardiansView;
         this.coursesView = coursesView;
         this.enrollmentsView = enrollmentsView;
+        this.enrollmentWizard = enrollmentWizard;
         this.paymentsView = paymentsView;
         this.reportsView = reportsView;
         this.usersView = usersView;
@@ -285,7 +289,9 @@ public class DashboardController {
         }
 
         if ("enrollments".equals(module.table())) {
-            enrollmentsView.render(contentPane, pageTitleLabel);
+            enrollmentsView.render(contentPane, pageTitleLabel,
+                    () -> enrollmentWizard.show(contentPane, pageTitleLabel,
+                            () -> showModule(registry.byTable("enrollments"))));
             return;
         }
 

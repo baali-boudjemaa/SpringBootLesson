@@ -11,10 +11,12 @@ import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.SessionName;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -51,6 +53,7 @@ public class EnrollmentsView {
     private final ComboBox<EnrollmentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(EnrollmentStatus.values()));
 
     private Inscription selected;
+    private Runnable onNewEnrollmentWizard;
 
     public EnrollmentsView(EnrollmentService enrollmentService, StudentService studentService, ClassroomService classroomService) {
         this.enrollmentService = enrollmentService;
@@ -86,7 +89,9 @@ public class EnrollmentsView {
         };
     }
 
-    public void render(BorderPane contentPane, Label pageTitleLabel) {
+    /** @param onNewEnrollmentWizard invoked when the user wants to run the step-by-step enrollment wizard. */
+    public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onNewEnrollmentWizard) {
+        this.onNewEnrollmentWizard = onNewEnrollmentWizard;
         pageTitleLabel.setText("Inscriptions");
 
         table.getColumns().clear();
@@ -105,7 +110,17 @@ public class EnrollmentsView {
         status.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getStatus() == null ? "" : d.getValue().getStatus().name()));
         table.getColumns().addAll(List.of(date, student, classroom, status));
 
-        VBox listPane = new VBox(10, table);
+        Label title = new Label("Inscriptions");
+        title.getStyleClass().add("page-title");
+        Button wizard = new Button(I18n.t("ewizard.title"));
+        wizard.getStyleClass().add("link-button");
+        wizard.setOnAction(e -> this.onNewEnrollmentWizard.run());
+        HBox headerRow = new HBox(12, title);
+        HBox.setHgrow(title, Priority.ALWAYS);
+        headerRow.getChildren().add(wizard);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox listPane = new VBox(10, headerRow, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
