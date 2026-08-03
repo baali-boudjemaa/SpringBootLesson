@@ -269,7 +269,8 @@ public class DashboardController {
 
         if ("students".equals(module.table())) {
             studentsView.render(contentPane, pageTitleLabel,
-                    () -> new StudentEnrollmentWizard(dao, registry, this::showModule).show(contentPane, pageTitleLabel));
+                    () -> enrollmentWizard.show(contentPane, pageTitleLabel,
+                            () -> showModule(registry.byTable("students"))));
             return;
         }
 

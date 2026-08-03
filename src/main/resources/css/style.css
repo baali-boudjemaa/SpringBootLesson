@@ -289,6 +289,15 @@
 }
 .workflow-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -ink; }
 
+/* Receipt preview (enrollment wizard, payment step) */
+.receipt-box {
+    -fx-background-color: -surface; -fx-border-color: -line;
+    -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 6, 0, 0, 2);
+}
+.receipt-box .label { -fx-text-fill: -muted; }
+.receipt-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: -ink; }
+
 /* Success card after enroll */
 .success-card {
     -fx-background-color: #ECFDF5;
