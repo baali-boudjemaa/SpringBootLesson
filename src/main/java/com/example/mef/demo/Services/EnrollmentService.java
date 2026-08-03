@@ -54,14 +54,27 @@ public class EnrollmentService {
 
     /** Creates or updates an enrollment for the given student/classroom, in the current school year. */
     public Inscription save(Inscription inscription, String studentId, String classroomId) {
+        return save(inscription, studentId, classroomId, null);
+    }
+
+    /**
+     * Creates or updates an enrollment for the given student/classroom/academic year.
+     * When {@code anneeScolaireId} is null or blank, falls back to the current school year
+     * (creating it if it doesn't exist yet).
+     */
+    public Inscription save(Inscription inscription, String studentId, String classroomId, String anneeScolaireId) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("No student found with id " + studentId));
         Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new IllegalArgumentException("No classroom found with id " + classroomId));
+        AnneeScolaire schoolYear = (anneeScolaireId == null || anneeScolaireId.isBlank())
+                ? findOrCreateCurrentSchoolYear()
+                : anneeScolaireRepository.findById(anneeScolaireId)
+                .orElseThrow(() -> new IllegalArgumentException("No school year found with id " + anneeScolaireId));
 
         inscription.setStudent(student);
         inscription.setClassroom(classroom);
-        inscription.setAnneeScolaire(findOrCreateCurrentSchoolYear());
+        inscription.setAnneeScolaire(schoolYear);
         if (inscription.getDateInscription() == null) {
             inscription.setDateInscription(LocalDateTime.now());
         }
@@ -73,6 +86,21 @@ public class EnrollmentService {
 
     public void delete(String id) {
         inscriptionRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AnneeScolaire> findAllSchoolYears() {
+        return anneeScolaireRepository.findAll();
+    }
+
+    /** Creates a new academic year (e.g. "2027-2028"), or returns the existing one if the label is already used. */
+    public AnneeScolaire createSchoolYear(String label) {
+        return anneeScolaireRepository.findByLibelleAnneesc(label)
+                .orElseGet(() -> {
+                    AnneeScolaire schoolYear = new AnneeScolaire();
+                    schoolYear.setLibelleAnneesc(label);
+                    return anneeScolaireRepository.save(schoolYear);
+                });
     }
 
     public AnneeScolaire findOrCreateCurrentSchoolYear() {
