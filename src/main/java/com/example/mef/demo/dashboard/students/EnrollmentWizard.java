@@ -9,11 +9,14 @@ import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.EnrollmentRecordService;
 import com.example.mef.demo.Services.EnrollmentService;
+import com.example.mef.demo.Services.EnrollmentSettingsKeys;
 import com.example.mef.demo.Services.GuardianService;
 import com.example.mef.demo.Services.PaymentService;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.enums.AttendancePlan;
 import com.example.mef.demo.enums.BloodType;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.PaymentStatus;
@@ -34,6 +37,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -42,11 +46,15 @@ import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
 
 import java.text.NumberFormat;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 5-step "New Enrollment" wizard:
@@ -69,21 +77,29 @@ public class EnrollmentWizard {
     private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final List<String> BLOOD_TYPES = List.of("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-");
     private static final List<String> RELATIONS = List.of("Mere", "Pere", "Tuteur", "Autre");
+    /** Sun -> Sat, matching the order the custom-days checkboxes are shown in. */
+    private static final List<DayOfWeek> WEEK_DAYS = List.of(
+            DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY);
+    /** Full-week plan = every day except Friday & Saturday. */
+    private static final String FULL_WEEK_DAYS = "SUNDAY,MONDAY,TUESDAY,WEDNESDAY,THURSDAY";
 
     private final StudentService studentService;
     private final GuardianService guardianService;
     private final ClassroomService classroomService;
     private final EnrollmentService enrollmentService;
     private final PaymentService paymentService;
+    private final SettingService settingService;
 
     public EnrollmentWizard(StudentService studentService, GuardianService guardianService,
                             ClassroomService classroomService, EnrollmentService enrollmentService,
-                            PaymentService paymentService) {
+                            PaymentService paymentService, SettingService settingService) {
         this.studentService = studentService;
         this.guardianService = guardianService;
         this.classroomService = classroomService;
         this.enrollmentService = enrollmentService;
         this.paymentService = paymentService;
+        this.settingService = settingService;
     }
 
     /** Loads pickers in the background, then renders step 1. */
@@ -92,19 +108,29 @@ public class EnrollmentWizard {
         contentPane.setCenter(new Label(I18n.t("table.loading")));
 
         AsyncTasks.run(
-                () -> new WizardData(
-                        studentService.findAll(),
-                        guardianService.findAll(),
-                        classroomService.findAll(),
-                        enrollmentService.findAllSchoolYears().stream().map(AnneeScolaire::getLibelleAnneesc).toList()
-                ),
+                () -> {
+                    List<Classroom> classrooms = classroomService.findAll();
+                    Map<String, Integer> remainingSeats = new LinkedHashMap<>();
+                    for (Classroom c : classrooms) {
+                        remainingSeats.put(c.getId(), classroomService.remainingSeats(c));
+                    }
+                    return new WizardData(
+                            studentService.findAll(),
+                            guardianService.findAll(),
+                            classrooms,
+                            enrollmentService.findAllSchoolYears().stream().map(AnneeScolaire::getLibelleAnneesc).toList(),
+                            remainingSeats,
+                            settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT)
+                    );
+                },
                 data -> buildWizard(contentPane, pageTitleLabel, data, onBackToList),
                 err -> contentPane.setCenter(new Label("Erreur : " + err.getMessage()))
         );
     }
 
     private record WizardData(List<Student> students, List<Guardian> guardians,
-                              List<Classroom> classrooms, List<String> academicYears) {}
+                              List<Classroom> classrooms, List<String> academicYears,
+                              Map<String, Integer> remainingSeats, int minAge) {}
 
     private record EnrollmentResult(String studentName, String guardianName, Inscription inscription,
                                     Payment registrationPayment, Payment tuitionPayment) {}
@@ -216,19 +242,51 @@ public class EnrollmentWizard {
         academicYear.setValue(EnrollmentRecordService.currentSchoolYearLabel());
         ComboBox<Classroom> classroom = new ComboBox<>(FXCollections.observableArrayList(data.classrooms()));
         classroom.setMaxWidth(Double.MAX_VALUE);
-        classroom.setCellFactory(cb -> classroomCell());
-        classroom.setButtonCell(classroomCell());
+        classroom.setCellFactory(cb -> classroomCell(data.remainingSeats()));
+        classroom.setButtonCell(classroomCell(data.remainingSeats()));
         ComboBox<SessionName> session = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
         session.setMaxWidth(Double.MAX_VALUE);
         session.setCellFactory(cb -> sessionCell());
         session.setButtonCell(sessionCell());
         TextField registrationFee = FormFactory.textField(I18n.t("ewizard.registration_fee"));
 
+        /* ── Attendance: start date + attendance plan (+ custom days) ── */
+        DatePicker startDate = new DatePicker(LocalDate.now());
+        startDate.setMaxWidth(Double.MAX_VALUE);
+        ComboBox<AttendancePlan> attendancePlan = new ComboBox<>(FXCollections.observableArrayList(AttendancePlan.values()));
+        attendancePlan.setMaxWidth(Double.MAX_VALUE);
+        attendancePlan.setCellFactory(cb -> attendancePlanCell());
+        attendancePlan.setButtonCell(attendancePlanCell());
+        attendancePlan.setValue(AttendancePlan.FULL_WEEK);
+
+        List<CheckBox> dayChecks = List.of(
+                new CheckBox(I18n.t("day.sun")), new CheckBox(I18n.t("day.mon")), new CheckBox(I18n.t("day.tue")),
+                new CheckBox(I18n.t("day.wed")), new CheckBox(I18n.t("day.thu")), new CheckBox(I18n.t("day.fri")),
+                new CheckBox(I18n.t("day.sat")));
+        FlowPane customDaysBox = new FlowPane(12, 8);
+        customDaysBox.getChildren().addAll(dayChecks);
+        customDaysBox.setVisible(false);
+        customDaysBox.setManaged(false);
+        Label customDaysLabel = new Label(I18n.t("ewizard.custom_days"));
+        VBox customDaysWrap = new VBox(6, customDaysLabel, customDaysBox);
+        customDaysLabel.setVisible(false);
+        customDaysLabel.setManaged(false);
+        attendancePlan.valueProperty().addListener((obs, old, plan) -> {
+            boolean custom = plan == AttendancePlan.CUSTOM_DAYS;
+            customDaysBox.setVisible(custom);
+            customDaysBox.setManaged(custom);
+            customDaysLabel.setVisible(custom);
+            customDaysLabel.setManaged(custom);
+        });
+
         GridPane enrollmentForm = FormFactory.sectionGrid();
         FormFactory.addRow(enrollmentForm, 0, I18n.t("ewizard.academic_year"), academicYear);
         FormFactory.addRow(enrollmentForm, 1, I18n.t("field.classroom"), classroom);
         FormFactory.addRow(enrollmentForm, 2, I18n.t("ewizard.session"), session);
         FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.registration_fee"), registrationFee);
+        FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.start_date"), startDate);
+        FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.attendance_plan"), attendancePlan);
+        VBox enrollmentStep = new VBox(16, enrollmentForm, customDaysWrap);
 
         /* ── Step 4 — Payment (amount / method / receipt) ──────────── */
         CheckBox recordPayment = new CheckBox(I18n.t("ewizard.record_payment"));
@@ -272,14 +330,18 @@ public class EnrollmentWizard {
         Label summarySession  = new Label();
         Label summaryFee      = new Label();
         Label summaryPayment  = new Label();
+        Label summaryStartDate = new Label();
+        Label summaryAttendance = new Label();
         GridPane summaryGrid = FormFactory.sectionGrid();
         FormFactory.addRow(summaryGrid, 0, I18n.t("ewizard.summary.student"),  summaryStudent);
         FormFactory.addRow(summaryGrid, 1, I18n.t("ewizard.summary.guardian"), summaryGuardian);
         FormFactory.addRow(summaryGrid, 2, I18n.t("ewizard.summary.class"),    summaryClass);
         FormFactory.addRow(summaryGrid, 3, I18n.t("ewizard.summary.year"),     summaryYear);
         FormFactory.addRow(summaryGrid, 4, I18n.t("ewizard.summary.session"),  summarySession);
-        FormFactory.addRow(summaryGrid, 5, I18n.t("ewizard.summary.fee"),      summaryFee);
-        FormFactory.addRow(summaryGrid, 6, I18n.t("ewizard.summary.payment"),  summaryPayment);
+        FormFactory.addRow(summaryGrid, 5, I18n.t("ewizard.start_date"),       summaryStartDate);
+        FormFactory.addRow(summaryGrid, 6, I18n.t("ewizard.attendance_plan"),  summaryAttendance);
+        FormFactory.addRow(summaryGrid, 7, I18n.t("ewizard.summary.fee"),      summaryFee);
+        FormFactory.addRow(summaryGrid, 8, I18n.t("ewizard.summary.payment"),  summaryPayment);
         VBox summaryStep = new VBox(12, summaryGrid);
 
         /* ── Nav buttons ───────────────────────────────────────────── */
@@ -324,6 +386,9 @@ public class EnrollmentWizard {
             classroom.setValue(null);
             session.setValue(null);
             registrationFee.clear();
+            startDate.setValue(LocalDate.now());
+            attendancePlan.setValue(AttendancePlan.FULL_WEEK);
+            dayChecks.forEach(cb -> cb.setSelected(false));
 
             recordPayment.setSelected(false);
             paymentAmount.clear();
@@ -345,7 +410,7 @@ public class EnrollmentWizard {
                 I18n.t("ewizard.step.payment"),
                 I18n.t("ewizard.step.summary")
         );
-        List<Node> stepContent = List.of(studentStep, guardianStep, enrollmentForm, paymentStep, summaryStep);
+        List<Node> stepContent = List.of(studentStep, guardianStep, enrollmentStep, paymentStep, summaryStep);
         List<Button> stepButtons = new ArrayList<>();
         VBox stepList = new VBox(8);
         stepList.getStyleClass().add("workflow-list");
@@ -367,6 +432,10 @@ public class EnrollmentWizard {
                 summaryClass.setText(classroom.getValue() == null ? "—" : classroom.getValue().getName());
                 summaryYear.setText(FormFactory.value(academicYear));
                 summarySession.setText(session.getValue() == null ? "—" : sessionLabel(session.getValue()));
+                summaryStartDate.setText(startDate.getValue() == null ? "—" : startDate.getValue().format(RECEIPT_DATE_FORMAT));
+                summaryAttendance.setText(attendancePlan.getValue() == null ? "—" : attendancePlanLabel(attendancePlan.getValue())
+                        + (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
+                        ? " (" + customDaysSummary(dayChecks) + ")" : ""));
                 summaryFee.setText(formatFee(parseAmountSafely(registrationFee.getText())));
                 summaryPayment.setText(recordPayment.isSelected()
                         ? formatFee(parseAmountSafely(paymentAmount.getText())) + " (" + (paymentMethod.getValue() == null ? "—" : paymentMethodLabel(paymentMethod.getValue())) + ")"
@@ -398,10 +467,10 @@ public class EnrollmentWizard {
         previous.setOnAction(event -> { if (activeStep[0] > 0) { activeStep[0]--; renderStep[0].run(); } });
         next.setOnAction(event -> {
             try {
-                validateStep(activeStep[0], existingStudentCheck, existingStudentCombo, firstName, lastName,
+                validateStep(activeStep[0], existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                         existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                        academicYear, classroom, session, registrationFee,
-                        recordPayment, paymentAmount, paymentMethod);
+                        academicYear, classroom, session, registrationFee, attendancePlan, dayChecks,
+                        recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 activeStep[0]++;
                 renderStep[0].run();
             } catch (RuntimeException e) {
@@ -413,10 +482,10 @@ public class EnrollmentWizard {
         finish.setOnAction(event -> {
             try {
                 for (int s = 0; s < stepTitles.size() - 1; s++) {
-                    validateStep(s, existingStudentCheck, existingStudentCombo, firstName, lastName,
+                    validateStep(s, existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                             existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                            academicYear, classroom, session, registrationFee,
-                            recordPayment, paymentAmount, paymentMethod);
+                            academicYear, classroom, session, registrationFee, attendancePlan, dayChecks,
+                            recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 }
 
                 boolean isExistingStudent = existingStudentCheck.isSelected();

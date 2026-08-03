@@ -135,6 +135,31 @@
     -fx-pref-width: 220;
     -fx-min-width: 220;
 }
+.sidebar-scroll, .sidebar-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+.sidebar-scroll {
+    -fx-border-width: 0;
+    -fx-padding: 0;
+}
+.sidebar-scroll .scroll-bar:horizontal {
+    -fx-pref-height: 0;
+    -fx-opacity: 0;
+}
+.sidebar-scroll .scroll-bar:vertical {
+    -fx-pref-width: 8;
+    -fx-background-color: transparent;
+}
+.sidebar-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255,255,255,0.18);
+    -fx-background-radius: 4;
+}
+.sidebar-scroll .scroll-bar:vertical .increment-button,
+.sidebar-scroll .scroll-bar:vertical .decrement-button {
+    -fx-pref-height: 0;
+    -fx-opacity: 0;
+}
 .sidebar-brand-box {
     -fx-padding: 24 18 18 18;
     -fx-border-color: transparent transparent rgba(255,255,255,0.08) transparent;

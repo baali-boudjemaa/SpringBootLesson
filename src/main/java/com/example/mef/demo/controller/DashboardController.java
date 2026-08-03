@@ -79,7 +79,6 @@ public class DashboardController {
     private MonthlyReport monthlyReport;
     private Module activeModule;
     private String activeNavKey = "dashboard";
-
     public DashboardController(
             DynamicDatabaseService dao,
             BackupRestoreService backupRestoreService,

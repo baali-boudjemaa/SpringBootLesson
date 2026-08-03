@@ -81,10 +81,10 @@ public class ClassroomService {
         Map<String, Attendance> attendanceByStudentId = studentIds.isEmpty()
                 ? Map.of()
                 : attendanceRepository.findByStudentIdInAndDateBetween(studentIds, start, end).stream()
-                        .collect(Collectors.toMap(
-                                attendance -> attendance.getStudent().getId(),
-                                Function.identity(),
-                                (first, second) -> second));
+                .collect(Collectors.toMap(
+                        attendance -> attendance.getStudent().getId(),
+                        Function.identity(),
+                        (first, second) -> second));
 
         List<ClassStudentAttendance> rows = students.stream()
                 .map(student -> {
@@ -144,6 +144,20 @@ public class ClassroomService {
     @Transactional(readOnly = true)
     public int countStudentsInClassroom(String classroomId) {
         return inscriptionRepository.findByClassroomId(classroomId).size();
+    }
+
+    /**
+     * Remaining seats in a classroom (capacity minus current enrollments),
+     * never negative. Used to block enrollment when a class is full and to
+     * show "X places restantes" while picking a classroom.
+     */
+    @Transactional(readOnly = true)
+    public int remainingSeats(Classroom classroom) {
+        if (classroom == null || classroom.getCapacity() == null) {
+            return Integer.MAX_VALUE;
+        }
+        int taken = countStudentsInClassroom(classroom.getId());
+        return Math.max(0, classroom.getCapacity() - taken);
     }
 
     public record ClassAttendanceReport(
