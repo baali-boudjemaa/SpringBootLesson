@@ -48,7 +48,7 @@ public class StudentsView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher par nom ou téléphone...");
+    private final TextField searchField = FormFactory.textField("Rechercher par nom ...");
     private final Label countLabel = new Label();
 
     private final TextField firstNameField = FormFactory.textField("Prénom");
@@ -56,7 +56,6 @@ public class StudentsView {
     private final ComboBox<Sexe> genderField = new ComboBox<>(FXCollections.observableArrayList(Sexe.values()));
     private final DatePicker dobField = new DatePicker();
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
-    private final TextField phoneField = FormFactory.textField("Téléphone");
     private final TextField medicalInfoField = FormFactory.textField("Informations médicales");;
 
 
@@ -87,7 +86,7 @@ public class StudentsView {
 
         Button wizard = new Button("Assistant d'inscription");
         wizard.getStyleClass().add("link-button");
-        wizard.setOnAction(e -> this.onEnrollNew.run());
+        add.setOnAction(e -> this.onEnrollNew.run());
 
         HBox headerRow = new HBox(12, title);
         HBox.setHgrow(title, Priority.ALWAYS);
@@ -142,17 +141,14 @@ public class StudentsView {
                 DateUtil.frShort(d.getValue().getEnrollmentDate())));
         inscription.setPrefWidth(120);
 
-        TableColumn<Student, String> phone = new TableColumn<>("TÉLÉPHONE");
-        phone.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getPhone()));
-        phone.setCellFactory(col -> dashIfBlankCell());
-        phone.setPrefWidth(130);
+
 
         TableColumn<Student, String> notes = new TableColumn<>("INFORMATIONS MÉDICALES");
         notes.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getNotes()));
         notes.setCellFactory(col -> dashIfBlankCell());
         notes.setPrefWidth(140);
 
-        table.getColumns().addAll(List.of(child, age, section, groupage, inscription, phone, notes));
+        table.getColumns().addAll(List.of(child, age, section, groupage, inscription, notes));
     }
 
     private TableCell<Student, Student> childCell() {
@@ -231,8 +227,7 @@ public class StudentsView {
         FormFactory.addRow(grid, 2, "Genre", genderField);
         FormFactory.addRow(grid, 3, "Naissance", dobField);
         FormFactory.addRow(grid, 4, "Groupage", bloodTypeField);
-        FormFactory.addRow(grid, 5, "Téléphone", phoneField);
-        FormFactory.addRow(grid, 6, "Médical", medicalInfoField);
+        FormFactory.addRow(grid, 5, "Médical", medicalInfoField);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -278,7 +273,6 @@ public class StudentsView {
         genderField.setValue(student.getGender());
         dobField.setValue(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toLocalDate());
         bloodTypeField.setValue(student.getBloodType().getLabel());
-        phoneField.setText(student.getPhone());
         medicalInfoField.setText(student.getMedicalInfo());
         showFormPanel();
     }
@@ -290,7 +284,7 @@ public class StudentsView {
         genderField.setValue(null);
         dobField.setValue(null);
         bloodTypeField.setValue(null);
-        phoneField.clear();
+
         medicalInfoField.clear();
         table.getSelectionModel().clearSelection();
     }
@@ -306,7 +300,6 @@ public class StudentsView {
         student.setGender(genderField.getValue());
         student.setDateOfBirth(dobField.getValue() == null ? null : dobField.getValue().atStartOfDay());
         student.setBloodType(BloodType.fromLabel(bloodTypeField.getValue()));
-        student.setPhone(phoneField.getText());
         student.setMedicalInfo(medicalInfoField.getText());
 
         AsyncTasks.run(

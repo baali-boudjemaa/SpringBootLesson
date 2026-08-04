@@ -71,7 +71,7 @@
                 <Label fx:id="brandLabel" text="Rawdati" styleClass="brand-label"/>
                 <Label fx:id="brandSubtitleLabel" text="Gestion de Crèche" styleClass="brand-subtitle"/>
             </VBox>
-            <ScrollPane styleClass="sidebar-scroll" fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+            <ScrollPane fx:id="sidebarScroll" styleClass="sidebar-scroll" fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
                 <VBox fx:id="navigationBox" spacing="2">
                     <padding>
                         <Insets top="8" right="10" bottom="18" left="10"/>

@@ -31,11 +31,14 @@ import com.example.mef.demo.util.I18n;
 import com.example.mef.demo.util.SceneManager;
 import javafx.fxml.FXML;
 import javafx.geometry.NodeOrientation;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
@@ -56,7 +59,18 @@ public class DashboardController {
     @FXML private Button arButton;
     @FXML private Button logoutButton;
     @FXML private VBox navigationBox;
+    @FXML private ScrollPane sidebarScroll;
     @FXML private BorderPane contentPane;
+
+    /**
+     * JavaFX's default ScrollPane mouse-wheel handling derives the per-notch
+     * scroll distance from the content's total height, which for a short
+     * list like the sidebar nav (only a small amount of overflow) makes a
+     * single wheel notch jump almost straight to the top/bottom instead of
+     * scrolling smoothly. This factor converts wheel delta into a fixed,
+     * predictable pixel distance instead.
+     */
+    private static final double SIDEBAR_SCROLL_PIXELS_PER_UNIT = 1.0;
 
     private final DynamicDatabaseService dao;
     private final BackupRestorePanel backupRestorePanel;
@@ -131,6 +145,8 @@ public class DashboardController {
 
         monthlyReport = new MonthlyReport(contentPane, pageTitleLabel, dao);
         globalSearch = new GlobalSearch(rootPane, contentPane, registry, dao, this::showModule);
+
+        installSmoothScroll(sidebarScroll);
 
         I18n.setLocale(Locale.FRENCH);
         applyLocale();
@@ -234,6 +250,38 @@ public class DashboardController {
                 this::navigateMonthly,
                 this::navigateModule
         );
+    }
+
+    /**
+     * Replaces JavaFX's default mouse-wheel scroll math on a ScrollPane
+     * with a fixed pixel-per-notch amount, so short lists (like the
+     * sidebar nav) scroll smoothly instead of snapping almost straight to
+     * the top or bottom on a single wheel notch.
+     */
+    private static void installSmoothScroll(ScrollPane scrollPane) {
+        if (scrollPane == null) return;
+        scrollPane.addEventFilter(ScrollEvent.SCROLL, event -> {
+            Node content = scrollPane.getContent();
+            if (content == null || scrollPane.getViewportBounds() == null) return;
+
+            double contentHeight = content.getBoundsInLocal().getHeight();
+            double viewportHeight = scrollPane.getViewportBounds().getHeight();
+            double scrollableHeight = contentHeight - viewportHeight;
+            if (scrollableHeight <= 0) {
+                event.consume();
+                return;
+            }
+
+            double deltaY = event.getDeltaY() * SIDEBAR_SCROLL_PIXELS_PER_UNIT;
+            double vValueDelta = deltaY / scrollableHeight;
+            double newVvalue = clamp(scrollPane.getVvalue() - vValueDelta, 0, 1);
+            scrollPane.setVvalue(newVvalue);
+            event.consume();
+        });
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     private static String initialsOf(String name) {

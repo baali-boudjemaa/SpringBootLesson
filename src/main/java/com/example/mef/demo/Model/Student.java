@@ -43,8 +43,6 @@ public class Student  {
     @Enumerated(EnumType.STRING)
     private BloodType bloodType;
 
-    private String phone;
-
     @Column(columnDefinition = "TEXT")
     private String notes;
 

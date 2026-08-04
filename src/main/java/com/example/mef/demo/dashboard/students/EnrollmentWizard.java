@@ -150,7 +150,6 @@ public class EnrollmentWizard {
         dateOfBirth.setPromptText(I18n.t("field.date_of_birth"));
         dateOfBirth.setMaxWidth(Double.MAX_VALUE);
         ComboBox<String> bloodType = FormFactory.comboBox(BLOOD_TYPES);
-        TextField phone = FormFactory.textField(I18n.t("field.phone"));
         TextField medicalInfo = FormFactory.textField(I18n.t("field.medical_info"));
 
         GridPane newStudentForm = FormFactory.sectionGrid();
@@ -159,7 +158,6 @@ public class EnrollmentWizard {
         FormFactory.addRow(newStudentForm, 2, I18n.t("field.gender"), gender);
         FormFactory.addRow(newStudentForm, 3, I18n.t("field.date_of_birth"), dateOfBirth);
         FormFactory.addRow(newStudentForm, 4, I18n.t("field.blood_group"), bloodType);
-        FormFactory.addRow(newStudentForm, 5, I18n.t("field.phone"), phone);
         FormFactory.addRow(newStudentForm, 6, I18n.t("field.medical_info"), medicalInfo);
 
         TextField studentSearchField = FormFactory.textField(I18n.t("ewizard.search_student"));
@@ -174,7 +172,14 @@ public class EnrollmentWizard {
 
         studentSearchField.textProperty().addListener((obs, old, val) -> AsyncTasks.run(
                 () -> studentService.search(val),
-                list -> existingStudentCombo.setItems(FXCollections.observableArrayList(list)),
+                list -> {
+                    existingStudentCombo.setItems(FXCollections.observableArrayList(list));
+                    if (val != null && !val.isBlank() && !list.isEmpty()) {
+                        existingStudentCombo.show();   // auto-open with the matches
+                    } else {
+                        existingStudentCombo.hide();
+                    }
+                },
                 err -> {}
         ));
 
@@ -221,10 +226,16 @@ public class EnrollmentWizard {
 
         guardianSearchField.textProperty().addListener((obs, old, val) -> AsyncTasks.run(
                 () -> guardianService.search(val),
-                list -> existingGuardianCombo.setItems(FXCollections.observableArrayList(list)),
+                list -> {
+                    existingGuardianCombo.setItems(FXCollections.observableArrayList(list));
+                    if (val != null && !val.isBlank() && !list.isEmpty()) {
+                        existingGuardianCombo.show();   // auto-open with the matches
+                    } else {
+                        existingGuardianCombo.hide();
+                    }
+                },
                 err -> {}
         ));
-
         newGuardianForm.setVisible(true);
         newGuardianForm.setManaged(true);
         existingGuardianBox.setVisible(false);
@@ -240,7 +251,8 @@ public class EnrollmentWizard {
 
         /* ── Step 3 — Enrollment (year / classroom / session / fee) ─ */
         ComboBox<String> academicYear = FormFactory.comboBox(data.academicYears());
-        academicYear.setEditable(true);
+        academicYear.setMaxWidth(Double.MAX_VALUE);
+
         academicYear.setValue(EnrollmentRecordService.currentSchoolYearLabel());
         ComboBox<Classroom> classroom = new ComboBox<>(FXCollections.observableArrayList(data.classrooms()));
         classroom.setMaxWidth(Double.MAX_VALUE);
@@ -248,6 +260,7 @@ public class EnrollmentWizard {
         classroom.setButtonCell(classroomCell(data.remainingSeats()));
         ComboBox<SessionName> session = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
         session.setMaxWidth(Double.MAX_VALUE);
+
         session.setCellFactory(cb -> sessionCell());
         session.setButtonCell(sessionCell());
         TextField registrationFee = FormFactory.textField(I18n.t("ewizard.registration_fee"));
@@ -367,7 +380,6 @@ public class EnrollmentWizard {
             gender.setValue(null);
             dateOfBirth.setValue(null);
             bloodType.setValue(null);
-            phone.clear();
             medicalInfo.clear();
             studentSearchField.clear();
             existingStudentCombo.setValue(null);
@@ -497,7 +509,6 @@ public class EnrollmentWizard {
                 Sexe genderValue = gender.getValue();
                 LocalDate dobValue = dateOfBirth.getValue();
                 String bloodTypeValue = bloodType.getValue();
-                String phoneValue = valueOf(phone);
                 String medicalInfoValue = valueOf(medicalInfo);
 
                 boolean isExistingGuardian = existingGuardianCheck.isSelected();
@@ -541,7 +552,6 @@ public class EnrollmentWizard {
                                 created.setGender(genderValue);
                                 created.setDateOfBirth(dobValue == null ? null : dobValue.atStartOfDay());
                                 created.setBloodType(bloodTypeValue == null ? null : BloodType.fromLabel(bloodTypeValue));
-                                created.setPhone(phoneValue);
                                 created.setMedicalInfo(medicalInfoValue);
                                 created = studentService.save(created);
                                 studentId = created.getId();

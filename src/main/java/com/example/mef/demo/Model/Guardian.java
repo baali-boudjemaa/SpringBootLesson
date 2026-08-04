@@ -2,6 +2,7 @@ package com.example.mef.demo.Model;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
@@ -28,6 +29,10 @@ public class Guardian {
     private String lastName;
 
     @Column(nullable = false)
+    @Pattern(
+            regexp = "^(05|06|07)\\d{8}$",
+            message = "Numéro de téléphone invalide. Doit commencer par 05, 06 ou 07 et contenir 10 chiffres."
+    )
     private String phoneNumber;
 
     @Column(nullable = false, unique = true)

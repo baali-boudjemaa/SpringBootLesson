@@ -63,12 +63,19 @@ public class SettingsView {
         int currentMinAge = settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT);
         minAgeField.setText(String.valueOf(currentMinAge));
 
+        TextField schoolyear = new TextField();
+        schoolyear.setPromptText(I18n.t("settings.schoolyear.label"));
+        schoolyear.setMaxWidth(120);
+
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(10);
         grid.getStyleClass().add("form-grid");
         grid.add(new Label(I18n.t("settings.min_age.label")), 0, 0);
         grid.add(minAgeField, 1, 0);
+
+        grid.add(new Label(I18n.t("settings.schoolyear.hint")), 0, 1);
+        grid.add(schoolyear, 1, 1);
 
         Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");

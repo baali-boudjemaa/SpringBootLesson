@@ -4,6 +4,7 @@ import com.example.mef.demo.license.LicenseActivationDialog;
 import com.example.mef.demo.license.LicenseValidator;
 import com.example.mef.demo.license.MachineIdentifier;
 import com.example.mef.demo.license.SettingsRepository;
+import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Component;
 /**
  * Builds the "Licence & Activation" card shown at the top of the Settings
  * screen. Extracted verbatim (behavior unchanged) from
- * DashboardController.buildLicenseCard.
+ * DashboardController.buildLicenseCard, then wired to I18n so it follows
+ * the FR/AR toggle like the rest of the Settings page.
  */
 @Component
 public class LicenseCardBuilder {
@@ -49,7 +51,7 @@ public class LicenseCardBuilder {
         // ── Header ────────────────────────────────────────────────
         Label icon = new Label("🛡️");
         icon.setStyle("-fx-font-size: 20px;");
-        Label title = new Label("Licence & Activation");
+        Label title = new Label(I18n.t("license.title"));
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
         HBox header = new HBox(10, icon, title);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -66,9 +68,14 @@ public class LicenseCardBuilder {
             banner.setPadding(new Insets(14, 18, 14, 18));
             banner.setStyle("-fx-background-color: #FEF3C7; -fx-background-radius: 8; "
                     + "-fx-border-color: #FDE68A; -fx-border-radius: 8; -fx-border-width: 1;");
-            Label bannerBody = new Label(daysLeft > 0
-                    ? "Il vous reste " + daysLeft + " jour" + (daysLeft > 1 ? "s" : "") + " d'essai gratuit."
-                    : "Votre période d'essai est terminée. Activez pour continuer.");
+            String bannerText;
+            if (daysLeft > 0) {
+                String key = daysLeft > 1 ? "license.trial_remaining_other" : "license.trial_remaining_one";
+                bannerText = I18n.t(key).replace("{days}", String.valueOf(daysLeft));
+            } else {
+                bannerText = I18n.t("license.trial_expired");
+            }
+            Label bannerBody = new Label(bannerText);
             bannerBody.setStyle("-fx-text-fill: #92400E;");
             bannerBody.setWrapText(true);
             banner.getChildren().add(bannerBody);
@@ -78,16 +85,16 @@ public class LicenseCardBuilder {
             banner.setPadding(new Insets(14, 18, 14, 18));
             banner.setStyle("-fx-background-color: #D1FAE5; -fx-background-radius: 8; "
                     + "-fx-border-color: #A7F3D0; -fx-border-radius: 8; -fx-border-width: 1;");
-            Label bannerBody = new Label("Licence active. Merci d'utiliser Rawdati !");
+            Label bannerBody = new Label(I18n.t("license.active_message"));
             bannerBody.setStyle("-fx-text-fill: #065F46; -fx-font-weight: bold;");
             banner.getChildren().add(bannerBody);
             card.getChildren().add(banner);
         }
 
         // ── Step 1: machine ID ───────────────────────────────────
-        Label step1 = new Label("1. Votre Identifiant Machine");
+        Label step1 = new Label(I18n.t("license.step1_title"));
         step1.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-        Label step1Caption = new Label("Envoyez ce code à l'administrateur pour recevoir votre clé.");
+        Label step1Caption = new Label(I18n.t("license.step1_caption"));
         step1Caption.setStyle("-fx-text-fill: #64748B;");
 
         TextField idField = new TextField(machineId);
@@ -99,7 +106,7 @@ public class LicenseCardBuilder {
         Button copyBtn = new Button("📋");
         copyBtn.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; "
                 + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12;");
-        copyBtn.setTooltip(new Tooltip("Copier"));
+        copyBtn.setTooltip(new Tooltip(I18n.t("license.copy_tooltip")));
         copyBtn.setOnAction(e -> {
             var clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
             var content = new javafx.scene.input.ClipboardContent();
@@ -112,17 +119,17 @@ public class LicenseCardBuilder {
         VBox step1Box = new VBox(8, step1, step1Caption, idRow);
 
         // ── Step 2: activation key ───────────────────────────────
-        Label step2 = new Label("2. Entrer la Clé d'Activation");
+        Label step2 = new Label(I18n.t("license.step2_title"));
         step2.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
         TextField keyField = new TextField();
-        keyField.setPromptText("Collez votre clé ici...");
+        keyField.setPromptText(I18n.t("license.key_placeholder"));
         keyField.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; "
                 + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 10;");
         HBox.setHgrow(keyField, Priority.ALWAYS);
         keyField.setDisable(activated);
 
-        Button activateBtn = new Button("Activer");
+        Button activateBtn = new Button(I18n.t("license.activate_button"));
         activateBtn.setStyle("-fx-background-color: #6D5EF5; -fx-text-fill: white; "
                 + "-fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 10 24;");
         activateBtn.setDisable(activated);
@@ -137,7 +144,7 @@ public class LicenseCardBuilder {
                 settingsRepository.set(LICENSE_KEY_SETTING, candidate);
                 onActivated.run();
             } else {
-                errorLabel.setText("Clé invalide pour cette machine.");
+                errorLabel.setText(I18n.t("license.invalid_key"));
             }
         });
 
