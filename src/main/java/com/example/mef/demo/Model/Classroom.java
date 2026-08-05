@@ -44,6 +44,18 @@ public class Classroom  {
     @Builder.Default
     private boolean active = true;
 
+    /** Comma-separated day names this class receives students (e.g. "Lundi,Mardi,Mercredi"). Null/blank = no restriction. */
+    @Column(columnDefinition = "TEXT")
+    private String attendanceDays;
+
+    /** Start of this class's daily period, e.g. "08:00". Null/blank = no restriction. */
+    @Column
+    private String periodStartTime;
+
+    /** End of this class's daily period, e.g. "17:00". Null/blank = no restriction. */
+    @Column
+    private String periodEndTime;
+
     /**
      * Lead teacher assigned to this classroom (optional).
      */

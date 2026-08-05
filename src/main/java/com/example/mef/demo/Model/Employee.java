@@ -48,6 +48,18 @@ public class Employee {
     @Column(columnDefinition = "TEXT")
     private String certifications;
 
+    /** Comma-separated day names this teacher works (e.g. "Lundi,Mardi,Mercredi"). Null/blank = no restriction. */
+    @Column(columnDefinition = "TEXT")
+    private String workingDays;
+
+    /** Start of this teacher's daily working window, e.g. "08:00". Null/blank = no restriction. */
+    @Column
+    private String workStartTime;
+
+    /** End of this teacher's daily working window, e.g. "17:00". Null/blank = no restriction. */
+    @Column
+    private String workEndTime;
+
     @PrePersist
     void prePersist() {
         if (employeeNumber == null || employeeNumber.isBlank()) {

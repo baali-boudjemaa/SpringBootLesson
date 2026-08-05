@@ -1,7 +1,9 @@
 package com.example.mef.demo.dashboard.settings;
 
 import com.example.mef.demo.Services.EnrollmentSettingsKeys;
+import com.example.mef.demo.Services.ScheduleSettingsKeys;
 import com.example.mef.demo.Services.SettingService;
+import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
@@ -39,8 +41,9 @@ public class SettingsView {
     public void render(BorderPane contentPane) {
         VBox licenseCard = licenseCardBuilder.build(() -> render(contentPane));
         VBox enrollmentRulesCard = buildEnrollmentRulesCard();
+        VBox scheduleRulesCard = buildScheduleRulesCard();
 
-        VBox root = new VBox(20, enrollmentRulesCard, licenseCard);
+        VBox root = new VBox(20, enrollmentRulesCard, scheduleRulesCard, licenseCard);
         root.setPadding(new Insets(24));
 
         ScrollPane scroll = new ScrollPane(root);
@@ -100,6 +103,39 @@ public class SettingsView {
         actions.setPadding(new Insets(4, 0, 0, 0));
 
         VBox card = new VBox(14, title, hint, grid, actions);
+        card.getStyleClass().add("workflow-card");
+        return card;
+    }
+
+    /**
+     * "Schedule rules" card: weekly closure days used by course-schedule
+     * validation (a course cannot be scheduled on one of these days).
+     * Since course schedules are recurring weekly slots (day name + time,
+     * no calendar date), weekly closure days are how this app models
+     * "jours de congé/fermeture" — there is no dated holiday calendar.
+     */
+    private VBox buildScheduleRulesCard() {
+        Label title = new Label("Règles d'emploi du temps");
+        title.getStyleClass().add("workflow-title");
+
+        Label hint = new Label("Jours de fermeture hebdomadaire de l'établissement : aucun cours ne pourra être "
+                + "planifié ces jours-là.");
+        hint.setWrapText(true);
+
+        DaysPicker closedDaysField = new DaysPicker();
+        closedDaysField.setValue(settingService.get(ScheduleSettingsKeys.CLOSED_DAYS, ScheduleSettingsKeys.CLOSED_DAYS_DEFAULT));
+
+        Button save = new Button(I18n.t("action.save"));
+        save.getStyleClass().add("primary-button");
+        save.setOnAction(event -> {
+            settingService.set(ScheduleSettingsKeys.CLOSED_DAYS, closedDaysField.getValue(), "Jours de fermeture hebdomadaire");
+            DialogUtil.info("Règles d'emploi du temps", I18n.t("settings.saved"));
+        });
+
+        HBox actions = new HBox(10, save);
+        actions.setPadding(new Insets(4, 0, 0, 0));
+
+        VBox card = new VBox(14, title, hint, closedDaysField.getNode(), actions);
         card.getStyleClass().add("workflow-card");
         return card;
     }

@@ -1,18 +1,25 @@
 package com.example.mef.demo.dashboard.teachers;
 
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.dashboard.common.TimeSlots;
+import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
 import com.example.mef.demo.util.DialogUtil;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -22,8 +29,11 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** Typed CRUD screen for the "teachers" module (Employee entity). */
@@ -31,6 +41,7 @@ import java.util.List;
 public class TeachersView {
 
     private final EmployeeService employeeService;
+    private final CourseService courseService;
 
     private final ObservableList<Employee> rows = FXCollections.observableArrayList();
     private final TableView<Employee> table = new TableView<>(rows);
@@ -43,14 +54,28 @@ public class TeachersView {
     private final TextField phoneField = FormFactory.textField("Téléphone");
     private final ComboBox<EmployeeRole> roleField = new ComboBox<>(FXCollections.observableArrayList(EmployeeRole.values()));
     private final TextArea certificationsField = new TextArea();
+    private final DaysPicker workingDaysField = new DaysPicker();
+    private final ComboBox<String> workStartField = timeCombo();
+    private final ComboBox<String> workEndField = timeCombo();
+    private final Button timetableButton = new Button("📅  Emploi du temps");
 
     private Employee selected;
 
-    public TeachersView(EmployeeService employeeService) {
+    public TeachersView(EmployeeService employeeService, CourseService courseService) {
         this.employeeService = employeeService;
+        this.courseService = courseService;
         roleField.setMaxWidth(Double.MAX_VALUE);
         certificationsField.setPromptText("Certifications");
         certificationsField.setPrefRowCount(3);
+        timetableButton.getStyleClass().add("secondary-button");
+        timetableButton.setOnAction(e -> showTeacherTimetable());
+    }
+
+    private static ComboBox<String> timeCombo() {
+        ComboBox<String> cb = new ComboBox<>(FXCollections.observableArrayList(TimeSlots.slots()));
+        cb.setMaxWidth(Double.MAX_VALUE);
+        cb.setEditable(false);
+        return cb;
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
@@ -59,22 +84,23 @@ public class TeachersView {
         table.getColumns().clear();
         TableColumn<Employee, String> number = new TableColumn<>("N°");
         number.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmployeeNumber()));
+        number.setPrefWidth(140);
         TableColumn<Employee, String> name = new TableColumn<>("Nom");
         name.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getFirstName() + " " + d.getValue().getLastName()));
-        name.setPrefWidth(180);
+        name.setPrefWidth(140);
         TableColumn<Employee, String> role = new TableColumn<>("Rôle");
         role.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getRole() == null ? "" : d.getValue().getRole().name()));
         TableColumn<Employee, String> email = new TableColumn<>("Email");
         email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
-        email.setPrefWidth(180);
+        email.setPrefWidth(140);
         table.getColumns().addAll(List.of(number, name, role, email));
 
-        HBox toolbar = new HBox(10, searchField);
-        toolbar.setPadding(new Insets(0, 0, 10, 0));
+        HBox toolbar = new HBox(20, searchField);
+        toolbar.setPadding(new Insets(10, 10, 10, 10));
         HBox.setHgrow(searchField, Priority.ALWAYS);
         searchField.textProperty().addListener((obs, old, val) -> reload());
 
-        VBox listPane = new VBox(10, toolbar, table);
+        VBox listPane = new VBox(30, toolbar, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
@@ -82,8 +108,8 @@ public class TeachersView {
         BorderPane layout = new BorderPane();
         layout.setCenter(listPane);
         layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
-        form.setPrefWidth(320);
+        BorderPane.setMargin(form, new Insets(20, 20, 20, 16));
+        form.setPrefWidth(300);
 
         contentPane.setCenter(layout);
         reload();
@@ -97,6 +123,11 @@ public class TeachersView {
         FormFactory.addRow(grid, 3, "Téléphone", phoneField);
         FormFactory.addRow(grid, 4, "Rôle", roleField);
         FormFactory.addRow(grid, 5, "Certifications", certificationsField);
+        FormFactory.addRow(grid, 6, "Jours de travail", workingDaysField.getNode());
+        HBox workHoursRow = new HBox(8, new Label("De"), workStartField, new Label("à"), workEndField);
+        HBox.setHgrow(workStartField, Priority.ALWAYS);
+        HBox.setHgrow(workEndField, Priority.ALWAYS);
+        FormFactory.addRow(grid, 7, "Heures de travail", workHoursRow);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -108,7 +139,74 @@ public class TeachersView {
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        return new VBox(12, new Label("Détails de l'employé"), grid, new HBox(8, save, clear, delete));
+        return new VBox(12, new Label("Détails de l'employé"), grid,
+                new HBox(8, save, clear, delete), timetableButton);
+    }
+
+    /** Modal dialog listing every course/session taught by the selected teacher. */
+    private void showTeacherTimetable() {
+        if (selected == null) {
+            DialogUtil.info("Emploi du temps", "Sélectionnez d'abord un enseignant dans la liste.");
+            return;
+        }
+        Employee teacher = selected;
+
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        if (timetableButton.getScene() != null) {
+            dialog.initOwner(timetableButton.getScene().getWindow());
+        }
+        dialog.setTitle("Emploi du temps — " + teacher.getFirstName() + " " + teacher.getLastName());
+        dialog.setMinWidth(420);
+        dialog.setMinHeight(360);
+
+        ListView<String> listView = new ListView<>();
+        listView.setPlaceholder(new Label("Aucune séance planifiée pour cet enseignant."));
+
+        Label loading = new Label("Chargement...");
+        VBox root = new VBox(12, loading);
+        root.setPadding(new Insets(20));
+        root.setMinSize(400, 320);
+
+        AsyncTasks.run(
+                courseService::findAll,
+                allCourses -> {
+                    root.getChildren().remove(loading);
+
+                    record Row(String day, int start, String label) {}
+                    List<Row> lines = new java.util.ArrayList<>();
+                    for (Course c : allCourses) {
+                        if (c.getTeacher() == null || !teacher.getId().equals(c.getTeacher().getId())) continue;
+                        for (ScheduleValidator.Slot slot : ScheduleValidator.parse(c.getSchedule())) {
+                            String classroomName = c.getClassroom() == null ? "—" : c.getClassroom().getName();
+                            lines.add(new Row(slot.day(), slot.startMinutes(),
+                                    slot.day() + "  " + formatSlot(slot) + "   —   " + c.getName() + " (" + classroomName + ")"));
+                        }
+                    }
+                    lines.sort(Comparator.comparing(Row::day, Comparator.comparingInt(DaysPicker.DAYS::indexOf))
+                            .thenComparingInt(Row::start));
+                    listView.getItems().setAll(lines.stream().map(Row::label).toList());
+
+                    Button closeBtn = new Button("Fermer");
+                    closeBtn.getStyleClass().add("secondary-button");
+                    closeBtn.setOnAction(ev -> dialog.close());
+
+                    root.getChildren().addAll(listView, new HBox(10, closeBtn));
+                },
+                err -> {
+                    root.getChildren().remove(loading);
+                    root.getChildren().add(new Label("Erreur : " + err.getMessage()));
+                }
+        );
+
+        dialog.setScene(new Scene(root, 420, 380));
+        dialog.showAndWait();
+    }
+
+    private static String formatSlot(ScheduleValidator.Slot slot) {
+        return String.format("%02d:%02d-%02d:%02d",
+                slot.startMinutes() / 60, slot.startMinutes() % 60,
+                slot.endMinutes() / 60, slot.endMinutes() % 60);
     }
 
     private void selectRow(Employee employee) {
@@ -120,6 +218,9 @@ public class TeachersView {
         phoneField.setText(employee.getPhoneNumber());
         roleField.setValue(employee.getRole());
         certificationsField.setText(employee.getCertifications());
+        workingDaysField.setValue(employee.getWorkingDays());
+        workStartField.setValue(employee.getWorkStartTime());
+        workEndField.setValue(employee.getWorkEndTime());
     }
 
     private void clearForm() {
@@ -130,6 +231,9 @@ public class TeachersView {
         phoneField.clear();
         roleField.setValue(null);
         certificationsField.clear();
+        workingDaysField.clear();
+        workStartField.setValue(null);
+        workEndField.setValue(null);
         table.getSelectionModel().clearSelection();
     }
 
@@ -145,6 +249,9 @@ public class TeachersView {
         employee.setPhoneNumber(phoneField.getText().trim());
         employee.setRole(roleField.getValue());
         employee.setCertifications(certificationsField.getText());
+        employee.setWorkingDays(workingDaysField.getValue());
+        employee.setWorkStartTime(workStartField.getValue());
+        employee.setWorkEndTime(workEndField.getValue());
 
         AsyncTasks.run(
                 () -> employeeService.save(employee),

@@ -6,6 +6,8 @@ import com.example.mef.demo.Model.Employee;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
+import com.example.mef.demo.Services.ScheduleSettingsKeys;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.enums.CourseStatus;
@@ -14,6 +16,7 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -29,6 +32,7 @@ import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 /** Typed CRUD screen for the "courses" module (new Course entity). */
 @Component
@@ -37,6 +41,7 @@ public class CoursesView {
     private final CourseService courseService;
     private final EmployeeService employeeService;
     private final ClassroomService classroomService;
+    private final SettingService settingService;
 
     private final ObservableList<Course> rows = FXCollections.observableArrayList();
     private final TableView<Course> table = new TableView<>(rows);
@@ -44,7 +49,8 @@ public class CoursesView {
 
     private final TextField searchField = FormFactory.textField("Rechercher un cours...");
     private final TextField nameField = FormFactory.textField("Nom du cours");
-    private final TextField scheduleField = FormFactory.textField("Horaire");
+    private final TextField scheduleField = FormFactory.textField("Aucun horaire choisi");
+    private final Button scheduleButton = new Button("Choisir…");
     private final TextField feeField = FormFactory.textField("Frais mensuels");
     private final ComboBox<Employee> teacherField = new ComboBox<>();
     private final ComboBox<Classroom> classroomField = new ComboBox<>();
@@ -52,10 +58,12 @@ public class CoursesView {
 
     private Course selected;
 
-    public CoursesView(CourseService courseService, EmployeeService employeeService, ClassroomService classroomService) {
+    public CoursesView(CourseService courseService, EmployeeService employeeService,
+                       ClassroomService classroomService, SettingService settingService) {
         this.courseService = courseService;
         this.employeeService = employeeService;
         this.classroomService = classroomService;
+        this.settingService = settingService;
         teacherField.setMaxWidth(Double.MAX_VALUE);
         classroomField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
@@ -63,6 +71,17 @@ public class CoursesView {
         teacherField.setButtonCell(teacherCell());
         classroomField.setCellFactory(cb -> classroomCell());
         classroomField.setButtonCell(classroomCell());
+
+        scheduleField.setEditable(false);
+        scheduleField.setFocusTraversable(false);
+        scheduleButton.getStyleClass().add("secondary-button");
+        scheduleButton.setOnAction(e -> openSchedulePicker());
+    }
+
+    private void openSchedulePicker() {
+        SchedulePickerDialog.show(scheduleButton.getScene() == null ? null : scheduleButton.getScene().getWindow(),
+                        scheduleField.getText())
+                .ifPresent(scheduleField::setText);
     }
 
     private ListCell<Employee> teacherCell() {
@@ -110,13 +129,16 @@ public class CoursesView {
 
         VBox listPane = new VBox(10, toolbar, table);
         VBox.setVgrow(table, Priority.ALWAYS);
+        listPane.setMaxWidth(620);
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
         VBox form = buildForm();
         BorderPane layout = new BorderPane();
         layout.setCenter(listPane);
         layout.setRight(form);
+        BorderPane.setAlignment(listPane, Pos.TOP_LEFT);
         BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
+        layout.setPadding(new Insets(0, 20, 0, 0));
         form.setPrefWidth(320);
 
         contentPane.setCenter(layout);
@@ -138,7 +160,9 @@ public class CoursesView {
         FormFactory.addRow(grid, 0, "Nom", nameField);
         FormFactory.addRow(grid, 1, "Enseignant", teacherField);
         FormFactory.addRow(grid, 2, "Classe", classroomField);
-        FormFactory.addRow(grid, 3, "Horaire", scheduleField);
+        HBox scheduleRow = new HBox(8, scheduleField, scheduleButton);
+        HBox.setHgrow(scheduleField, Priority.ALWAYS);
+        FormFactory.addRow(grid, 3, "Horaire", scheduleRow);
         FormFactory.addRow(grid, 4, "Frais/mois", feeField);
         FormFactory.addRow(grid, 5, "Statut", statusField);
 
@@ -195,13 +219,32 @@ public class CoursesView {
         course.setSchedule(scheduleField.getText());
         course.setMonthlyFee(fee);
         course.setStatus(statusField.getValue() == null ? CourseStatus.ACTIVE : statusField.getValue());
+        course.setTeacher(teacherField.getValue());
+        course.setClassroom(classroomField.getValue());
         String teacherId = teacherField.getValue() == null ? null : teacherField.getValue().getId();
         String classroomId = classroomField.getValue() == null ? null : classroomField.getValue().getId();
 
         AsyncTasks.run(
-                () -> courseService.save(course, teacherId, classroomId),
-                saved -> { clearForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+                () -> {
+                    List<Course> others = courseService.findAll();
+                    Set<String> closedDays = ScheduleValidator.daysOf(
+                            settingService.get(ScheduleSettingsKeys.CLOSED_DAYS, ScheduleSettingsKeys.CLOSED_DAYS_DEFAULT));
+                    int enrolled = classroomId == null ? 0 : classroomService.countStudentsInClassroom(classroomId);
+                    return ScheduleValidator.validate(course, others, closedDays, enrolled);
+                },
+                violations -> {
+                    if (!violations.isEmpty()) {
+                        DialogUtil.error("Conflit d'horaire",
+                                "Impossible d'enregistrer ce cours :\n\n" + String.join("\n", violations));
+                        return;
+                    }
+                    AsyncTasks.run(
+                            () -> courseService.save(course, teacherId, classroomId),
+                            saved -> { clearForm(); reload(); },
+                            err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+                    );
+                },
+                err -> DialogUtil.error("Erreur", "Échec de la validation de l'horaire : " + err.getMessage())
         );
     }
 
