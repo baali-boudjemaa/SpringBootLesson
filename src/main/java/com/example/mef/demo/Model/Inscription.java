@@ -73,4 +73,14 @@ public class Inscription  {
     )
     @Builder.Default
     private List<Payment> payments = new ArrayList<>();
+
+    /** Support subjects (Course entities) the student follows, when enrolled in a SOUTIEN classroom. */
+    @ManyToMany
+    @JoinTable(
+            name = "inscription_course",
+            joinColumns = @JoinColumn(name = "inscriptionId"),
+            inverseJoinColumns = @JoinColumn(name = "courseId")
+    )
+    @Builder.Default
+    private List<Course> courses = new ArrayList<>();
 }

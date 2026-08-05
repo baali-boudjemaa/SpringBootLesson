@@ -2,11 +2,13 @@ package com.example.mef.demo.dashboard.students;
 
 import com.example.mef.demo.Model.AnneeScolaire;
 import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Guardian;
 import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Payment;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
+import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EnrollmentRecordService;
 import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.EnrollmentSettingsKeys;
@@ -18,6 +20,7 @@ import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.enums.AttendancePlan;
 import com.example.mef.demo.enums.BloodType;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.PaymentStatus;
 import com.example.mef.demo.enums.PaymentType;
@@ -92,16 +95,28 @@ public class EnrollmentWizard {
     private final EnrollmentService enrollmentService;
     private final PaymentService paymentService;
     private final SettingService settingService;
-
+    private final CourseService courseService;
+    Label summaryStudent  = new Label();
+    Label summaryGuardian = new Label();
+    Label summaryClass    = new Label();
+    Label summaryYear     = new Label();
+    Label summarySession  = new Label();
+    Label summaryFee      = new Label();
+    Label summaryPayment  = new Label();
+    Label summaryStartDate = new Label();
+    Label summaryAttendance = new Label();
+    Label summaryCourses = new Label();
     public EnrollmentWizard(StudentService studentService, GuardianService guardianService,
                             ClassroomService classroomService, EnrollmentService enrollmentService,
-                            PaymentService paymentService, SettingService settingService) {
+                            PaymentService paymentService, SettingService settingService,
+                            CourseService courseService) {
         this.studentService = studentService;
         this.guardianService = guardianService;
         this.classroomService = classroomService;
         this.enrollmentService = enrollmentService;
         this.paymentService = paymentService;
         this.settingService = settingService;
+        this.courseService = courseService;
     }
 
     /** Loads pickers in the background, then renders step 1. */
@@ -122,7 +137,8 @@ public class EnrollmentWizard {
                             classrooms,
                             enrollmentService.findAllSchoolYears().stream().map(AnneeScolaire::getLibelleAnneesc).toList(),
                             remainingSeats,
-                            settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT)
+                            settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT),
+                            courseService.findAll()
                     );
                 },
                 data -> buildWizard(contentPane, pageTitleLabel, data, onBackToList),
@@ -132,7 +148,7 @@ public class EnrollmentWizard {
 
     private record WizardData(List<Student> students, List<Guardian> guardians,
                               List<Classroom> classrooms, List<String> academicYears,
-                              Map<String, Integer> remainingSeats, int minAge) {}
+                              Map<String, Integer> remainingSeats, int minAge, List<Course> courses) {}
 
     private record EnrollmentResult(String studentName, String guardianName, Inscription inscription,
                                     Payment registrationPayment, Payment tuitionPayment) {}
@@ -258,6 +274,16 @@ public class EnrollmentWizard {
         classroom.setMaxWidth(Double.MAX_VALUE);
         classroom.setCellFactory(cb -> classroomCell(data.remainingSeats()));
         classroom.setButtonCell(classroomCell(data.remainingSeats()));
+
+        /* Read-only indicator: shows the selected classroom's category (Creche/Preparatoire/Soutien). */
+        ComboBox<Category> classroomCategory = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
+
+        classroomCategory.setMaxWidth(Double.MAX_VALUE);
+        //classroomCategory.setDisable(true);
+        classroomCategory.setCellFactory(cb -> categoryCell());
+
+        classroomCategory.setButtonCell(categoryCell());
+
         ComboBox<SessionName> session = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
         session.setMaxWidth(Double.MAX_VALUE);
 
@@ -286,6 +312,16 @@ public class EnrollmentWizard {
         VBox customDaysWrap = new VBox(6, customDaysLabel, customDaysBox);
         customDaysLabel.setVisible(false);
         customDaysLabel.setManaged(false);
+
+        classroomCategory.valueProperty().addListener((obs, old, sessionname) -> {
+            boolean custom = sessionname != Category.SOUTIEN;
+            session.setVisible(custom);
+            session.setManaged(custom);
+            session.setVisible(custom);
+            session.setManaged(custom);
+            summarySession.setVisible(custom);
+
+        });
         attendancePlan.valueProperty().addListener((obs, old, plan) -> {
             boolean custom = plan == AttendancePlan.CUSTOM_DAYS;
             customDaysBox.setVisible(custom);
@@ -297,11 +333,47 @@ public class EnrollmentWizard {
         GridPane enrollmentForm = FormFactory.sectionGrid();
         FormFactory.addRow(enrollmentForm, 0, I18n.t("ewizard.academic_year"), academicYear);
         FormFactory.addRow(enrollmentForm, 1, I18n.t("field.classroom"), classroom);
-        FormFactory.addRow(enrollmentForm, 2, I18n.t("ewizard.session"), session);
-        FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.registration_fee"), registrationFee);
-        FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.start_date"), startDate);
-        FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.attendance_plan"), attendancePlan);
-        VBox enrollmentStep = new VBox(16, enrollmentForm, customDaysWrap);
+        FormFactory.addRow(enrollmentForm, 2, I18n.t("classroom.category"), classroomCategory);
+        FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.session"), session);
+        FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.registration_fee"), registrationFee);
+        FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.start_date"), startDate);
+        FormFactory.addRow(enrollmentForm, 6, I18n.t("ewizard.attendance_plan"), attendancePlan);
+
+        /* ── Support courses: only shown when the chosen classroom is a SOUTIEN section ── */
+        Map<CheckBox, Course> courseCheckboxes = new LinkedHashMap<>();
+        FlowPane coursesBox = new FlowPane(12, 8);
+        Label coursesLabel = new Label(I18n.t("ewizard.support_courses"));
+        VBox coursesWrap = new VBox(6, coursesLabel, coursesBox);
+        coursesWrap.setVisible(false);
+        coursesWrap.setManaged(false);
+
+        Runnable[] refreshCourseOptions = new Runnable[1];
+        refreshCourseOptions[0] = () -> {
+            Classroom selectedClassroom = classroom.getValue();
+            classroomCategory.setValue(selectedClassroom == null ? null : selectedClassroom.getCategory());
+            boolean isSoutien = selectedClassroom != null && selectedClassroom.getCategory() == Category.SOUTIEN;
+            coursesWrap.setVisible(isSoutien);
+            coursesWrap.setManaged(isSoutien);
+            coursesBox.getChildren().clear();
+            courseCheckboxes.clear();
+            if (isSoutien) {
+                List<Course> available = data.courses().stream()
+                        .filter(c -> c.getClassroom() != null && c.getClassroom().getId().equals(selectedClassroom.getId()))
+                        .toList();
+                if (available.isEmpty()) {
+                    coursesBox.getChildren().add(new Label(I18n.t("ewizard.no_courses_for_classroom")));
+                } else {
+                    for (Course course : available) {
+                        CheckBox cb = new CheckBox(course.getName());
+                        courseCheckboxes.put(cb, course);
+                        coursesBox.getChildren().add(cb);
+                    }
+                }
+            }
+        };
+        classroom.valueProperty().addListener((obs, old, val) -> refreshCourseOptions[0].run());
+
+        VBox enrollmentStep = new VBox(16, enrollmentForm, customDaysWrap, coursesWrap);
 
         /* ── Step 4 — Payment (amount / method / receipt) ──────────── */
         CheckBox recordPayment = new CheckBox(I18n.t("ewizard.record_payment"));
@@ -338,15 +410,7 @@ public class EnrollmentWizard {
         VBox paymentStep = new VBox(16, recordPayment, paymentForm, receiptBox);
 
         /* ── Step 5 — Summary ─────────────────────────────────────── */
-        Label summaryStudent  = new Label();
-        Label summaryGuardian = new Label();
-        Label summaryClass    = new Label();
-        Label summaryYear     = new Label();
-        Label summarySession  = new Label();
-        Label summaryFee      = new Label();
-        Label summaryPayment  = new Label();
-        Label summaryStartDate = new Label();
-        Label summaryAttendance = new Label();
+
         GridPane summaryGrid = FormFactory.sectionGrid();
         FormFactory.addRow(summaryGrid, 0, I18n.t("ewizard.summary.student"),  summaryStudent);
         FormFactory.addRow(summaryGrid, 1, I18n.t("ewizard.summary.guardian"), summaryGuardian);
@@ -355,8 +419,9 @@ public class EnrollmentWizard {
         FormFactory.addRow(summaryGrid, 4, I18n.t("ewizard.summary.session"),  summarySession);
         FormFactory.addRow(summaryGrid, 5, I18n.t("ewizard.start_date"),       summaryStartDate);
         FormFactory.addRow(summaryGrid, 6, I18n.t("ewizard.attendance_plan"),  summaryAttendance);
-        FormFactory.addRow(summaryGrid, 7, I18n.t("ewizard.summary.fee"),      summaryFee);
-        FormFactory.addRow(summaryGrid, 8, I18n.t("ewizard.summary.payment"),  summaryPayment);
+        FormFactory.addRow(summaryGrid, 7, I18n.t("ewizard.support_courses"),  summaryCourses);
+        FormFactory.addRow(summaryGrid, 8, I18n.t("ewizard.summary.fee"),      summaryFee);
+        FormFactory.addRow(summaryGrid, 9, I18n.t("ewizard.summary.payment"),  summaryPayment);
         VBox summaryStep = new VBox(12, summaryGrid);
 
         /* ── Nav buttons ───────────────────────────────────────────── */
@@ -403,6 +468,7 @@ public class EnrollmentWizard {
             startDate.setValue(LocalDate.now());
             attendancePlan.setValue(AttendancePlan.FULL_WEEK);
             dayChecks.forEach(cb -> cb.setSelected(false));
+            refreshCourseOptions[0].run();
 
             recordPayment.setSelected(false);
             paymentAmount.clear();
@@ -450,6 +516,7 @@ public class EnrollmentWizard {
                 summaryAttendance.setText(attendancePlan.getValue() == null ? "—" : attendancePlanLabel(attendancePlan.getValue())
                         + (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
                         ? " (" + customDaysSummary(dayChecks) + ")" : ""));
+                summaryCourses.setText(selectedCoursesSummary(courseCheckboxes));
                 summaryFee.setText(formatFee(parseAmountSafely(registrationFee.getText())));
                 summaryPayment.setText(recordPayment.isSelected()
                         ? formatFee(parseAmountSafely(paymentAmount.getText())) + " (" + (paymentMethod.getValue() == null ? "—" : paymentMethodLabel(paymentMethod.getValue())) + ")"
@@ -483,7 +550,7 @@ public class EnrollmentWizard {
             try {
                 validateStep(activeStep[0], existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                         existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                        academicYear, classroom, session, registrationFee, attendancePlan, dayChecks,
+                        academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
                         recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 activeStep[0]++;
                 renderStep[0].run();
@@ -498,7 +565,7 @@ public class EnrollmentWizard {
                 for (int s = 0; s < stepTitles.size() - 1; s++) {
                     validateStep(s, existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                             existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                            academicYear, classroom, session, registrationFee, attendancePlan, dayChecks,
+                            academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
                             recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 }
 
@@ -525,6 +592,7 @@ public class EnrollmentWizard {
                 SessionName sessionValue = session.getValue();
                 double feeValue = parseAmount(registrationFee.getText());
                 LocalDate startDateValue = startDate.getValue();
+
                 AttendancePlan attendancePlanValue = attendancePlan.getValue();
                 String attendanceDaysValue = switch (attendancePlanValue == null ? AttendancePlan.FULL_WEEK : attendancePlanValue) {
                     case FULL_WEEK -> FULL_WEEK_DAYS;
@@ -535,6 +603,11 @@ public class EnrollmentWizard {
                 boolean paymentChecked = recordPayment.isSelected();
                 double paymentAmountValue = paymentChecked ? parseAmount(paymentAmount.getText()) : 0.0;
                 PaymentType paymentMethodValue = paymentMethod.getValue();
+
+                List<String> selectedCourseIds = courseCheckboxes.entrySet().stream()
+                        .filter(e -> e.getKey().isSelected())
+                        .map(e -> e.getValue().getId())
+                        .toList();
 
                 String studentDisplayName = studentDisplayName(existingStudentCheck, existingStudentCombo, firstName, lastName);
                 String guardianDisplayName = guardianDisplayName(existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName);
@@ -578,7 +651,7 @@ public class EnrollmentWizard {
                             inscription.setAttendancePlan(attendancePlanValue == null ? AttendancePlan.FULL_WEEK : attendancePlanValue);
                             inscription.setAttendanceDays(attendanceDaysValue);
                             Inscription savedInscription = enrollmentService.save(
-                                    inscription, studentId, classroomValue.getId(), schoolYear.getId());
+                                    inscription, studentId, classroomValue.getId(), schoolYear.getId(), selectedCourseIds);
 
                             Payment registrationPayment = null;
                             if (feeValue > 0) {
@@ -743,6 +816,15 @@ public class EnrollmentWizard {
         return selected.isEmpty() ? "—" : String.join(", ", selected);
     }
 
+    /** Names of the checked support-course checkboxes, comma-separated. */
+    private String selectedCoursesSummary(Map<CheckBox, Course> courseCheckboxes) {
+        List<String> selected = courseCheckboxes.entrySet().stream()
+                .filter(e -> e.getKey().isSelected())
+                .map(e -> e.getValue().getName())
+                .toList();
+        return selected.isEmpty() ? "—" : String.join(", ", selected);
+    }
+
     /** Comma-separated {@link DayOfWeek} names for the checked days, matching {@link #WEEK_DAYS} order. */
     private String customDaysValue(List<CheckBox> dayChecks) {
         List<String> selected = new ArrayList<>();
@@ -771,6 +853,24 @@ public class EnrollmentWizard {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? null : paymentMethodLabel(item));
             }
+        };
+    }
+
+    private ListCell<Category> categoryCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : categoryLabel(item));
+            }
+        };
+    }
+
+    private String categoryLabel(Category category) {
+        return switch (category) {
+            case CRECHE -> I18n.t("category.creche");
+            case PREPARATOIRE -> I18n.t("category.preparatoire");
+            case SOUTIEN -> I18n.t("category.soutien");
         };
     }
 
@@ -841,7 +941,7 @@ public class EnrollmentWizard {
                               CheckBox existingGuardianCheck, ComboBox<Guardian> existingGuardianCombo, TextField guardianFirstName, TextField guardianLastName,
                               ComboBox<String> relation, TextField guardianPhone, TextField guardianEmail,
                               ComboBox<String> academicYear, ComboBox<Classroom> classroom, ComboBox<SessionName> session, TextField registrationFee,
-                              ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks,
+                              ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks, Map<CheckBox, Course> courseCheckboxes,
                               CheckBox recordPayment, TextField paymentAmount, ComboBox<PaymentType> paymentMethod,
                               Map<String, Integer> remainingSeats, int minAge) {
         if (step == 0) {
@@ -918,6 +1018,11 @@ public class EnrollmentWizard {
             if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
                     && dayChecks.stream().noneMatch(CheckBox::isSelected)) {
                 throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days"));
+            }
+            if (classroom.getValue().getCategory() == Category.SOUTIEN
+                    && !courseCheckboxes.isEmpty()
+                    && courseCheckboxes.keySet().stream().noneMatch(CheckBox::isSelected)) {
+                throw new IllegalArgumentException(I18n.t("ewizard.select_support_courses"));
             }
             parseAmount(registrationFee.getText());
         }

@@ -1,6 +1,7 @@
 package com.example.mef.demo.Model;
 
 import com.example.mef.demo.Model.Inscription;
+import com.example.mef.demo.enums.Category;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -26,6 +27,12 @@ public class Classroom  {
 
     @Column
     private String ageGroup;
+
+    /** Whether this section is a creche (nursery) or preparatoire (pre-school) group. */
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255) default 'CRECHE'")
+    @Builder.Default
+    private Category category = Category.CRECHE;
 
     @Column(nullable = false)
     private Integer capacity;

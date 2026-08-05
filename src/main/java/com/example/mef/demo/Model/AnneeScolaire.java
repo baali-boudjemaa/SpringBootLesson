@@ -26,8 +26,8 @@ public class AnneeScolaire {
 
     @NotNull(message = "Le libellé de l'année scolaire est obligatoire")
     @Pattern(
-            regexp = "^(19|20)\\d{2}/(19|20)\\d{2}$",
-            message = "Format d'année scolaire invalide. Utilisez le format YYYY/YYYY (Ex: 2025/2026)"
+            regexp = "^(19|20)\\d{2}-(19|20)\\d{2}$",
+            message = "Format d'année scolaire invalide. Utilisez le format YYYY-YYYY (Ex: 2025-2026)"
     )
     @Column(name = "libelleAnneesc", nullable = false, unique = true)
     private String libelleAnneesc;

@@ -7,11 +7,14 @@ import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
 import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -55,11 +58,17 @@ public class ClassroomsView {
         TextField nameField = FormFactory.textField("Nom de la section");
         TextField ageGroupField = FormFactory.textField("Tranche d'âge");
         TextField capacityField = FormFactory.textField("Capacité max");
+        ComboBox<Category> categoryField = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
+        categoryField.setMaxWidth(Double.MAX_VALUE);
+        categoryField.setValue(Category.CRECHE);
+        categoryField.setCellFactory(cb -> categoryCell());
+        categoryField.setButtonCell(categoryCell());
 
         GridPane form = FormFactory.sectionGrid();
         FormFactory.addRow(form, 0, "Nom", nameField);
         FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
         FormFactory.addRow(form, 2, "Capacité", capacityField);
+        FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
@@ -74,6 +83,7 @@ public class ClassroomsView {
             nameField.setText("");
             ageGroupField.setText("");
             capacityField.setText("");
+            categoryField.setValue(Category.CRECHE);
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
 
@@ -94,6 +104,7 @@ public class ClassroomsView {
                             nameField.setText(c.getName());
                             ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
                             capacityField.setText(String.valueOf(c.getCapacity()));
+                            categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
                         });
                         cardGrid.getChildren().add(card);
                     }
@@ -117,6 +128,7 @@ public class ClassroomsView {
                 c.setName(nameField.getText().trim());
                 c.setAgeGroup(ageGroupField.getText().trim());
                 c.setCapacity(capacity);
+                c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
 
                 save.setDisable(true);
                 AsyncTasks.run(
@@ -170,11 +182,34 @@ public class ClassroomsView {
         contentPane.setCenter(workspace);
     }
 
+    private ListCell<Category> categoryCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : categoryLabel(item));
+            }
+        };
+    }
+
+    private String categoryLabel(Category category) {
+        return switch (category) {
+            case CRECHE -> I18n.t("category.creche");
+            case PREPARATOIRE -> I18n.t("category.preparatoire");
+            case SOUTIEN -> I18n.t("category.soutien");
+        };
+    }
+
     private VBox buildClassroomCard(Classroom c) {
         Label name = new Label(c.getName());
         name.getStyleClass().add("section-title");
 
-        Label meta = new Label(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+        String ageGroupText = c.getAgeGroup() == null ? "" : c.getAgeGroup();
+        String categoryText = c.getCategory() == null ? "" : categoryLabel(c.getCategory());
+        String metaText = ageGroupText.isBlank() ? categoryText
+                : categoryText.isBlank() ? ageGroupText
+                : ageGroupText + " · " + categoryText;
+        Label meta = new Label(metaText);
         meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         int enrolled = classroomService.countStudentsInClassroom(c.getId());

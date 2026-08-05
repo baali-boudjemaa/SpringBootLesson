@@ -2,10 +2,12 @@ package com.example.mef.demo.Services;
 
 import com.example.mef.demo.Model.AnneeScolaire;
 import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Repository.AnneeScolaireRepository;
 import com.example.mef.demo.Repository.ClassroomRepository;
+import com.example.mef.demo.Repository.CourseRepository;
 import com.example.mef.demo.Repository.InscriptionRepository;
 import com.example.mef.demo.Repository.StudentRepository;
 import com.example.mef.demo.enums.EnrollmentStatus;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,15 +29,18 @@ public class EnrollmentService {
     private final StudentRepository studentRepository;
     private final ClassroomRepository classroomRepository;
     private final AnneeScolaireRepository anneeScolaireRepository;
+    private final CourseRepository courseRepository;
 
     public EnrollmentService(InscriptionRepository inscriptionRepository,
                              StudentRepository studentRepository,
                              ClassroomRepository classroomRepository,
-                             AnneeScolaireRepository anneeScolaireRepository) {
+                             AnneeScolaireRepository anneeScolaireRepository,
+                             CourseRepository courseRepository) {
         this.inscriptionRepository = inscriptionRepository;
         this.studentRepository = studentRepository;
         this.classroomRepository = classroomRepository;
         this.anneeScolaireRepository = anneeScolaireRepository;
+        this.courseRepository = courseRepository;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +69,16 @@ public class EnrollmentService {
      * (creating it if it doesn't exist yet).
      */
     public Inscription save(Inscription inscription, String studentId, String classroomId, String anneeScolaireId) {
+        return save(inscription, studentId, classroomId, anneeScolaireId, null);
+    }
+
+    /**
+     * Same as {@link #save(Inscription, String, String, String)}, additionally attaching the
+     * given support-course selections (used when the classroom's category is SOUTIEN, letting
+     * the guardian pick which subjects the child follows).
+     */
+    public Inscription save(Inscription inscription, String studentId, String classroomId, String anneeScolaireId,
+                            List<String> courseIds) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("No student found with id " + studentId));
         Classroom classroom = classroomRepository.findById(classroomId)
@@ -81,6 +97,9 @@ public class EnrollmentService {
         if (inscription.getStatus() == null) {
             inscription.setStatus(EnrollmentStatus.ACTIVE);
         }
+        inscription.setCourses((courseIds == null || courseIds.isEmpty())
+                ? new ArrayList<>()
+                : courseRepository.findAllById(courseIds));
         return inscriptionRepository.save(inscription);
     }
 
