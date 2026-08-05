@@ -313,15 +313,6 @@ public class EnrollmentWizard {
         customDaysLabel.setVisible(false);
         customDaysLabel.setManaged(false);
 
-        classroomCategory.valueProperty().addListener((obs, old, sessionname) -> {
-            boolean custom = sessionname != Category.SOUTIEN;
-            session.setVisible(custom);
-            session.setManaged(custom);
-            session.setVisible(custom);
-            session.setManaged(custom);
-            summarySession.setVisible(custom);
-
-        });
         attendancePlan.valueProperty().addListener((obs, old, plan) -> {
             boolean custom = plan == AttendancePlan.CUSTOM_DAYS;
             customDaysBox.setVisible(custom);
@@ -338,6 +329,18 @@ public class EnrollmentWizard {
         FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.registration_fee"), registrationFee);
         FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.start_date"), startDate);
         FormFactory.addRow(enrollmentForm, 6, I18n.t("ewizard.attendance_plan"), attendancePlan);
+
+        // Session and Plan de fréquentation are only relevant for Crèche / Préparatoire —
+        // hidden automatically when the selected classroom's category is Soutien.
+        Runnable[] refreshSessionFieldsVisibility = new Runnable[1];
+        refreshSessionFieldsVisibility[0] = () -> {
+            boolean visible = classroomCategory.getValue() != Category.SOUTIEN;
+            setFormRowVisible(enrollmentForm, 3, visible); // Session
+            setFormRowVisible(enrollmentForm, 6, visible); // Plan de fréquentation
+            summarySession.setVisible(visible);
+        };
+        classroomCategory.valueProperty().addListener((obs, old, val) -> refreshSessionFieldsVisibility[0].run());
+        refreshSessionFieldsVisibility[0].run();
 
         /* ── Support courses: only shown when the chosen classroom is a SOUTIEN section ── */
         Map<CheckBox, Course> courseCheckboxes = new LinkedHashMap<>();
@@ -739,6 +742,18 @@ public class EnrollmentWizard {
 
     /* ── Helpers ──────────────────────────────────────────────────── */
 
+    /** Shows or hides both the label and the control that {@link FormFactory#addRow} placed in the given grid row. */
+    private void setFormRowVisible(GridPane grid, int row, boolean visible) {
+        for (Node child : grid.getChildren()) {
+            Integer r = GridPane.getRowIndex(child);
+            int actualRow = (r == null) ? 0 : r;
+            if (actualRow == row) {
+                child.setVisible(visible);
+                child.setManaged(visible);
+            }
+        }
+    }
+
     private ListCell<Student> studentCell() {
         return new ListCell<>() {
             @Override
@@ -1012,7 +1027,7 @@ public class EnrollmentWizard {
             if (seats != null && seats <= 0) {
                 throw new IllegalArgumentException(I18n.t("ewizard.classroom_full"));
             }
-            if (session.getValue() == null) {
+            if (classroom.getValue().getCategory() != Category.SOUTIEN && session.getValue() == null) {
                 throw new IllegalArgumentException(I18n.t("ewizard.select_session"));
             }
             if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
