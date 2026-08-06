@@ -7,7 +7,6 @@ import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
-import com.example.mef.demo.dashboard.common.TimeSlots;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
 import com.example.mef.demo.util.DialogUtil;
@@ -15,11 +14,13 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -28,6 +29,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -48,16 +50,20 @@ public class TeachersView {
     { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "teachers"); }
 
     private final TextField searchField = FormFactory.textField("Rechercher un employé...");
+    private final Label countLabel = new Label();
     private final TextField firstNameField = FormFactory.textField("Prénom");
     private final TextField lastNameField = FormFactory.textField("Nom");
     private final TextField emailField = FormFactory.textField("Email");
     private final TextField phoneField = FormFactory.textField("Téléphone");
     private final ComboBox<EmployeeRole> roleField = new ComboBox<>(FXCollections.observableArrayList(EmployeeRole.values()));
     private final TextArea certificationsField = new TextArea();
-    private final DaysPicker workingDaysField = new DaysPicker();
-    private final ComboBox<String> workStartField = timeCombo();
-    private final ComboBox<String> workEndField = timeCombo();
+    private final TextField availabilityField = FormFactory.textField("Aucun horaire défini");
+    private final Button availabilityButton = new Button("Choisir…");
     private final Button timetableButton = new Button("📅  Emploi du temps");
+
+    private String currentWorkingDays = "";
+    private String currentWorkStart = "";
+    private String currentWorkEnd = "";
 
     private Employee selected;
 
@@ -67,15 +73,37 @@ public class TeachersView {
         roleField.setMaxWidth(Double.MAX_VALUE);
         certificationsField.setPromptText("Certifications");
         certificationsField.setPrefRowCount(3);
+        availabilityField.setEditable(false);
+        availabilityField.setFocusTraversable(false);
+        availabilityButton.getStyleClass().add("secondary-button");
+        availabilityButton.setOnAction(e -> openAvailabilityPicker());
         timetableButton.getStyleClass().add("secondary-button");
         timetableButton.setOnAction(e -> showTeacherTimetable());
+        updateAvailabilitySummary();
     }
 
-    private static ComboBox<String> timeCombo() {
-        ComboBox<String> cb = new ComboBox<>(FXCollections.observableArrayList(TimeSlots.slots()));
-        cb.setMaxWidth(Double.MAX_VALUE);
-        cb.setEditable(false);
-        return cb;
+    private void openAvailabilityPicker() {
+        TeacherAvailabilityDialog.show(
+                availabilityButton.getScene() == null ? null : availabilityButton.getScene().getWindow(),
+                currentWorkingDays, currentWorkStart, currentWorkEnd
+        ).ifPresent(result -> {
+            currentWorkingDays = result.workingDays();
+            currentWorkStart = result.workStartTime();
+            currentWorkEnd = result.workEndTime();
+            updateAvailabilitySummary();
+        });
+    }
+
+    private void updateAvailabilitySummary() {
+        if (currentWorkingDays == null || currentWorkingDays.isBlank()) {
+            availabilityField.setText("");
+            return;
+        }
+        String days = String.join(", ", currentWorkingDays.split(","));
+        String hours = (currentWorkStart == null || currentWorkStart.isBlank()
+                || currentWorkEnd == null || currentWorkEnd.isBlank())
+                ? "" : "  ·  " + currentWorkStart + "–" + currentWorkEnd;
+        availabilityField.setText(days + hours);
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
@@ -95,21 +123,36 @@ public class TeachersView {
         email.setPrefWidth(140);
         table.getColumns().addAll(List.of(number, name, role, email));
 
-        HBox toolbar = new HBox(20, searchField);
-        toolbar.setPadding(new Insets(10, 10, 10, 10));
-        HBox.setHgrow(searchField, Priority.ALWAYS);
+        Label title = new Label("Personnel");
+        title.getStyleClass().add("page-title");
+        countLabel.getStyleClass().add("stat-caption");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox headerRow = new HBox(12, title, spacer);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        VBox headerBlock = new VBox(4, headerRow, countLabel);
+
+        searchField.getStyleClass().add("filter-field");
         searchField.textProperty().addListener((obs, old, val) -> reload());
 
-        VBox listPane = new VBox(30, toolbar, table);
+        VBox listPane = new VBox(18, headerBlock, searchField, table);
+        listPane.setPadding(new Insets(24, 20, 24, 24));
         VBox.setVgrow(table, Priority.ALWAYS);
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
         VBox form = buildForm();
+        ScrollPane formScroll = new ScrollPane(form);
+        formScroll.setFitToWidth(true);
+        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        formScroll.getStyleClass().add("panel-scroll");
+        formScroll.setPrefWidth(320);
+        formScroll.setMinWidth(300);
+
         BorderPane layout = new BorderPane();
         layout.setCenter(listPane);
-        layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(20, 20, 20, 16));
-        form.setPrefWidth(300);
+        layout.setRight(formScroll);
+        BorderPane.setMargin(formScroll, new Insets(24, 24, 24, 0));
 
         contentPane.setCenter(layout);
         reload();
@@ -123,11 +166,10 @@ public class TeachersView {
         FormFactory.addRow(grid, 3, "Téléphone", phoneField);
         FormFactory.addRow(grid, 4, "Rôle", roleField);
         FormFactory.addRow(grid, 5, "Certifications", certificationsField);
-        FormFactory.addRow(grid, 6, "Jours de travail", workingDaysField.getNode());
-        HBox workHoursRow = new HBox(8, new Label("De"), workStartField, new Label("à"), workEndField);
-        HBox.setHgrow(workStartField, Priority.ALWAYS);
-        HBox.setHgrow(workEndField, Priority.ALWAYS);
-        FormFactory.addRow(grid, 7, "Heures de travail", workHoursRow);
+        HBox availabilityRow = new HBox(8, availabilityField, availabilityButton);
+        availabilityRow.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(availabilityField, Priority.ALWAYS);
+        FormFactory.addRow(grid, 6, "Disponibilité", availabilityRow);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -139,8 +181,16 @@ public class TeachersView {
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        return new VBox(12, new Label("Détails de l'employé"), grid,
-                new HBox(8, save, clear, delete), timetableButton);
+        HBox actions = new HBox(8, save, clear, delete);
+
+        Label formTitle = new Label("Détails de l'employé");
+        formTitle.getStyleClass().add("section-title");
+
+        VBox panel = new VBox(14, formTitle, grid, actions, timetableButton);
+        panel.getStyleClass().add("side-panel");
+        panel.setPrefWidth(320);
+        panel.setMinWidth(300);
+        return panel;
     }
 
     /** Modal dialog listing every course/session taught by the selected teacher. */
@@ -218,9 +268,10 @@ public class TeachersView {
         phoneField.setText(employee.getPhoneNumber());
         roleField.setValue(employee.getRole());
         certificationsField.setText(employee.getCertifications());
-        workingDaysField.setValue(employee.getWorkingDays());
-        workStartField.setValue(employee.getWorkStartTime());
-        workEndField.setValue(employee.getWorkEndTime());
+        currentWorkingDays = employee.getWorkingDays() == null ? "" : employee.getWorkingDays();
+        currentWorkStart = employee.getWorkStartTime() == null ? "" : employee.getWorkStartTime();
+        currentWorkEnd = employee.getWorkEndTime() == null ? "" : employee.getWorkEndTime();
+        updateAvailabilitySummary();
     }
 
     private void clearForm() {
@@ -231,9 +282,10 @@ public class TeachersView {
         phoneField.clear();
         roleField.setValue(null);
         certificationsField.clear();
-        workingDaysField.clear();
-        workStartField.setValue(null);
-        workEndField.setValue(null);
+        currentWorkingDays = "";
+        currentWorkStart = "";
+        currentWorkEnd = "";
+        updateAvailabilitySummary();
         table.getSelectionModel().clearSelection();
     }
 
@@ -249,9 +301,9 @@ public class TeachersView {
         employee.setPhoneNumber(phoneField.getText().trim());
         employee.setRole(roleField.getValue());
         employee.setCertifications(certificationsField.getText());
-        employee.setWorkingDays(workingDaysField.getValue());
-        employee.setWorkStartTime(workStartField.getValue());
-        employee.setWorkEndTime(workEndField.getValue());
+        employee.setWorkingDays(currentWorkingDays.isBlank() ? null : currentWorkingDays);
+        employee.setWorkStartTime(currentWorkStart.isBlank() ? null : currentWorkStart);
+        employee.setWorkEndTime(currentWorkEnd.isBlank() ? null : currentWorkEnd);
 
         AsyncTasks.run(
                 () -> employeeService.save(employee),
@@ -275,7 +327,10 @@ public class TeachersView {
         String needle = searchField.getText();
         AsyncTasks.run(
                 () -> employeeService.search(needle),
-                list -> rows.setAll(list),
+                list -> {
+                    rows.setAll(list);
+                    countLabel.setText(list.size() + " employé" + (list.size() > 1 ? "s" : ""));
+                },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
     }

@@ -284,6 +284,75 @@
 .side-panel > .label { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: -ink; }
 .form-grid .label { -fx-text-fill: -muted; }
 
+/* Borderless scroller wrapping a side-panel form */
+.panel-scroll, .panel-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+.panel-scroll { -fx-border-width: 0; -fx-padding: 0; }
+.panel-scroll .scroll-bar:horizontal { -fx-pref-height: 0; -fx-opacity: 0; }
+.panel-scroll .scroll-bar:vertical { -fx-pref-width: 8; -fx-background-color: transparent; }
+.panel-scroll .scroll-bar:vertical .track { -fx-background-color: transparent; }
+.panel-scroll .scroll-bar:vertical .thumb { -fx-background-color: #CBD5E1; -fx-background-radius: 4; }
+.panel-scroll .scroll-bar:vertical .thumb:hover { -fx-background-color: #94A3B8; }
+.panel-scroll .scroll-bar:vertical .increment-button,
+.panel-scroll .scroll-bar:vertical .decrement-button { -fx-pref-height: 0; -fx-opacity: 0; }
+
+/* ── Weekly timetable picker (SchedulePickerDialog) ────────────── */
+.timetable-root { -fx-background-color: -surface; }
+.timetable-subtitle { -fx-text-fill: -muted; -fx-font-size: 12px; }
+
+.timetable-card {
+    -fx-background-color: -surface;
+    -fx-border-color: -line;
+    -fx-border-radius: 12; -fx-background-radius: 12;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 8, 0, 0, 2);
+}
+
+.timetable-day-header {
+    -fx-background-color: -panel-soft;
+    -fx-text-fill: -ink;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 7 4 7 4;
+    -fx-background-radius: 14;
+    -fx-alignment: center;
+}
+.timetable-day-header-active {
+    -fx-background-color: -accent;
+    -fx-text-fill: white;
+}
+
+.timetable-hour-label { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -ink; }
+.timetable-hour-dash  { -fx-font-size: 9px;  -fx-text-fill: -muted; -fx-padding: 0; }
+
+.timetable-cell {
+    -fx-background-color: -surface;
+    -fx-border-color: -line;
+    -fx-border-width: 0.5;
+}
+.timetable-cell:hover { -fx-background-color: -panel-soft; }
+.timetable-cell-selected, .timetable-cell-selected:hover {
+    -fx-background-color: -accent;
+}
+.timetable-cell-check {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.timetable-break-row {
+    -fx-background-color: #E4EEFB;
+    -fx-border-color: -line;
+    -fx-border-width: 0.5;
+}
+.timetable-break-label {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -muted;
+}
+
 /* Validation error field */
 .field-error {
     -fx-border-color: -danger;
