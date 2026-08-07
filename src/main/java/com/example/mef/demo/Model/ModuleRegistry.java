@@ -69,6 +69,13 @@ public final class ModuleRegistry {
                         new Field("capacity",     "field.capacity"),
                         new Field("status",       "field.status", List.of("ACTIVE", "INACTIVE"))
                 )));
+        modules.add(new Module("nav.rooms", "rooms", "name",
+                List.of(
+                        new Field("name",     "field.name"),
+                        new Field("location", "field.location"),
+                        new Field("capacity", "field.capacity"),
+                        new Field("active",   "field.status", List.of("ACTIVE", "INACTIVE"))
+                )));
         modules.add(new Module("nav.guardians", "guardians", "last_name, first_name",
                 List.of(
                         new Field("first_name",   "field.first_name"),

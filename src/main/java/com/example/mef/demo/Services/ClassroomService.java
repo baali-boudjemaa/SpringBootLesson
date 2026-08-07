@@ -44,7 +44,7 @@ public class ClassroomService {
 
     @Transactional(readOnly = true)
     public List<Classroom> findAll() {
-        return classroomRepository.findAll();
+        return classroomRepository.findAllWithRooms();
     }
 
     public Classroom save(Classroom classroom) {

@@ -17,6 +17,7 @@ import com.example.mef.demo.dashboard.nav.NavigationBuilder;
 import com.example.mef.demo.dashboard.payments.PaymentsView;
 import com.example.mef.demo.dashboard.report.MonthlyReport;
 import com.example.mef.demo.dashboard.reports.ReportsView;
+import com.example.mef.demo.dashboard.rooms.RoomsView;
 import com.example.mef.demo.dashboard.search.GlobalSearch;
 import com.example.mef.demo.dashboard.settings.BackupRestorePanel;
 import com.example.mef.demo.dashboard.settings.LicenseCardBuilder;
@@ -79,6 +80,7 @@ public class DashboardController {
     private final BackupRestorePanel backupRestorePanel;
     private final AttendanceView attendanceView;
     private final ClassroomsView classroomsView;
+    private final RoomsView roomsView;
     private final DashboardHomeView dashboardHomeView;
     private final ModuleRegistry registry;
     private final NavigationBuilder navigationBuilder;
@@ -103,6 +105,7 @@ public class DashboardController {
             BackupRestoreService backupRestoreService,
             AttendanceView attendanceView,
             ClassroomsView classroomsView,
+            RoomsView roomsView,
             DashboardHomeView dashboardHomeView,
             LicenseCardBuilder licenseCardBuilder,
             ModuleRegistry registry,
@@ -123,6 +126,7 @@ public class DashboardController {
         this.backupRestorePanel = new BackupRestorePanel(backupRestoreService);
         this.attendanceView = attendanceView;
         this.classroomsView = classroomsView;
+        this.roomsView = roomsView;
         this.dashboardHomeView = dashboardHomeView;
         this.registry = registry;
         this.navigationBuilder = navigationBuilder;
@@ -334,6 +338,11 @@ public class DashboardController {
 
         if ("classes".equals(module.table())) {
             classroomsView.render(contentPane);
+            return;
+        }
+
+        if ("rooms".equals(module.table())) {
+            roomsView.render(contentPane);
             return;
         }
 

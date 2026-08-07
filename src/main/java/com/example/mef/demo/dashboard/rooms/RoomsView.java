@@ -8,6 +8,7 @@ import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
@@ -19,6 +20,7 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,10 +31,9 @@ import java.util.stream.Collectors;
 
 /**
  * The rooms (salles) management screen: a card grid of available rooms
- * with a create/edit form. Rooms created here can then be linked to one
- * or more sections from the "Aqsam" (classes) page, where their weekly
- * occupancy schedule is checked for conflicts against every other section
- * sharing that room.
+ * with a create/edit form. Selecting a room also shows which sections
+ * currently occupy it, so you can see at a glance whether a room is free
+ * before deleting it or assigning a new class to it.
  */
 @Component
 public class RoomsView {
@@ -67,8 +68,63 @@ public class RoomsView {
         Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, clear, delete);
 
+        // --- "Sections occupying this room" block -------------------------
+        Label occupantsTitle = new Label(I18n.t("room.occupied_by"));
+        occupantsTitle.getStyleClass().add("section-title");
+        Label occupantsHint = new Label(I18n.t("room.select_to_see_occupants"));
+        occupantsHint.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 11px;");
+        FlowPane occupantsBox = new FlowPane(8, 8);
+        occupantsBox.setPadding(new Insets(2, 0, 2, 0));
+        VBox occupantsPanel = new VBox(8, occupantsTitle, occupantsHint, occupantsBox);
+
         Room[] selected = new Room[]{null};
         Runnable[] reload = new Runnable[1];
+
+        // Loads the sections that use the given room into the chip list.
+        java.util.function.Consumer<Room> loadOccupants = room -> {
+            occupantsBox.getChildren().clear();
+            if (room == null || room.getId() == null) {
+                occupantsHint.setText(I18n.t("room.select_to_see_occupants"));
+                occupantsHint.setVisible(true);
+                occupantsHint.setManaged(true);
+                return;
+            }
+            occupantsHint.setText(I18n.t("action.loading"));
+            occupantsHint.setVisible(true);
+            occupantsHint.setManaged(true);
+            AsyncTasks.run(
+                    () -> roomService.findSectionsUsingRoom(room.getId()),
+                    (List<Classroom> usedBy) -> {
+                        occupantsBox.getChildren().clear();
+                        if (usedBy.isEmpty()) {
+                            occupantsHint.setText(I18n.t("room.no_occupants"));
+                            occupantsHint.setVisible(true);
+                            occupantsHint.setManaged(true);
+                            return;
+                        }
+                        occupantsHint.setVisible(false);
+                        occupantsHint.setManaged(false);
+                        for (Classroom c : usedBy) {
+                            String label = c.getName()
+                                    + (c.getAgeGroup() == null || c.getAgeGroup().isBlank()
+                                    ? "" : " · " + c.getAgeGroup());
+                            Label chip = new Label(label);
+                            chip.setStyle(
+                                    "-fx-background-color: #EFF6FF;"
+                                            + " -fx-border-color: #BFDBFE;"
+                                            + " -fx-background-radius: 999; -fx-border-radius: 999;"
+                                            + " -fx-padding: 5 12 5 12;"
+                                            + " -fx-font-size: 12px; -fx-text-fill: #1D4ED8;");
+                            occupantsBox.getChildren().add(chip);
+                        }
+                    },
+                    err -> {
+                        occupantsHint.setText(err.getMessage());
+                        occupantsHint.setVisible(true);
+                        occupantsHint.setManaged(true);
+                    }
+            );
+        };
 
         Runnable clearForm = () -> {
             selected[0] = null;
@@ -78,6 +134,7 @@ public class RoomsView {
             activeField.setSelected(true);
             notesField.setText("");
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+            loadOccupants.accept(null);
         };
 
         reload[0] = () -> AsyncTasks.run(
@@ -95,6 +152,7 @@ public class RoomsView {
                             capacityField.setText(r.getCapacity() == null ? "" : String.valueOf(r.getCapacity()));
                             activeField.setSelected(r.isActive());
                             notesField.setText(r.getNotes() == null ? "" : r.getNotes());
+                            loadOccupants.accept(r);
                         });
                         cardGrid.getChildren().add(card);
                     }
@@ -171,18 +229,35 @@ public class RoomsView {
         });
 
         reload[0].run();
+        loadOccupants.accept(null);
 
-        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
+        Region divider = new Region();
+        divider.setMinHeight(1);
+        divider.setStyle("-fx-background-color: #E2E8F0;");
+
+        VBox formPanel = new VBox(14,
+                new Label(I18n.t("table.details")), form, actions,
+                divider, occupantsPanel);
         formPanel.getStyleClass().add("side-panel");
+
+        // Details panel scrolls vertically so long forms never get cut off.
+        ScrollPane formScroll = new ScrollPane(formPanel);
+        formScroll.setFitToWidth(true);
+        formScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        formScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        formScroll.setPrefWidth(380);
+        formScroll.setMinWidth(340);
+        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         ScrollPane cardScroll = new ScrollPane(cardGrid);
         cardScroll.setFitToWidth(true);
+        cardScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         VBox cardPanel = new VBox(10, addNew, cardScroll);
         VBox.setVgrow(cardScroll, Priority.ALWAYS);
 
-        HBox workspace = new HBox(18, cardPanel, formPanel);
+        HBox workspace = new HBox(18, cardPanel, formScroll);
         HBox.setHgrow(cardPanel, Priority.ALWAYS);
         workspace.setPadding(new Insets(24));
         contentPane.setCenter(workspace);
@@ -192,22 +267,30 @@ public class RoomsView {
         Label name = new Label(r.getName());
         name.getStyleClass().add("section-title");
 
-        String locationText = r.getLocation() == null || r.getLocation().isBlank() ? "" : r.getLocation();
+        Label status = new Label(r.isActive() ? I18n.t("room.status_active") : I18n.t("room.status_inactive"));
+        status.setStyle(r.isActive()
+                ? "-fx-background-color: #DCFCE7; -fx-text-fill: #15803D; -fx-font-size: 10px;"
+                + " -fx-background-radius: 999; -fx-padding: 2 8 2 8;"
+                : "-fx-background-color: #FEE2E2; -fx-text-fill: #DC2626; -fx-font-size: 10px;"
+                + " -fx-background-radius: 999; -fx-padding: 2 8 2 8;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox header = new HBox(8, name, spacer, status);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        String locationText = r.getLocation() == null || r.getLocation().isBlank()
+                ? "—" : "📍  " + r.getLocation();
         Label meta = new Label(locationText);
         meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         String capacityText = r.getCapacity() == null
                 ? I18n.t("room.capacity_unset")
-                : r.getCapacity() + " " + I18n.t("room.capacity_unit");
+                : "👥  " + r.getCapacity() + " " + I18n.t("room.capacity_unit");
         Label capacity = new Label(capacityText);
         capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
 
-        Label status = new Label(r.isActive() ? I18n.t("room.status_active") : I18n.t("room.status_inactive"));
-        status.setStyle(r.isActive()
-                ? "-fx-font-size: 10px; -fx-text-fill: #15803D;"
-                : "-fx-font-size: 10px; -fx-text-fill: #DC2626;");
-
-        VBox card = new VBox(6, name, meta, capacity, status);
+        VBox card = new VBox(8, header, meta, capacity);
         card.getStyleClass().add("class-card");
         card.setPadding(new Insets(16));
         card.setPrefWidth(220);

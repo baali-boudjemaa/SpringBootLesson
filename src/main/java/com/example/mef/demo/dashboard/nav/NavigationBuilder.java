@@ -33,6 +33,7 @@ public class NavigationBuilder {
             Map.entry("students", "fth-users"),
             Map.entry("teachers", "fth-briefcase"),
             Map.entry("classes", "fth-layout"),
+            Map.entry("rooms", "fth-map-pin"),
             Map.entry("guardians", "fth-users"),
             Map.entry("courses", "fth-book"),
             Map.entry("attendance", "fth-check-circle"),

@@ -16,6 +16,7 @@ import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -26,11 +27,13 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -44,13 +47,7 @@ import java.util.stream.Collectors;
 
 /**
  * The classrooms screen: a card grid of sections with a create/edit form,
- * plus the "students in this class" dialog and report. Extracted verbatim
- * (behavior unchanged) from DashboardController.showClassroomsPage /
- * buildClassroomCard / showClassStudentsDialog / buildClassReportText.
- *
- * Note: DashboardController.printClassReport and buildClassCard were not
- * called from anywhere in the original file (dead code) and were not
- * carried over here. Flag if you want them preserved elsewhere.
+ * plus the "students in this class" dialog and report.
  */
 @Component
 public class ClassroomsView {
@@ -76,8 +73,19 @@ public class ClassroomsView {
 
         WeeklyOccupancyGrid occupancyGrid = new WeeklyOccupancyGrid();
 
-        // Room picker: one checkbox per room, checked = linked to this section (many-to-many).
-        FlowPane roomsBox = new FlowPane(8, 8);
+        // Room picker: horizontal chip row that scrolls sideways (many-to-many).
+        HBox roomsBox = new HBox(8);
+        roomsBox.setAlignment(Pos.CENTER_LEFT);
+        roomsBox.setPadding(new Insets(4, 2, 4, 2));
+        ScrollPane roomsScroll = new ScrollPane(roomsBox);
+        roomsScroll.setFitToHeight(true);
+        roomsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        roomsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        roomsScroll.setPrefHeight(52);
+        roomsScroll.setMinHeight(52);
+        roomsScroll.setMinWidth(200);
+        roomsScroll.getStyleClass().add("rooms-scroll");
+        roomsScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         List<CheckBox> roomChecks = new ArrayList<>();
 
         GridPane form = FormFactory.sectionGrid();
@@ -88,7 +96,7 @@ public class ClassroomsView {
         FormFactory.addRow(form, 4, "Occupation hebdomadaire");
         FormFactory.addRow(form, 5,  occupancyGrid.getNode());
         FormFactory.addRow(form, 6, I18n.t("classroom.rooms"));
-        FormFactory.addRow(form, 7, roomsBox);
+        FormFactory.addRow(form, 7, roomsScroll);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
@@ -98,8 +106,8 @@ public class ClassroomsView {
         Classroom[] selected = new Classroom[]{null};
         Runnable[] reload = new Runnable[1];
 
-        // Loads every room as a checkbox; re-run whenever the form is opened
-        // fresh so rooms created in the Rooms module show up here too.
+        // Loads every room as a chip; re-run whenever the form is opened fresh
+        // so rooms created in the Rooms module show up here too.
         Runnable loadRooms = () -> AsyncTasks.run(
                 () -> roomService.findAll(),
                 rooms -> {
@@ -114,6 +122,8 @@ public class ClassroomsView {
                     for (Room r : rooms) {
                         CheckBox cb = new CheckBox(r.getName());
                         cb.setUserData(r);
+                        cb.getStyleClass().add("room-chip");
+                        cb.setMinWidth(Region.USE_PREF_SIZE);
                         roomChecks.add(cb);
                         roomsBox.getChildren().add(cb);
                     }
@@ -252,6 +262,15 @@ public class ClassroomsView {
         VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
         formPanel.getStyleClass().add("side-panel");
 
+        // Details panel scrolls vertically when the form is taller than the window.
+        ScrollPane formScroll = new ScrollPane(formPanel);
+        formScroll.setFitToWidth(true);
+        formScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        formScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        formScroll.setPrefWidth(380);
+        formScroll.setMinWidth(340);
+        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
         ScrollPane cardScroll = new ScrollPane(cardGrid);
         cardScroll.setFitToWidth(true);
         cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
@@ -259,7 +278,7 @@ public class ClassroomsView {
         VBox cardPanel = new VBox(10, addNew, cardScroll);
         VBox.setVgrow(cardScroll, Priority.ALWAYS);
 
-        HBox workspace = new HBox(18, cardPanel, formPanel);
+        HBox workspace = new HBox(18, cardPanel, formScroll);
         HBox.setHgrow(cardPanel, Priority.ALWAYS);
         workspace.setPadding(new Insets(24));
         contentPane.setCenter(workspace);
@@ -282,7 +301,6 @@ public class ClassroomsView {
             case SOUTIEN -> I18n.t("category.soutien");
         };
     }
-
 
     private VBox buildClassroomCard(Classroom c) {
         Label name = new Label(c.getName());
