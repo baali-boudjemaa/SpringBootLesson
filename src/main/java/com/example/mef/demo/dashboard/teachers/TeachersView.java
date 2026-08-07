@@ -2,6 +2,7 @@ package com.example.mef.demo.dashboard.teachers;
 
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
@@ -11,6 +12,7 @@ import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
 import com.example.mef.demo.util.DialogUtil;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -22,11 +24,13 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -64,6 +68,7 @@ public class TeachersView {
     private String currentWorkingDays = "";
     private String currentWorkStart = "";
     private String currentWorkEnd = "";
+    private String currentAvailabilitySchedule = "";
 
     private Employee selected;
 
@@ -85,16 +90,22 @@ public class TeachersView {
     private void openAvailabilityPicker() {
         TeacherAvailabilityDialog.show(
                 availabilityButton.getScene() == null ? null : availabilityButton.getScene().getWindow(),
-                currentWorkingDays, currentWorkStart, currentWorkEnd
+                currentAvailabilitySchedule
         ).ifPresent(result -> {
-            currentWorkingDays = result.workingDays();
-            currentWorkStart = result.workStartTime();
-            currentWorkEnd = result.workEndTime();
+            currentAvailabilitySchedule = result.schedule();
+            // The detailed schedule supersedes the former shared daily window.
+            currentWorkingDays = "";
+            currentWorkStart = "";
+            currentWorkEnd = "";
             updateAvailabilitySummary();
         });
     }
 
     private void updateAvailabilitySummary() {
+        if (currentAvailabilitySchedule != null && !currentAvailabilitySchedule.isBlank()) {
+            availabilityField.setText(currentAvailabilitySchedule);
+            return;
+        }
         if (currentWorkingDays == null || currentWorkingDays.isBlank()) {
             availabilityField.setText("");
             return;
@@ -121,7 +132,11 @@ public class TeachersView {
         TableColumn<Employee, String> email = new TableColumn<>("Email");
         email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
         email.setPrefWidth(140);
-        table.getColumns().addAll(List.of(number, name, role, email));
+        TableColumn<Employee, Employee> availability = new TableColumn<>("Temps de travail");
+        availability.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        availability.setCellFactory(column -> availabilityCell());
+        availability.setPrefWidth(260);
+        table.getColumns().addAll(List.of(number, name, role, email, availability));
 
         Label title = new Label("Personnel");
         title.getStyleClass().add("page-title");
@@ -191,6 +206,51 @@ public class TeachersView {
         panel.setPrefWidth(320);
         panel.setMinWidth(300);
         return panel;
+    }
+
+    /** Compact day/time badges for the employee table, matching the timetable selection. */
+    private TableCell<Employee, Employee> availabilityCell() {
+        return new TableCell<>() {
+            {
+                setAlignment(Pos.CENTER);
+            }
+
+            @Override
+            protected void updateItem(Employee employee, boolean empty) {
+                super.updateItem(employee, empty);
+                setText(null);
+                if (empty || employee == null) {
+                    setGraphic(null);
+                    return;
+                }
+                String schedule = employee.getAvailabilitySchedule();
+                if (schedule == null || schedule.isBlank()) {
+                    schedule = legacyAvailabilitySchedule(employee.getWorkingDays(),
+                            employee.getWorkStartTime(), employee.getWorkEndTime());
+                }
+                List<ScheduleValidator.Slot> slots = ScheduleValidator.parse(schedule);
+                if (slots.isEmpty()) {
+                    setGraphic(new Label("—"));
+                    return;
+                }
+
+                FlowPane badges = new FlowPane(6, 4);
+                badges.setAlignment(Pos.CENTER);
+                int visible = Math.min(3, slots.size());
+                for (int i = 0; i < visible; i++) {
+                    ScheduleValidator.Slot slot = slots.get(i);
+                    String label = shortDay(slot.day()) + " " + formatTime(slot.startMinutes())
+                            + "–" + formatTime(slot.endMinutes());
+                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
+                            .pill(label, "#FCE7F3", "#9D174D"));
+                }
+                if (slots.size() > visible) {
+                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
+                            .pill("+" + (slots.size() - visible), "#F3E8FF", "#6B21A8"));
+                }
+                setGraphic(badges);
+            }
+        };
     }
 
     /** Modal dialog listing every course/session taught by the selected teacher. */
@@ -271,6 +331,9 @@ public class TeachersView {
         currentWorkingDays = employee.getWorkingDays() == null ? "" : employee.getWorkingDays();
         currentWorkStart = employee.getWorkStartTime() == null ? "" : employee.getWorkStartTime();
         currentWorkEnd = employee.getWorkEndTime() == null ? "" : employee.getWorkEndTime();
+        currentAvailabilitySchedule = employee.getAvailabilitySchedule() == null
+                ? legacyAvailabilitySchedule(currentWorkingDays, currentWorkStart, currentWorkEnd)
+                : employee.getAvailabilitySchedule();
         updateAvailabilitySummary();
     }
 
@@ -285,6 +348,7 @@ public class TeachersView {
         currentWorkingDays = "";
         currentWorkStart = "";
         currentWorkEnd = "";
+        currentAvailabilitySchedule = "";
         updateAvailabilitySummary();
         table.getSelectionModel().clearSelection();
     }
@@ -294,16 +358,24 @@ public class TeachersView {
             DialogUtil.error("Champs requis", "Le prénom, le nom et l'email sont obligatoires.");
             return;
         }
+        String phone = phoneField.getText().trim();
+        if (!phone.matches("^(05|06|07)\\d{8}$")) {
+            DialogUtil.error("Téléphone invalide",
+                    "Le numéro doit contenir 10 chiffres et commencer par 05, 06 ou 07.");
+            return;
+        }
         Employee employee = selected != null ? selected : new Employee();
         employee.setFirstName(firstNameField.getText().trim());
         employee.setLastName(lastNameField.getText().trim());
         employee.setEmail(emailField.getText().trim());
-        employee.setPhoneNumber(phoneField.getText().trim());
+        employee.setPhoneNumber(phone);
         employee.setRole(roleField.getValue());
         employee.setCertifications(certificationsField.getText());
         employee.setWorkingDays(currentWorkingDays.isBlank() ? null : currentWorkingDays);
         employee.setWorkStartTime(currentWorkStart.isBlank() ? null : currentWorkStart);
         employee.setWorkEndTime(currentWorkEnd.isBlank() ? null : currentWorkEnd);
+        employee.setAvailabilitySchedule(currentAvailabilitySchedule.isBlank() ? null : currentAvailabilitySchedule);
+        employee.replaceAvailabilitySlots(toAvailabilitySlots(currentAvailabilitySchedule));
 
         AsyncTasks.run(
                 () -> employeeService.save(employee),
@@ -333,5 +405,41 @@ public class TeachersView {
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
+    }
+
+    /** Converts the former shared daily window into selectable per-day slots. */
+    private static String legacyAvailabilitySchedule(String days, String start, String end) {
+        if (days == null || days.isBlank() || start == null || start.isBlank() || end == null || end.isBlank()) {
+            return "";
+        }
+        return java.util.Arrays.stream(days.split(","))
+                .map(String::trim)
+                .filter(day -> !day.isEmpty())
+                .map(day -> day + " " + start + "-" + end)
+                .collect(java.util.stream.Collectors.joining("; "));
+    }
+
+    private static List<TeacherAvailabilitySlot> toAvailabilitySlots(String schedule) {
+        return ScheduleValidator.parse(schedule).stream()
+                .map(slot -> new TeacherAvailabilitySlot(
+                        slot.day(), formatTime(slot.startMinutes()), formatTime(slot.endMinutes())))
+                .toList();
+    }
+
+    private static String formatTime(int minutes) {
+        return String.format("%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private static String shortDay(String day) {
+        return switch (day) {
+            case "Lundi" -> "Lun";
+            case "Mardi" -> "Mar";
+            case "Mercredi" -> "Mer";
+            case "Jeudi" -> "Jeu";
+            case "Vendredi" -> "Ven";
+            case "Samedi" -> "Sam";
+            case "Dimanche" -> "Dim";
+            default -> day;
+        };
     }
 }

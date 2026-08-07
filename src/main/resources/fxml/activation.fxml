@@ -4,23 +4,45 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx"
-      xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.example.mef.demo.controller.ActivationController"
-      spacing="10" alignment="CENTER_LEFT">
-    <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
-    </padding>
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.example.mef.demo.controller.ActivationController"
+           styleClass="activation-root">
+    <children>
+        <VBox alignment="CENTER" styleClass="activation-card" maxWidth="720" prefWidth="720">
+            <padding>
+                <Insets top="56" right="60" bottom="56" left="60"/>
+            </padding>
+            <children>
+                <StackPane styleClass="activation-lock-box">
+                    <children>
+                        <Label text="🔒" styleClass="activation-lock-icon"/>
+                    </children>
+                </StackPane>
+                <Label text="Logiciel Verrouillé" styleClass="activation-title"/>
+                <Label text="Votre période d'essai est terminée. Veuillez entrer votre&#10;clé d'activation pour continuer à utiliser Rawdati et&#10;accéder à vos données."
+                       styleClass="activation-description" textAlignment="CENTER"/>
 
-    <Label text="Your machine ID (send this to the vendor):"/>
-    <TextField fx:id="machineIdField" editable="false"/>
+                <VBox styleClass="machine-id-panel" spacing="12">
+                    <Label text="VOTRE IDENTIFIANT MACHINE" styleClass="machine-id-title" maxWidth="1.7976931348623157E308" alignment="CENTER"/>
+                    <HBox alignment="CENTER" spacing="12">
+                        <TextField fx:id="machineIdField" editable="false" focusTraversable="false" HBox.hgrow="ALWAYS" styleClass="machine-id-field"/>
+                        <Button text="⧉" onAction="#onCopyMachineId" styleClass="copy-machine-id-button" mnemonicParsing="false"/>
+                    </HBox>
+                    <Label text="Envoyez cet identifiant à l'administrateur pour recevoir votre clé." styleClass="machine-id-hint" wrapText="true"/>
+                </VBox>
 
-    <Label text="Enter license key:"/>
-    <TextField fx:id="licenseKeyField"/>
-
-    <Label fx:id="errorLabel" style="-fx-text-fill: red;"/>
-
-    <Button fx:id="activateButton" text="Activate" onAction="#onActivate"/>
-</VBox>
+                <VBox spacing="8" maxWidth="1.7976931348623157E308" styleClass="activation-key-section">
+                    <Label text="Clé d'Activation" styleClass="activation-field-label"/>
+                    <TextField fx:id="licenseKeyField" promptText="Entrez votre clé ici..." styleClass="activation-key-field"/>
+                    <Label fx:id="errorLabel" styleClass="activation-error" wrapText="true" managed="false" visible="false"/>
+                </VBox>
+                <Button fx:id="activateButton" text="Activer le Logiciel" onAction="#onActivate" defaultButton="true" maxWidth="1.7976931348623157E308" styleClass="activate-software-button"/>
+            </children>
+        </VBox>
+    </children>
+</StackPane>

@@ -55,6 +55,12 @@ public final class SchedulePickerDialog {
 
     /** Opens the picker pre-filled from {@code currentSchedule} and blocks until closed. */
     public static Optional<String> show(Window owner, String currentSchedule) {
+        return show(owner, currentSchedule, "Horaire du cours",
+                "Cliquez sur les créneaux pour composer l'horaire du cours.");
+    }
+
+    /** Opens the same individual-cell picker with caller-provided teacher/course wording. */
+    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText) {
         Map<String, Set<Integer>> selected = initialSelection(currentSchedule);
 
         Stage dialog = new Stage();
@@ -62,10 +68,10 @@ public final class SchedulePickerDialog {
         if (owner != null) {
             dialog.initOwner(owner);
         }
-        dialog.setTitle("Horaire du cours");
+        dialog.setTitle(title);
         dialog.setResizable(false);
 
-        Label subtitle = new Label("Cliquez sur les créneaux pour composer l'horaire du cours.");
+        Label subtitle = new Label(subtitleText);
         subtitle.getStyleClass().add("timetable-subtitle");
         subtitle.setWrapText(true);
 

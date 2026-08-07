@@ -26,6 +26,7 @@ import com.example.mef.demo.dashboard.students.StudentEnrollmentWizard;
 import com.example.mef.demo.dashboard.students.StudentsView;
 import com.example.mef.demo.dashboard.teachers.TeachersView;
 import com.example.mef.demo.dashboard.users.UsersView;
+import com.example.mef.demo.license.LicenseActivationDialog;
 import com.example.mef.demo.util.BackupRestoreService;
 import com.example.mef.demo.util.I18n;
 import com.example.mef.demo.util.SceneManager;
@@ -35,6 +36,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -58,6 +60,7 @@ public class DashboardController {
     @FXML private Button frButton;
     @FXML private Button arButton;
     @FXML private Button logoutButton;
+    @FXML private Button trialStatusButton;
     @FXML private VBox navigationBox;
     @FXML private ScrollPane sidebarScroll;
     @FXML private BorderPane contentPane;
@@ -89,6 +92,7 @@ public class DashboardController {
     private final PaymentsView paymentsView;
     private final ReportsView reportsView;
     private final UsersView usersView;
+    private final LicenseActivationDialog licenseActivationDialog;
 
     private GlobalSearch globalSearch;
     private MonthlyReport monthlyReport;
@@ -112,7 +116,8 @@ public class DashboardController {
             EnrollmentWizard enrollmentWizard,
             PaymentsView paymentsView,
             ReportsView reportsView,
-            UsersView usersView) {
+            UsersView usersView,
+            LicenseActivationDialog licenseActivationDialog) {
 
         this.dao = dao;
         this.backupRestorePanel = new BackupRestorePanel(backupRestoreService);
@@ -131,6 +136,7 @@ public class DashboardController {
         this.paymentsView = paymentsView;
         this.reportsView = reportsView;
         this.usersView = usersView;
+        this.licenseActivationDialog = licenseActivationDialog;
     }
 
     @FXML
@@ -150,6 +156,7 @@ public class DashboardController {
 
         I18n.setLocale(Locale.FRENCH);
         applyLocale();
+        updateTrialStatus();
 
         rootPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
@@ -192,6 +199,30 @@ public class DashboardController {
     private void handleLogout() {
         Session.logout();
         SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
+    }
+
+    @FXML
+    private void openActivation() {
+        SceneManager.switchTo("/fxml/activation.fxml", "/css/style.css");
+        ActivationController controller = SceneManager.getApplicationContext().getBean(ActivationController.class);
+        controller.setOnActivated(() -> SceneManager.switchTo("/fxml/dashboard.fxml", "/css/style.css"));
+    }
+
+    private void updateTrialStatus() {
+        if (licenseActivationDialog.isAlreadyActivated()) {
+            trialStatusButton.setVisible(false);
+            trialStatusButton.setManaged(false);
+            return;
+        }
+
+        long daysLeft = licenseActivationDialog.getTrialDaysLeft();
+        String label = daysLeft == 1
+                ? "Version d'essai — 1 jour restant"
+                : "Version d'essai — " + daysLeft + " jours restants";
+        trialStatusButton.setText(label);
+        trialStatusButton.setTooltip(new Tooltip("Cliquez pour activer le logiciel"));
+        trialStatusButton.setVisible(true);
+        trialStatusButton.setManaged(true);
     }
 
     private void applyLocale() {

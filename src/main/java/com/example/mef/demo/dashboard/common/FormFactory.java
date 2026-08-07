@@ -48,13 +48,19 @@ public final class FormFactory {
         grid.getColumnConstraints().addAll(label, input);
         return grid;
     }
-
     public static void addRow(GridPane grid, int row, String label, Node editor) {
         grid.add(new Label(label), 0, row);
         grid.add(editor, 1, row);
         GridPane.setHgrow(editor, Priority.ALWAYS);
     }
-
+    public static void addRow(GridPane grid, int row, String label) {
+        grid.add(new Label(label), 0, row);
+        grid.setMinWidth(200);
+    }
+    public static void addRow(GridPane grid, int row, Node editor) {
+        grid.add(editor, 0, row);
+        GridPane.setHgrow(editor, Priority.ALWAYS);
+    }
     /**
      * Reads the current value of the given editor node, returning "" for
      * null/empty. Understands TextField and ComboBox<String>, the only two

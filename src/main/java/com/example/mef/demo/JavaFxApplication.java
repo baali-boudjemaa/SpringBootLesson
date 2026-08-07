@@ -1,7 +1,9 @@
 package com.example.mef.demo;
 
 import com.example.mef.demo.controller.ActivationController;
+import com.example.mef.demo.config.Session;
 import com.example.mef.demo.license.LicenseActivationDialog;
+import com.example.mef.demo.service.AuthService;
 import com.example.mef.demo.util.SceneManager;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -14,6 +16,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 
 import java.util.Objects;
+import java.util.OptionalInt;
 
 public class JavaFxApplication extends Application {
 
@@ -66,7 +69,19 @@ public class JavaFxApplication extends Application {
         if (iconStream != null) {
             primaryStage.getIcons().add(new javafx.scene.image.Image(iconStream));
         }
-        SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
+        OptionalInt rememberedUserId = Session.rememberedUserId();
+        if (rememberedUserId.isPresent()) {
+            applicationContext.getBean(AuthService.class).findById(rememberedUserId.getAsInt())
+                    .ifPresentOrElse(user -> {
+                        Session.restore(user);
+                        SceneManager.switchTo("/fxml/dashboard.fxml", "/css/style.css");
+                    }, () -> {
+                        Session.logout();
+                        SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
+                    });
+        } else {
+            SceneManager.switchTo("/fxml/login.fxml", "/css/style.css");
+        }
     }
     @Override
     public void stop() {

@@ -129,6 +129,23 @@
     -fx-text-fill: -ink;
 }
 
+/* Trial status in the dashboard top bar */
+.trial-status-button {
+    -fx-background-color: #FFF7ED;
+    -fx-border-color: #FDBA74;
+    -fx-border-radius: 16;
+    -fx-background-radius: 16;
+    -fx-text-fill: #C2410C;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 7 12 7 12;
+    -fx-cursor: hand;
+}
+.trial-status-button:hover {
+    -fx-background-color: #FFEDD5;
+    -fx-border-color: #F97316;
+}
+
 /* ── Sidebar ────────────────────────────────────────────────────── */
 .sidebar {
     -fx-background-color: linear-gradient(to bottom, #101B33 0%, #132445 100%);
@@ -754,6 +771,26 @@
     -fx-border-width: 1;
     -fx-cursor: hand;
 }
+.class-schedule-summary {
+    -fx-background-color: #EFF6FF;
+    -fx-background-radius: 8;
+    -fx-border-color: #BFDBFE;
+    -fx-border-radius: 8;
+    -fx-padding: 10 12 10 12;
+    -fx-text-fill: #1E3A8A;
+    -fx-font-size: 12px;
+    -fx-line-spacing: 3;
+}
+.class-occupancy-grid { -fx-hgap: 3; -fx-vgap: 3; -fx-padding: 4 0 4 0; }
+.class-occupancy-day { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #64748B; }
+.class-occupancy-time { -fx-font-size: 10px; -fx-text-fill: #64748B; -fx-alignment: CENTER_RIGHT; -fx-padding: 0 4 0 0; }
+.class-occupancy-cell {
+    -fx-background-color: #F8FAFC; -fx-border-color: #CBD5E1;
+    -fx-background-radius: 4; -fx-border-radius: 4;
+}
+.class-occupancy-cell:hover { -fx-background-color: #DBEAFE; }
+.class-occupancy-cell-selected, .class-occupancy-cell-selected:hover { -fx-background-color: #2563EB; -fx-border-color: #2563EB; }
+.class-occupancy-mark { -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; }
 
 /* ── Module page helpers ────────────────────────────────────────── */
 .page-subtitle {
@@ -805,3 +842,85 @@
 .icon-action-danger:hover {
     -fx-background-color: #FEE2E2;
 }
+
+/* ── Activation lock screen ────────────────────────────────────── */
+.activation-root {
+    -fx-background-color: linear-gradient(to bottom right, #111B3D, #071827);
+    -fx-padding: 42;
+}
+.activation-card {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 34;
+    -fx-spacing: 22;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.20), 30, 0.18, 0, 10);
+}
+.activation-lock-box {
+    -fx-min-width: 96; -fx-min-height: 96;
+    -fx-max-width: 96; -fx-max-height: 96;
+    -fx-background-color: #FFF0F3;
+    -fx-background-radius: 25;
+}
+.activation-lock-icon { -fx-font-size: 37px; }
+.activation-title {
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #082D59;
+}
+.activation-description {
+    -fx-font-size: 18px;
+    -fx-line-spacing: 4;
+    -fx-text-fill: #607B9E;
+    -fx-padding: 0 0 24 0;
+}
+.machine-id-panel {
+    -fx-background-color: #F6F9FD;
+    -fx-background-radius: 16;
+    -fx-border-color: #DFE8F3;
+    -fx-border-radius: 16;
+    -fx-padding: 24;
+    -fx-max-width: 1.7976931348623157E308;
+}
+.machine-id-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #5B769B;
+}
+.machine-id-field, .activation-key-field {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #BED0E7;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-font-family: "Cascadia Mono", "Consolas", monospace;
+    -fx-font-size: 15px;
+    -fx-padding: 13 16;
+    -fx-text-fill: #082D59;
+}
+.machine-id-field { -fx-font-size: 14px; }
+.copy-machine-id-button {
+    -fx-min-width: 58; -fx-min-height: 48;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #BED0E7;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-font-size: 24px;
+    -fx-text-fill: #5B769B;
+    -fx-cursor: hand;
+}
+.copy-machine-id-button:hover { -fx-background-color: #EDF4FD; }
+.machine-id-hint { -fx-font-size: 14px; -fx-text-fill: #91A6C2; }
+.activation-key-section { -fx-padding: 4 0 0 0; }
+.activation-field-label { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #082D59; }
+.activation-key-field { -fx-font-size: 16px; }
+.activation-key-field:focused { -fx-border-color: #7C68F6; }
+.activation-error { -fx-text-fill: #C0264D; -fx-font-size: 13px; }
+.activation-success { -fx-text-fill: #07825D; -fx-font-size: 13px; }
+.activate-software-button {
+    -fx-background-color: #826CF5;
+    -fx-background-radius: 11;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 16;
+    -fx-cursor: hand;
+}
+.activate-software-button:hover { -fx-background-color: #6E58E8; }

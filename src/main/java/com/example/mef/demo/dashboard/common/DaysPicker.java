@@ -62,4 +62,10 @@ public final class DaysPicker {
     public void clear() {
         checks.values().forEach(cb -> cb.setSelected(false));
     }
+
+    /** Invoked whenever the selected set of days changes. */
+    public void setOnChange(Runnable listener) {
+        checks.values().forEach(checkBox -> checkBox.selectedProperty().addListener(
+                (observable, wasSelected, isSelected) -> listener.run()));
+    }
 }

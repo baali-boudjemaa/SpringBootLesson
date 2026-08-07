@@ -24,6 +24,8 @@
                 <Insets top="12" right="20" bottom="12" left="20"/>
             </padding>
             <Label fx:id="pageTitleLabel" text="Dashboard" styleClass="page-title"/>
+            <Button fx:id="trialStatusButton" text="Version d'essai" styleClass="trial-status-button"
+                    onAction="#openActivation" visible="false" managed="false"/>
             <Region HBox.hgrow="ALWAYS"/>
             <!-- Quick search trigger -->
             <Button fx:id="searchBarBtn" text="Recherche rapide...  Ctrl+K"

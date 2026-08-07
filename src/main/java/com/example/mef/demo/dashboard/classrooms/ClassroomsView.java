@@ -6,9 +6,8 @@ import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
 import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
-import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
-import com.example.mef.demo.dashboard.common.TimeSlots;
+import com.example.mef.demo.dashboard.common.WeeklyOccupancyGrid;
 import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
@@ -66,22 +65,15 @@ public class ClassroomsView {
         categoryField.setCellFactory(cb -> categoryCell());
         categoryField.setButtonCell(categoryCell());
 
-        DaysPicker attendanceDaysField = new DaysPicker();
-        ComboBox<String> periodStartField = new ComboBox<>(FXCollections.observableArrayList(TimeSlots.slots()));
-        ComboBox<String> periodEndField = new ComboBox<>(FXCollections.observableArrayList(TimeSlots.slots()));
-        periodStartField.setMaxWidth(Double.MAX_VALUE);
-        periodEndField.setMaxWidth(Double.MAX_VALUE);
+        WeeklyOccupancyGrid occupancyGrid = new WeeklyOccupancyGrid();
 
         GridPane form = FormFactory.sectionGrid();
         FormFactory.addRow(form, 0, "Nom", nameField);
         FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
         FormFactory.addRow(form, 2, "Capacité", capacityField);
         FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
-        FormFactory.addRow(form, 4, "Jours de présence", attendanceDaysField.getNode());
-        HBox periodRow = new HBox(8, new Label("De"), periodStartField, new Label("à"), periodEndField);
-        HBox.setHgrow(periodStartField, Priority.ALWAYS);
-        HBox.setHgrow(periodEndField, Priority.ALWAYS);
-        FormFactory.addRow(form, 5, "Période du jour", periodRow);
+        FormFactory.addRow(form, 4, "Occupation hebdomadaire");
+        FormFactory.addRow(form, 5,  occupancyGrid.getNode());
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
@@ -97,9 +89,7 @@ public class ClassroomsView {
             ageGroupField.setText("");
             capacityField.setText("");
             categoryField.setValue(Category.CRECHE);
-            attendanceDaysField.clear();
-            periodStartField.setValue(null);
-            periodEndField.setValue(null);
+            occupancyGrid.clear();
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
 
@@ -121,9 +111,8 @@ public class ClassroomsView {
                             ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
                             capacityField.setText(String.valueOf(c.getCapacity()));
                             categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
-                            attendanceDaysField.setValue(c.getAttendanceDays());
-                            periodStartField.setValue(c.getPeriodStartTime());
-                            periodEndField.setValue(c.getPeriodEndTime());
+                            occupancyGrid.setValue(c.getOccupancySchedule(), c.getAttendanceDays(),
+                                    c.getPeriodStartTime(), c.getPeriodEndTime());
                         });
                         cardGrid.getChildren().add(card);
                     }
@@ -148,9 +137,10 @@ public class ClassroomsView {
                 c.setAgeGroup(ageGroupField.getText().trim());
                 c.setCapacity(capacity);
                 c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
-                c.setAttendanceDays(attendanceDaysField.getValue());
-                c.setPeriodStartTime(periodStartField.getValue());
-                c.setPeriodEndTime(periodEndField.getValue());
+                c.setOccupancySchedule(occupancyGrid.getValue());
+                c.setAttendanceDays(occupancyGrid.getDays());
+                c.setPeriodStartTime(occupancyGrid.getEarliestStart());
+                c.setPeriodEndTime(occupancyGrid.getLatestEnd());
 
                 save.setDisable(true);
                 AsyncTasks.run(
@@ -221,6 +211,7 @@ public class ClassroomsView {
             case SOUTIEN -> I18n.t("category.soutien");
         };
     }
+
 
     private VBox buildClassroomCard(Classroom c) {
         Label name = new Label(c.getName());

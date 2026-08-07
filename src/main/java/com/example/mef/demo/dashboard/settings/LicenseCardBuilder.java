@@ -1,9 +1,7 @@
 package com.example.mef.demo.dashboard.settings;
 
 import com.example.mef.demo.license.LicenseActivationDialog;
-import com.example.mef.demo.license.LicenseValidator;
 import com.example.mef.demo.license.MachineIdentifier;
-import com.example.mef.demo.license.SettingsRepository;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -26,14 +24,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class LicenseCardBuilder {
 
-    private static final String LICENSE_KEY_SETTING = "license_key";
-
     @Autowired
     private MachineIdentifier machineIdentifier;
-    @Autowired
-    private LicenseValidator licenseValidator;
-    @Autowired
-    private SettingsRepository settingsRepository;
     @Autowired
     private LicenseActivationDialog licenseActivationDialog;
 
@@ -45,8 +37,7 @@ public class LicenseCardBuilder {
      */
     public VBox build(Runnable onActivated) {
         String machineId = machineIdentifier.getOrCreateMachineId();
-        String storedKey = settingsRepository.get(LICENSE_KEY_SETTING);
-        boolean activated = storedKey != null && licenseValidator.isValid(machineId, storedKey);
+        boolean activated = licenseActivationDialog.isAlreadyActivated();
 
         // ── Header ────────────────────────────────────────────────
         Label icon = new Label("🛡️");
@@ -140,10 +131,10 @@ public class LicenseCardBuilder {
 
         activateBtn.setOnAction(e -> {
             String candidate = keyField.getText() == null ? "" : keyField.getText().trim();
-            if (licenseValidator.isValid(machineId, candidate)) {
-                settingsRepository.set(LICENSE_KEY_SETTING, candidate);
+            try {
+                licenseActivationDialog.activate(candidate);
                 onActivated.run();
-            } else {
+            } catch (IllegalArgumentException exception) {
                 errorLabel.setText(I18n.t("license.invalid_key"));
             }
         });

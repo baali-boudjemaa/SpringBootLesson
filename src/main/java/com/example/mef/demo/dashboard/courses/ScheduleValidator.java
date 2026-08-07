@@ -3,6 +3,8 @@ package com.example.mef.demo.dashboard.courses;
 import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.CourseScheduleSlot;
+import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.dashboard.common.TimeSlots;
 
 import java.util.ArrayList;
@@ -60,7 +62,7 @@ public final class ScheduleValidator {
     public static List<String> validate(Course candidate, List<Course> allCourses,
                                         Set<String> closedDays, int enrolledInClassroom) {
         List<String> errors = new ArrayList<>();
-        List<Slot> slots = parse(candidate.getSchedule());
+        List<Slot> slots = slotsOf(candidate);
         if (slots.isEmpty()) {
             return errors;
         }
@@ -74,6 +76,7 @@ public final class ScheduleValidator {
         }
 
         Set<String> teacherDays = daysOf(teacher == null ? null : teacher.getWorkingDays());
+        List<Slot> teacherAvailability = teacher == null ? List.of() : availabilityOf(teacher);
         Set<String> classDays = daysOf(classroom == null ? null : classroom.getAttendanceDays());
 
         for (Slot slot : slots) {
@@ -82,18 +85,25 @@ public final class ScheduleValidator {
             }
 
             if (teacher != null) {
-                if (!teacherDays.isEmpty() && !teacherDays.contains(slot.day())) {
-                    errors.add("❌ " + slot.day() + " : en dehors des jours de travail de l'enseignant.");
-                }
-                int workStart = TimeSlots.toMinutes(teacher.getWorkStartTime());
-                int workEnd = TimeSlots.toMinutes(teacher.getWorkEndTime());
-                if (workStart >= 0 && slot.startMinutes() < workStart) {
-                    errors.add("❌ " + slot.day() + " " + slot.range()
-                            + " : dépasse les heures de travail de l'enseignant (début à " + teacher.getWorkStartTime() + ").");
-                }
-                if (workEnd >= 0 && slot.endMinutes() > workEnd) {
-                    errors.add("❌ " + slot.day() + " " + slot.range()
-                            + " : dépasse les heures de travail de l'enseignant (fin à " + teacher.getWorkEndTime() + ").");
+                if (!teacherAvailability.isEmpty()) {
+                    if (!isCoveredByAvailability(slot, teacherAvailability)) {
+                        errors.add("❌ " + slot.day() + " " + slot.range()
+                                + " : en dehors des créneaux de disponibilité de l'enseignant.");
+                    }
+                } else {
+                    if (!teacherDays.isEmpty() && !teacherDays.contains(slot.day())) {
+                        errors.add("❌ " + slot.day() + " : en dehors des jours de travail de l'enseignant.");
+                    }
+                    int workStart = TimeSlots.toMinutes(teacher.getWorkStartTime());
+                    int workEnd = TimeSlots.toMinutes(teacher.getWorkEndTime());
+                    if (workStart >= 0 && slot.startMinutes() < workStart) {
+                        errors.add("❌ " + slot.day() + " " + slot.range()
+                                + " : dépasse les heures de travail de l'enseignant (début à " + teacher.getWorkStartTime() + ").");
+                    }
+                    if (workEnd >= 0 && slot.endMinutes() > workEnd) {
+                        errors.add("❌ " + slot.day() + " " + slot.range()
+                                + " : dépasse les heures de travail de l'enseignant (fin à " + teacher.getWorkEndTime() + ").");
+                    }
                 }
             }
 
@@ -117,7 +127,7 @@ public final class ScheduleValidator {
                 if (other == candidate) continue;
                 if (candidate.getId() != null && candidate.getId().equals(other.getId())) continue;
 
-                for (Slot os : parse(other.getSchedule())) {
+                for (Slot os : slotsOf(other)) {
                     if (!os.day().equals(slot.day())) continue;
                     boolean overlap = slot.startMinutes() < os.endMinutes() && os.startMinutes() < slot.endMinutes();
                     if (!overlap) continue;
@@ -163,6 +173,26 @@ public final class ScheduleValidator {
         return set;
     }
 
+    /** Returns true only when the complete course slot is covered by the teacher's selected cells. */
+    private static boolean isCoveredByAvailability(Slot slot, List<Slot> availability) {
+        int coveredUntil = slot.startMinutes();
+        for (Slot available : availability.stream()
+                .filter(a -> a.day().equals(slot.day()))
+                .sorted(java.util.Comparator.comparingInt(Slot::startMinutes))
+                .toList()) {
+            if (available.startMinutes() > coveredUntil) {
+                break;
+            }
+            if (available.endMinutes() > coveredUntil) {
+                coveredUntil = available.endMinutes();
+            }
+            if (coveredUntil >= slot.endMinutes()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Parses "Lundi 08:00-10:00; Mercredi 14:00-16:00" into slots. Unknown/malformed entries are skipped. */
     public static List<Slot> parse(String schedule) {
         List<Slot> slots = new ArrayList<>();
@@ -188,6 +218,30 @@ public final class ScheduleValidator {
             slots.add(new Slot(day, start, end));
         }
         return slots;
+    }
+
+    /** Reads normalized course slots when present, with text schedules retained for existing records. */
+    private static List<Slot> slotsOf(Course course) {
+        if (course.getScheduleSlots() != null && !course.getScheduleSlots().isEmpty()) {
+            return course.getScheduleSlots().stream()
+                    .map(slot -> new Slot(slot.getDayOfWeek(), TimeSlots.toMinutes(slot.getStartTime()),
+                            TimeSlots.toMinutes(slot.getEndTime())))
+                    .filter(slot -> slot.startMinutes() >= 0 && slot.endMinutes() > slot.startMinutes())
+                    .toList();
+        }
+        return parse(course.getSchedule());
+    }
+
+    /** Reads normalized teacher availability when present, with the former text field as a fallback. */
+    private static List<Slot> availabilityOf(Employee teacher) {
+        if (teacher.getAvailabilitySlots() != null && !teacher.getAvailabilitySlots().isEmpty()) {
+            return teacher.getAvailabilitySlots().stream()
+                    .map(slot -> new Slot(slot.getDayOfWeek(), TimeSlots.toMinutes(slot.getStartTime()),
+                            TimeSlots.toMinutes(slot.getEndTime())))
+                    .filter(slot -> slot.startMinutes() >= 0 && slot.endMinutes() > slot.startMinutes())
+                    .toList();
+        }
+        return parse(teacher.getAvailabilitySchedule());
     }
 
     private static String format(int minutes) {

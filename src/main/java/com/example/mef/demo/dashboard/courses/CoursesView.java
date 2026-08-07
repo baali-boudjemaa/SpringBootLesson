@@ -2,6 +2,7 @@ package com.example.mef.demo.dashboard.courses;
 
 import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Course;
+import com.example.mef.demo.Model.CourseScheduleSlot;
 import com.example.mef.demo.Model.Employee;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.CourseService;
@@ -13,6 +14,7 @@ import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.enums.CourseStatus;
 import com.example.mef.demo.util.DialogUtil;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -22,10 +24,12 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -120,7 +124,11 @@ public class CoursesView {
                 d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
         TableColumn<Course, String> status = new TableColumn<>("Statut");
         status.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getStatus() == null ? "" : d.getValue().getStatus().name()));
-        table.getColumns().addAll(List.of(name, teacher, classroom, status));
+        TableColumn<Course, Course> schedule = new TableColumn<>("Horaire");
+        schedule.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        schedule.setCellFactory(column -> scheduleCell());
+        schedule.setPrefWidth(260);
+        table.getColumns().addAll(List.of(name, teacher, classroom, status, schedule));
 
         HBox toolbar = new HBox(10, searchField);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
@@ -179,6 +187,45 @@ public class CoursesView {
         return new VBox(12, new Label("Détails du cours"), grid, new HBox(8, save, clear, delete));
     }
 
+    /** Compact day/time badges showing the course's selected timetable slots. */
+    private TableCell<Course, Course> scheduleCell() {
+        return new TableCell<>() {
+            {
+                setAlignment(Pos.CENTER);
+            }
+
+            @Override
+            protected void updateItem(Course course, boolean empty) {
+                super.updateItem(course, empty);
+                setText(null);
+                if (empty || course == null) {
+                    setGraphic(null);
+                    return;
+                }
+                List<ScheduleValidator.Slot> slots = ScheduleValidator.parse(course.getSchedule());
+                if (slots.isEmpty()) {
+                    setGraphic(new Label("—"));
+                    return;
+                }
+                FlowPane badges = new FlowPane(6, 4);
+                badges.setAlignment(Pos.CENTER);
+                int visible = Math.min(3, slots.size());
+                for (int i = 0; i < visible; i++) {
+                    ScheduleValidator.Slot slot = slots.get(i);
+                    String label = shortDay(slot.day()) + " " + formatTime(slot.startMinutes())
+                            + "–" + formatTime(slot.endMinutes());
+                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
+                            .pill(label, "#CFFAFE", "#0E7490"));
+                }
+                if (slots.size() > visible) {
+                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
+                            .pill("+" + (slots.size() - visible), "#E0F2FE", "#0369A1"));
+                }
+                setGraphic(badges);
+            }
+        };
+    }
+
     private void selectRow(Course course) {
         selected = course;
         if (course == null) { clearForm(); return; }
@@ -217,6 +264,7 @@ public class CoursesView {
         Course course = selected != null ? selected : new Course();
         course.setName(nameField.getText().trim());
         course.setSchedule(scheduleField.getText());
+        course.replaceScheduleSlots(toScheduleSlots(scheduleField.getText()));
         course.setMonthlyFee(fee);
         course.setStatus(statusField.getValue() == null ? CourseStatus.ACTIVE : statusField.getValue());
         course.setTeacher(teacherField.getValue());
@@ -266,5 +314,29 @@ public class CoursesView {
                 list -> rows.setAll(list),
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
+    }
+
+    private static List<CourseScheduleSlot> toScheduleSlots(String schedule) {
+        return ScheduleValidator.parse(schedule).stream()
+                .map(slot -> new CourseScheduleSlot(
+                        slot.day(), formatTime(slot.startMinutes()), formatTime(slot.endMinutes())))
+                .toList();
+    }
+
+    private static String formatTime(int minutes) {
+        return String.format("%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private static String shortDay(String day) {
+        return switch (day) {
+            case "Lundi" -> "Lun";
+            case "Mardi" -> "Mar";
+            case "Mercredi" -> "Mer";
+            case "Jeudi" -> "Jeu";
+            case "Vendredi" -> "Ven";
+            case "Samedi" -> "Sam";
+            case "Dimanche" -> "Dim";
+            default -> day;
+        };
     }
 }

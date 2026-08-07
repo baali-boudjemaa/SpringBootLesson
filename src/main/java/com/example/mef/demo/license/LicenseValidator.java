@@ -1,12 +1,14 @@
 package com.example.mef.demo.license;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.Optional;
 
 /** Ships in the app. Only ever verifies — cannot generate valid keys. */
 public class LicenseValidator {
@@ -14,6 +16,7 @@ public class LicenseValidator {
     private static final String PUBLIC_KEY_RESOURCE = "/license/public_key.der";
 
     private final PublicKey publicKey;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public LicenseValidator() throws Exception {
         this.publicKey = loadPublicKey();
@@ -30,21 +33,36 @@ public class LicenseValidator {
         }
     }
 
-    /**
-     * @param machineId  the ID from MachineIdentifier
-     * @param licenseKey the Base64URL signature the customer was given
-     * @return true only if licenseKey is a valid RSA signature of machineId
-     */
     public boolean isValid(String machineId, String licenseKey) {
+        return validate(machineId, licenseKey).isPresent();
+    }
+
+    /**
+     * Validates the vendor signature, machine binding, plan, and expiry date.
+     * Version 1 keys are {@code base64url(payload).base64url(signature)}.
+     */
+    public Optional<LicensePayload> validate(String machineId, String licenseKey) {
         try {
-            byte[] signatureBytes = Base64.getUrlDecoder().decode(licenseKey);
+            String[] parts = licenseKey.trim().split("\\.", -1);
+            if (parts.length != 2) return Optional.empty();
+
+            byte[] payloadBytes = Base64.getUrlDecoder().decode(parts[0]);
+            byte[] signatureBytes = Base64.getUrlDecoder().decode(parts[1]);
             Signature verifier = Signature.getInstance("SHA256withRSA");
             verifier.initVerify(publicKey);
-            verifier.update(machineId.getBytes(StandardCharsets.UTF_8));
-            return verifier.verify(signatureBytes);
+            verifier.update(payloadBytes);
+            if (!verifier.verify(signatureBytes)) return Optional.empty();
+
+            LicensePayload payload = objectMapper.readValue(payloadBytes, LicensePayload.class);
+            boolean valid = payload.version() == 1
+                    && machineId.equals(payload.machineId())
+                    && payload.plan() != null
+                    && payload.issuedAt() != null
+                    && payload.expiresAt() != null
+                    && !payload.expiresAt().isBefore(java.time.LocalDate.now());
+            return valid ? Optional.of(payload) : Optional.empty();
         } catch (Exception e) {
-            // Any parsing/format error means the key is invalid — never throw out to caller
-            return false;
+            return Optional.empty();
         }
     }
 }

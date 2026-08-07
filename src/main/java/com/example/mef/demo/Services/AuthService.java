@@ -28,6 +28,11 @@ public class AuthService {
                 .filter(user -> BCrypt.checkpw(password, user.getPassword()));
     }
 
+    /** Looks up the remembered user at app startup; credentials are never stored locally. */
+    public Optional<User> findById(int userId) {
+        return userRepository.findById(userId);
+    }
+
     /**
      * Creates a new user account.
      * Returns true if created successfully, false if the email already exists.

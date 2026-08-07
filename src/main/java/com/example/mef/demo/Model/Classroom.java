@@ -56,6 +56,10 @@ public class Classroom  {
     @Column
     private String periodEndTime;
 
+    /** Individual occupied cells, e.g. "Lundi 07:00-09:00; Mardi 09:00-11:00". */
+    @Column(columnDefinition = "TEXT")
+    private String occupancySchedule;
+
     /**
      * Lead teacher assigned to this classroom (optional).
      */

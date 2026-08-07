@@ -26,6 +26,11 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
+### Licensing secrets ###
+vendor-license-generator/private_key.der
+*.p12
+*.pfx
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/

@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @Entity
@@ -31,6 +34,18 @@ public class Course {
     private Classroom classroom;
 
     private String schedule;
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Builder.Default
+    private List<CourseScheduleSlot> scheduleSlots = new ArrayList<>();
+
+    public void replaceScheduleSlots(List<CourseScheduleSlot> slots) {
+        scheduleSlots.clear();
+        slots.forEach(slot -> {
+            slot.setCourse(this);
+            scheduleSlots.add(slot);
+        });
+    }
 
     @Column(nullable = false)
     @Builder.Default

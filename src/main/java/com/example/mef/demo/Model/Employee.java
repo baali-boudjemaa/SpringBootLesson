@@ -60,6 +60,22 @@ public class Employee {
     @Column
     private String workEndTime;
 
+    /** Per-day availability, e.g. "Lundi 08:00-10:00; Mardi 14:00-15:00". */
+    @Column(columnDefinition = "TEXT")
+    private String availabilitySchedule;
+
+    @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Builder.Default
+    private List<TeacherAvailabilitySlot> availabilitySlots = new ArrayList<>();
+
+    public void replaceAvailabilitySlots(List<TeacherAvailabilitySlot> slots) {
+        availabilitySlots.clear();
+        slots.forEach(slot -> {
+            slot.setTeacher(this);
+            availabilitySlots.add(slot);
+        });
+    }
+
     @PrePersist
     void prePersist() {
         if (employeeNumber == null || employeeNumber.isBlank()) {
