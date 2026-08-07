@@ -30,6 +30,7 @@ public final class WeeklyOccupancyGrid {
     public WeeklyOccupancyGrid() {
         for (String day : DAYS) selected.put(day, new LinkedHashSet<>());
         buildGrid();
+        refresh(); // ensure the grid reflects the (empty) initial state before it's ever shown
     }
 
     public GridPane getNode() {
@@ -109,6 +110,7 @@ public final class WeeklyOccupancyGrid {
                 int block = row;
                 Label mark = new Label("✓");
                 mark.getStyleClass().add("class-occupancy-mark");
+                mark.setVisible(false); // hidden until refresh() marks it as actually selected
                 StackPane cell = new StackPane(mark);
                 cell.getStyleClass().add("class-occupancy-cell");
                 cell.setPrefHeight(29);
