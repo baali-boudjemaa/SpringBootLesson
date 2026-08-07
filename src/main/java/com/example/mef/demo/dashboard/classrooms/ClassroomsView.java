@@ -1,10 +1,13 @@
 package com.example.mef.demo.dashboard.classrooms;
 
 import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Room;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
 import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
+import com.example.mef.demo.Services.ClassroomService.RoomConflict;
+import com.example.mef.demo.Services.RoomService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.WeeklyOccupancyGrid;
@@ -15,6 +18,7 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -34,7 +38,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * The classrooms screen: a card grid of sections with a create/edit form,
@@ -52,6 +58,9 @@ public class ClassroomsView {
     @Autowired
     private ClassroomService classroomService;
 
+    @Autowired
+    private RoomService roomService;
+
     public void render(BorderPane contentPane) {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
@@ -67,6 +76,10 @@ public class ClassroomsView {
 
         WeeklyOccupancyGrid occupancyGrid = new WeeklyOccupancyGrid();
 
+        // Room picker: one checkbox per room, checked = linked to this section (many-to-many).
+        FlowPane roomsBox = new FlowPane(8, 8);
+        List<CheckBox> roomChecks = new ArrayList<>();
+
         GridPane form = FormFactory.sectionGrid();
         FormFactory.addRow(form, 0, "Nom", nameField);
         FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
@@ -74,6 +87,8 @@ public class ClassroomsView {
         FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
         FormFactory.addRow(form, 4, "Occupation hebdomadaire");
         FormFactory.addRow(form, 5,  occupancyGrid.getNode());
+        FormFactory.addRow(form, 6, I18n.t("classroom.rooms"));
+        FormFactory.addRow(form, 7, roomsBox);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
@@ -83,6 +98,29 @@ public class ClassroomsView {
         Classroom[] selected = new Classroom[]{null};
         Runnable[] reload = new Runnable[1];
 
+        // Loads every room as a checkbox; re-run whenever the form is opened
+        // fresh so rooms created in the Rooms module show up here too.
+        Runnable loadRooms = () -> AsyncTasks.run(
+                () -> roomService.findAll(),
+                rooms -> {
+                    roomsBox.getChildren().clear();
+                    roomChecks.clear();
+                    if (rooms.isEmpty()) {
+                        Label none = new Label(I18n.t("classroom.rooms_none"));
+                        none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 12px;");
+                        roomsBox.getChildren().add(none);
+                        return;
+                    }
+                    for (Room r : rooms) {
+                        CheckBox cb = new CheckBox(r.getName());
+                        cb.setUserData(r);
+                        roomChecks.add(cb);
+                        roomsBox.getChildren().add(cb);
+                    }
+                },
+                err -> DialogUtil.error(I18n.t("classroom.rooms"), err.getMessage())
+        );
+
         Runnable clearForm = () -> {
             selected[0] = null;
             nameField.setText("");
@@ -90,6 +128,7 @@ public class ClassroomsView {
             capacityField.setText("");
             categoryField.setValue(Category.CRECHE);
             occupancyGrid.clear();
+            roomChecks.forEach(cb -> cb.setSelected(false));
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
 
@@ -113,6 +152,10 @@ public class ClassroomsView {
                             categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
                             occupancyGrid.setValue(c.getOccupancySchedule(), c.getAttendanceDays(),
                                     c.getPeriodStartTime(), c.getPeriodEndTime());
+                            List<String> linkedRoomIds = c.getRooms() == null ? List.of()
+                                    : c.getRooms().stream().map(Room::getId).toList();
+                            roomChecks.forEach(cb -> cb.setSelected(
+                                    linkedRoomIds.contains(((Room) cb.getUserData()).getId())));
                         });
                         cardGrid.getChildren().add(card);
                     }
@@ -141,11 +184,38 @@ public class ClassroomsView {
                 c.setAttendanceDays(occupancyGrid.getDays());
                 c.setPeriodStartTime(occupancyGrid.getEarliestStart());
                 c.setPeriodEndTime(occupancyGrid.getLatestEnd());
+                c.setRooms(roomChecks.stream()
+                        .filter(CheckBox::isSelected)
+                        .map(cb -> (Room) cb.getUserData())
+                        .collect(Collectors.toList()));
+
+                Runnable doSave = () -> {
+                    save.setDisable(true);
+                    AsyncTasks.run(
+                            () -> classroomService.save(c),
+                            () -> { save.setDisable(false); reload[0].run(); clearForm.run(); },
+                            err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
+                    );
+                };
 
                 save.setDisable(true);
                 AsyncTasks.run(
-                        () -> classroomService.save(c),
-                        () -> { save.setDisable(false); reload[0].run(); clearForm.run(); },
+                        () -> classroomService.findRoomConflicts(c),
+                        (List<RoomConflict> conflicts) -> {
+                            save.setDisable(false);
+                            if (conflicts.isEmpty()) {
+                                doSave.run();
+                                return;
+                            }
+                            String details = conflicts.stream()
+                                    .map(rc -> rc.roomName() + " — " + rc.otherClassroomName()
+                                            + " (" + rc.day() + " " + rc.timeRange() + ")")
+                                    .collect(Collectors.joining("\n"));
+                            if (DialogUtil.confirm(I18n.t("classroom.rooms_conflict_title"),
+                                    I18n.t("classroom.rooms_conflict_confirm") + "\n\n" + details)) {
+                                doSave.run();
+                            }
+                        },
                         err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
                 );
             } catch (RuntimeException ex) {
@@ -176,6 +246,7 @@ public class ClassroomsView {
             nameField.requestFocus();
         });
 
+        loadRooms.run();
         reload[0].run();
 
         VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
@@ -232,7 +303,14 @@ public class ClassroomsView {
         Label hint = new Label("Double-clic pour voir les élèves");
         hint.setStyle("-fx-font-size: 10px; -fx-text-fill: #94A3B8;");
 
-        VBox card = new VBox(6, name, meta, capacity, hint);
+        VBox card = new VBox(6, name, meta, capacity);
+        if (c.getRooms() != null && !c.getRooms().isEmpty()) {
+            String roomNames = c.getRooms().stream().map(Room::getName).collect(Collectors.joining(", "));
+            Label rooms = new Label("🏠 " + roomNames);
+            rooms.setStyle("-fx-font-size: 11px; -fx-text-fill: #475569;");
+            card.getChildren().add(rooms);
+        }
+        card.getChildren().add(hint);
         card.getStyleClass().add("class-card");
         card.setPadding(new Insets(16));
         card.setPrefWidth(220);

@@ -74,6 +74,10 @@ public class Classroom  {
      * sharing a room must not have overlapping occupancy — enforced in
      * ClassroomService before save.
      */
+
+    /**
+     * Students enrolled in this classroom.
+     */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "classroom_rooms",
@@ -82,15 +86,4 @@ public class Classroom  {
     )
     @Builder.Default
     private List<Room> rooms = new ArrayList<>();
-
-    /**
-     * Students enrolled in this classroom.
-     */
-    @ManyToMany(
-            mappedBy = "classroom",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    @Builder.Default
-    private List<Inscription> inscriptions = new ArrayList<>();
 }
