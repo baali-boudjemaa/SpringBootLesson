@@ -68,9 +68,25 @@ public class Classroom  {
     private Employee teacher;
 
     /**
+     * Physical room(s) (salles) this section is allowed to use. A section
+     * can be linked to several rooms; the actual times it occupies each
+     * room are still described by {@link #occupancySchedule}. Two sections
+     * sharing a room must not have overlapping occupancy — enforced in
+     * ClassroomService before save.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "classroom_rooms",
+            joinColumns = @JoinColumn(name = "classroom_id"),
+            inverseJoinColumns = @JoinColumn(name = "room_id")
+    )
+    @Builder.Default
+    private List<Room> rooms = new ArrayList<>();
+
+    /**
      * Students enrolled in this classroom.
      */
-    @OneToMany(
+    @ManyToMany(
             mappedBy = "classroom",
             cascade = CascadeType.ALL,
             orphanRemoval = true
