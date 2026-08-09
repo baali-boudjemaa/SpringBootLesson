@@ -2,7 +2,6 @@ package com.example.mef.demo.dashboard.classrooms;
 
 import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Room;
-import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
 import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
@@ -27,7 +26,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
@@ -58,9 +56,16 @@ public class ClassroomsView {
     @Autowired
     private RoomService roomService;
 
+    private final List<Classroom> allClassrooms = new ArrayList<>();
+
     public void render(BorderPane contentPane) {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
+
+        TextField searchField = FormFactory.textField("Rechercher une section...");
+        searchField.getStyleClass().add("filter-field");
+        Label countLabel = new Label();
+        countLabel.getStyleClass().add("stat-caption");
 
         TextField nameField = FormFactory.textField("Nom de la section");
         TextField ageGroupField = FormFactory.textField("Tranche d'âge");
@@ -85,6 +90,7 @@ public class ClassroomsView {
         roomsScroll.setMinHeight(52);
         roomsScroll.setMinWidth(200);
         roomsScroll.getStyleClass().add("rooms-scroll");
+
         roomsScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         List<CheckBox> roomChecks = new ArrayList<>();
 
@@ -93,18 +99,48 @@ public class ClassroomsView {
         FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
         FormFactory.addRow(form, 2, "Capacité", capacityField);
         FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
-        FormFactory.addRow(form, 4, "Occupation hebdomadaire");
+
         FormFactory.addRow(form, 5,  occupancyGrid.getNode());
         FormFactory.addRow(form, 6, I18n.t("classroom.rooms"));
         FormFactory.addRow(form, 7, roomsScroll);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
-        Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
+        Button cancel = new Button(I18n.t("action.clear"));  cancel.getStyleClass().add("secondary-button");
         Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
-        HBox actions = new HBox(10, save, clear, delete);
+        HBox actions = new HBox(10, save, cancel, delete);
 
         Classroom[] selected = new Classroom[]{null};
         Runnable[] reload = new Runnable[1];
+        Runnable[] applyFilter = new Runnable[1];
+        VBox formPanelcor = new VBox(14, form, actions);
+
+        ScrollPane formScroll = new ScrollPane(formPanelcor);
+        formScroll.getStyleClass().add("details-scroll");
+        formScroll.setFitToWidth(true);
+        formScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        formScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        formScroll.setPrefWidth(380);
+        formScroll.setMinWidth(320);
+        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        Label detailsTitle = new Label(I18n.t("table.details"));
+        detailsTitle.getStyleClass().add("side-panel-title");
+        detailsTitle.setMaxWidth(Double.MAX_VALUE);
+        detailsTitle.setAlignment(Pos.CENTER);
+
+        VBox formPanel = new VBox(14, detailsTitle, formScroll);
+        formPanel.getStyleClass().add("class-side-panel");
+        formPanel.setPadding(new Insets(20, 10, 10, 10));
+
+        // Details panel scrolls vertically when the form is taller than the window.
+
+        BorderPane layout = new BorderPane();
+
+        Runnable showFormPanel = () -> {
+            layout.setRight(formPanel);
+            BorderPane.setMargin(formPanel, new Insets(20, 24, 0, 16));
+        };
+        Runnable closeForm = () -> layout.setRight(null);
 
         // Loads every room as a chip; re-run whenever the form is opened fresh
         // so rooms created in the Rooms module show up here too.
@@ -142,38 +178,55 @@ public class ClassroomsView {
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
 
+        applyFilter[0] = () -> {
+            String needle = searchField.getText();
+            List<Classroom> filtered = (needle == null || needle.isBlank())
+                    ? allClassrooms
+                    : allClassrooms.stream()
+                    .filter(c -> c.getName() != null && c.getName().toLowerCase().contains(needle.trim().toLowerCase()))
+                    .toList();
+
+            cardGrid.getChildren().clear();
+            for (Classroom c : filtered) {
+                VBox card = buildClassroomCard(c);
+                card.setOnMouseClicked(ev -> {
+                    if (ev.getClickCount() == 2) {
+                        showClassStudentsDialog(contentPane, c);
+                        return;
+                    }
+                    selected[0] = c;
+                    cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
+                    card.getStyleClass().add("class-card-selected");
+                    nameField.setText(c.getName());
+                    ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
+                    capacityField.setText(String.valueOf(c.getCapacity()));
+                    categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
+                    occupancyGrid.setValue(c.getOccupancySchedule(), c.getAttendanceDays(),
+                            c.getPeriodStartTime(), c.getPeriodEndTime());
+                    List<String> linkedRoomIds = c.getRooms() == null ? List.of()
+                            : c.getRooms().stream().map(Room::getId).toList();
+                    roomChecks.forEach(cb -> cb.setSelected(
+                            linkedRoomIds.contains(((Room) cb.getUserData()).getId())));
+                    showFormPanel.run();
+                });
+                cardGrid.getChildren().add(card);
+            }
+            countLabel.setText(filtered.size() + (filtered.size() > 1 ? " sections" : " section"));
+        };
+
         reload[0] = () -> AsyncTasks.run(
                 () -> classroomService.findAll(),
                 classrooms -> {
-                    cardGrid.getChildren().clear();
-                    for (Classroom c : classrooms) {
-                        VBox card = buildClassroomCard(c);
-                        card.setOnMouseClicked(ev -> {
-                            if (ev.getClickCount() == 2) {
-                                showClassStudentsDialog(contentPane, c);
-                                return;
-                            }
-                            selected[0] = c;
-                            cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
-                            card.getStyleClass().add("class-card-selected");
-                            nameField.setText(c.getName());
-                            ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
-                            capacityField.setText(String.valueOf(c.getCapacity()));
-                            categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
-                            occupancyGrid.setValue(c.getOccupancySchedule(), c.getAttendanceDays(),
-                                    c.getPeriodStartTime(), c.getPeriodEndTime());
-                            List<String> linkedRoomIds = c.getRooms() == null ? List.of()
-                                    : c.getRooms().stream().map(Room::getId).toList();
-                            roomChecks.forEach(cb -> cb.setSelected(
-                                    linkedRoomIds.contains(((Room) cb.getUserData()).getId())));
-                        });
-                        cardGrid.getChildren().add(card);
-                    }
+                    allClassrooms.clear();
+                    allClassrooms.addAll(classrooms);
+                    applyFilter[0].run();
                 },
                 err -> DialogUtil.error("Chargement échoué", err.getMessage())
         );
 
-        clear.setOnAction(e -> clearForm.run());
+        searchField.textProperty().addListener((obs, old, val) -> applyFilter[0].run());
+
+        cancel.setOnAction(e -> { clearForm.run(); closeForm.run(); });
 
         save.setOnAction(e -> {
             try {
@@ -190,10 +243,10 @@ public class ClassroomsView {
                 c.setAgeGroup(ageGroupField.getText().trim());
                 c.setCapacity(capacity);
                 c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
-                c.setOccupancySchedule(occupancyGrid.getValue());
-                c.setAttendanceDays(occupancyGrid.getDays());
-                c.setPeriodStartTime(occupancyGrid.getEarliestStart());
-                c.setPeriodEndTime(occupancyGrid.getLatestEnd());
+                c.setOccupancySchedule(occupancyGrid.getValue().toString());
+                c.setAttendanceDays(occupancyGrid.getDays().toString());
+                c.setPeriodStartTime(occupancyGrid.getEarliestStart().toString());
+                c.setPeriodEndTime(occupancyGrid.getLatestEnd().toString());
                 c.setRooms(roomChecks.stream()
                         .filter(CheckBox::isSelected)
                         .map(cb -> (Room) cb.getUserData())
@@ -203,7 +256,7 @@ public class ClassroomsView {
                     save.setDisable(true);
                     AsyncTasks.run(
                             () -> classroomService.save(c),
-                            () -> { save.setDisable(false); reload[0].run(); clearForm.run(); },
+                            () -> { save.setDisable(false); reload[0].run(); clearForm.run(); closeForm.run(); },
                             err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
                     );
                 };
@@ -243,45 +296,43 @@ public class ClassroomsView {
                 delete.setDisable(true);
                 AsyncTasks.run(
                         () -> classroomService.delete(id),
-                        () -> { delete.setDisable(false); reload[0].run(); clearForm.run(); },
+                        () -> { delete.setDisable(false); reload[0].run(); clearForm.run(); closeForm.run(); },
                         err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete"), err.getMessage()); }
                 );
             }
         });
 
-        Button addNew = new Button("➕  Nouvelle Section");
+        Button addNew = new Button("+  Nouvelle Section");
         addNew.getStyleClass().add("primary-button");
         addNew.setOnAction(e -> {
             clearForm.run();
+            showFormPanel.run();
             nameField.requestFocus();
         });
 
         loadRooms.run();
         reload[0].run();
 
-        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
-        formPanel.getStyleClass().add("side-panel");
-
-        // Details panel scrolls vertically when the form is taller than the window.
-        ScrollPane formScroll = new ScrollPane(formPanel);
-        formScroll.setFitToWidth(true);
-        formScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        formScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        formScroll.setPrefWidth(380);
-        formScroll.setMinWidth(340);
-        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        Label title = new Label("Classes");
+        title.getStyleClass().add("page-title");
+        HBox headerRow = new HBox(12, title);
+        HBox.setHgrow(title, Priority.ALWAYS);
+        headerRow.getChildren().add(addNew);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        VBox headerBlock = new VBox(4, headerRow, countLabel);
 
         ScrollPane cardScroll = new ScrollPane(cardGrid);
         cardScroll.setFitToWidth(true);
         cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-
-        VBox cardPanel = new VBox(10, addNew, cardScroll);
+        cardScroll.getStyleClass().add("details-scroll");
+        VBox cardPanel = new VBox(14, headerBlock, searchField, cardScroll);
         VBox.setVgrow(cardScroll, Priority.ALWAYS);
+        cardPanel.setPadding(new Insets(24));
 
-        HBox workspace = new HBox(18, cardPanel, formScroll);
-        HBox.setHgrow(cardPanel, Priority.ALWAYS);
-        workspace.setPadding(new Insets(24));
-        contentPane.setCenter(workspace);
+        layout.setCenter(cardPanel);
+
+        contentPane.setCenter(layout);
+        contentPane.setPadding(new Insets(0));
     }
 
     private ListCell<Category> categoryCell() {

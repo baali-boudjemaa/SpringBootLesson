@@ -60,6 +60,7 @@ public class CoursesView {
     private final ComboBox<Classroom> classroomField = new ComboBox<>();
     private final ComboBox<CourseStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(CourseStatus.values()));
 
+    Boolean  suppressSelectionListener ;
     private Course selected;
 
     public CoursesView(CourseService courseService, EmployeeService employeeService,
@@ -138,18 +139,31 @@ public class CoursesView {
         VBox listPane = new VBox(10, toolbar, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         listPane.setMaxWidth(620);
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
+         Course selected;
 
+/** Prevents recursive selection events when clearing or updating the table. */
+        boolean suppressSelectionListener = false;
+        table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> {
+            if (suppressSelectionListener) {
+                return;
+            }
+            if (val != null) {
+                selectRow(val);
+            }
+        });
         VBox form = buildForm();
+
         BorderPane layout = new BorderPane();
         layout.setCenter(listPane);
         layout.setRight(form);
         BorderPane.setAlignment(listPane, Pos.TOP_LEFT);
-        BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
-        layout.setPadding(new Insets(0, 20, 0, 0));
+        BorderPane.setMargin(form, new Insets(15, 10, 10, 16));
+        layout.setPadding(new Insets(10, 20, 5, 0));
         form.setPrefWidth(320);
-
+        form.getStyleClass().add("cours-details");
+        VBox.setMargin(form,  new Insets(10, 20, 10, 20));
         contentPane.setCenter(layout);
+
         loadPickers();
         reload();
     }
@@ -227,8 +241,10 @@ public class CoursesView {
     }
 
     private void selectRow(Course course) {
+        if (course == null) {
+            return;
+        }
         selected = course;
-        if (course == null) { clearForm(); return; }
         nameField.setText(course.getName());
         scheduleField.setText(course.getSchedule());
         feeField.setText(course.getMonthlyFee() == null ? "" : String.valueOf(course.getMonthlyFee()));
@@ -238,14 +254,22 @@ public class CoursesView {
     }
 
     private void clearForm() {
-        selected = null;
-        nameField.clear();
-        scheduleField.clear();
-        feeField.clear();
-        teacherField.setValue(null);
-        classroomField.setValue(null);
-        statusField.setValue(null);
-        table.getSelectionModel().clearSelection();
+        suppressSelectionListener = true;
+        try {
+            selected = null;
+            nameField.clear();
+            scheduleField.clear();
+            feeField.clear();
+            teacherField.setValue(null);
+            classroomField.setValue(null);
+            statusField.setValue(null);
+
+            if (table.getSelectionModel().getSelectedIndex() >= 0) {
+                table.getSelectionModel().clearSelection();
+            }
+        } finally {
+            suppressSelectionListener = false;
+        }
     }
 
     private void save() {
@@ -311,7 +335,16 @@ public class CoursesView {
         String needle = searchField.getText();
         AsyncTasks.run(
                 () -> courseService.search(needle),
-                list -> rows.setAll(list),
+                list -> {
+                    suppressSelectionListener = true;
+                    try {
+                        selected = null;
+                        table.getSelectionModel().clearSelection();
+                        rows.setAll(list);
+                    } finally {
+                        suppressSelectionListener = false;
+                    }
+                },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
     }

@@ -8,10 +8,12 @@ import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.SessionName;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -21,8 +23,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -33,7 +37,7 @@ import org.springframework.stereotype.Component;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/** Typed CRUD screen for the "enrollments" module (Inscription entity). */
+/** Typed CRUD screen for the "enrollments" module (Inscription entity), styled to match StudentsView. */
 @Component
 public class EnrollmentsView {
 
@@ -43,15 +47,24 @@ public class EnrollmentsView {
     private final StudentService studentService;
     private final ClassroomService classroomService;
 
+    private final ObservableList<Inscription> allRows = FXCollections.observableArrayList();
     private final ObservableList<Inscription> rows = FXCollections.observableArrayList();
     private final TableView<Inscription> table = new TableView<>(rows);
-    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "enrollments"); }
+    {
+        TableStyleKit.applyTheme(table, "enrollments", TableStyleKit.AVATAR_ROW_HEIGHT);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+    }
+
+    private final TextField searchField = FormFactory.textField("Rechercher par élève...");
+    private final Label countLabel = new Label();
 
     private final ComboBox<Student> studentField = new ComboBox<>();
     private final ComboBox<Classroom> classroomField = new ComboBox<>();
     private final ComboBox<SessionName> sessionField = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
     private final ComboBox<EnrollmentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(EnrollmentStatus.values()));
 
+    private BorderPane layout;
+    private VBox form;
     private Inscription selected;
     private Runnable onNewEnrollmentWizard;
 
@@ -93,47 +106,146 @@ public class EnrollmentsView {
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onNewEnrollmentWizard) {
         this.onNewEnrollmentWizard = onNewEnrollmentWizard;
         pageTitleLabel.setText("Inscriptions");
-
-        table.getColumns().clear();
-        TableColumn<Inscription, String> date = new TableColumn<>("Date");
-        date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getDateInscription() == null ? "" : d.getValue().getDateInscription().format(DATE_FORMAT)));
-        TableColumn<Inscription, String> student = new TableColumn<>("Élève");
-        student.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getStudent() == null ? "—" :
-                        d.getValue().getStudent().getFirstName() + " " + d.getValue().getStudent().getLastName()));
-        student.setPrefWidth(160);
-        TableColumn<Inscription, String> classroom = new TableColumn<>("Classe");
-        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
-        TableColumn<Inscription, String> status = new TableColumn<>("Statut");
-        status.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getStatus() == null ? "" : d.getValue().getStatus().name()));
-        table.getColumns().addAll(List.of(date, student, classroom, status));
+        table.setColumnResizePolicy(
+                TableView.UNCONSTRAINED_RESIZE_POLICY
+        );
+        buildColumns();
 
         Label title = new Label("Inscriptions");
         title.getStyleClass().add("page-title");
+        countLabel.getStyleClass().add("stat-caption");
+
+        Button add = new Button("+  Ajouter une Inscription");
+        add.getStyleClass().add("primary-button");
+        add.setOnAction(e -> startCreate());
+
         Button wizard = new Button(I18n.t("ewizard.title"));
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onNewEnrollmentWizard.run());
+
         HBox headerRow = new HBox(12, title);
         HBox.setHgrow(title, Priority.ALWAYS);
-        headerRow.getChildren().add(wizard);
+        headerRow.getChildren().addAll(wizard, add);
         headerRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox listPane = new VBox(10, headerRow, table);
+        VBox headerBlock = new VBox(4, headerRow, countLabel);
+
+        searchField.getStyleClass().add("filter-field");
+        searchField.textProperty().addListener((obs, old, val) -> applyFilter());
+
+        VBox listPane = new VBox(14, headerBlock, searchField, table);
         VBox.setVgrow(table, Priority.ALWAYS);
+        listPane.setPadding(new Insets(24));
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
-        VBox form = buildForm();
-        BorderPane layout = new BorderPane();
+        form = buildForm();
+
+        layout = new BorderPane();
         layout.setCenter(listPane);
-        layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
-        form.setPrefWidth(320);
 
         contentPane.setCenter(layout);
+        contentPane.setPadding(new Insets(20));
         loadPickers();
         reload();
+    }
+
+    private void buildColumns() {
+        table.getColumns().clear();
+
+        TableColumn<Inscription, String> date = new TableColumn<>("DATE");
+        date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().getDateInscription() == null ? "—" : d.getValue().getDateInscription().format(DATE_FORMAT)));
+        date.setPrefWidth(100);
+
+        TableColumn<Inscription, Inscription> student = new TableColumn<>("ÉLÈVE");
+        student.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        student.setCellFactory(col -> studentAvatarCell());
+        student.setPrefWidth(220);
+
+        TableColumn<Inscription, String> classroom = new TableColumn<>("CLASSE");
+        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
+        classroom.setCellFactory(col -> dashIfBlankCell());
+        classroom.setPrefWidth(130);
+
+        TableColumn<Inscription, String> session = new TableColumn<>("SESSION");
+        session.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().getSession() == null ? "—" : d.getValue().getSession().name()));
+        session.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
+        session.setPrefWidth(130);
+
+        TableColumn<Inscription, String> status = new TableColumn<>("STATUT");
+        status.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().getStatus() == null ? "—" : d.getValue().getStatus().name()));
+        status.setCellFactory(col -> statusCell());
+        status.setPrefWidth(110);
+
+        table.getColumns().addAll(List.of(date, student, classroom, session, status));
+    }
+
+    private TableCell<Inscription, Inscription> studentAvatarCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Inscription i, boolean empty) {
+                super.updateItem(i, empty);
+                if (empty || i == null || i.getStudent() == null) {
+                    setGraphic(null);
+                    return;
+                }
+                Student s = i.getStudent();
+                String initials = TableStyleKit.initialsOf(s.getFirstName(), s.getLastName());
+                String color = TableStyleKit.colorFor(s.getGender() == null ? "" : s.getGender().name());
+                String fullName = (s.getFirstName() == null ? "" : s.getFirstName()) + " " +
+                        (s.getLastName() == null ? "" : s.getLastName());
+                String subtitle = i.getClassroom() == null ? "—" : i.getClassroom().getName();
+                setGraphic(TableStyleKit.avatarNameCell(initials, color, fullName.trim(), subtitle));
+            }
+        };
+    }
+
+    private TableCell<Inscription, String> pillCell(String bg, String fg) {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isBlank() || "—".equals(item)) {
+                    setGraphic(null);
+                    setText(empty ? null : "—");
+                } else {
+                    setText(null);
+                    setGraphic(TableStyleKit.pill(item, bg, fg));
+                }
+            }
+        };
+    }
+
+    private TableCell<Inscription, String> statusCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isBlank() || "—".equals(item)) {
+                    setGraphic(null);
+                    setText(empty ? null : "—");
+                    return;
+                }
+                setText(null);
+                boolean active = "ACTIVE".equalsIgnoreCase(item);
+                String bg = active ? "#DCFCE7" : "#FEE2E2";
+                String fg = active ? "#15803D" : "#B91C1C";
+                setGraphic(TableStyleKit.pill(item, bg, fg));
+            }
+        };
+    }
+
+    private TableCell<Inscription, String> dashIfBlankCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null || item.isBlank() ? "—" : item);
+            }
+        };
     }
 
     private void loadPickers() {
@@ -155,23 +267,47 @@ public class EnrollmentsView {
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button("Nouveau");
-        clear.getStyleClass().add("secondary-button");
-        clear.setOnAction(e -> clearForm());
+
+        Button cancel = new Button("Annuler");
+        cancel.getStyleClass().add("secondary-button");
+        cancel.setOnAction(e -> closeForm());
+
         Button delete = new Button("Supprimer");
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        return new VBox(12, new Label("Détails de l'inscription"), grid, new HBox(8, save, clear, delete));
+        HBox actions = new HBox(8, save, cancel, delete);
+        VBox panel = new VBox(12, new Label("Détails de l'inscription"), grid, actions);
+        panel.getStyleClass().add("side-panel");
+        panel.setPrefWidth(320);
+        return panel;
+    }
+
+    private void startCreate() {
+        clearForm();
+        showFormPanel();
+    }
+
+    private void showFormPanel() {
+        layout.setRight(form);
+        BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
+    }
+
+    private void closeForm() {
+        layout.setRight(null);
+        clearForm();
     }
 
     private void selectRow(Inscription inscription) {
         selected = inscription;
-        if (inscription == null) { clearForm(); return; }
+        if (inscription == null) {
+            return;
+        }
         studentField.setValue(inscription.getStudent());
         classroomField.setValue(inscription.getClassroom());
         sessionField.setValue(inscription.getSession());
         statusField.setValue(inscription.getStatus());
+        showFormPanel();
     }
 
     private void clearForm() {
@@ -196,7 +332,7 @@ public class EnrollmentsView {
 
         AsyncTasks.run(
                 () -> enrollmentService.save(inscription, studentId, classroomId),
-                saved -> { clearForm(); reload(); },
+                saved -> { closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
         );
     }
@@ -207,7 +343,7 @@ public class EnrollmentsView {
         String id = selected.getId();
         AsyncTasks.run(
                 () -> enrollmentService.delete(id),
-                () -> { clearForm(); reload(); },
+                () -> { closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );
     }
@@ -215,8 +351,28 @@ public class EnrollmentsView {
     private void reload() {
         AsyncTasks.run(
                 enrollmentService::findAll,
-                list -> rows.setAll(list),
+                list -> {
+                    allRows.setAll(list);
+                    applyFilter();
+                },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
+    }
+
+    private void applyFilter() {
+        String needle = searchField.getText();
+        if (needle == null || needle.isBlank()) {
+            rows.setAll(allRows);
+        } else {
+            String lower = needle.trim().toLowerCase();
+            rows.setAll(allRows.filtered(i -> {
+                Student s = i.getStudent();
+                if (s == null) return false;
+                String full = ((s.getFirstName() == null ? "" : s.getFirstName()) + " " +
+                        (s.getLastName() == null ? "" : s.getLastName())).toLowerCase();
+                return full.contains(lower);
+            }));
+        }
+        countLabel.setText(rows.size() + (rows.size() > 1 ? " inscriptions" : " inscription"));
     }
 }

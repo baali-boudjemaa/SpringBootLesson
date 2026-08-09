@@ -1,174 +1,1126 @@
 package com.example.mef.demo.dashboard.common;
 
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
-/** Compact clickable timetable used to define when a class is occupied. */
-public final class WeeklyOccupancyGrid {
+/**
+ * Weekly occupancy editor/timetable.
+ *
+ * Features:
+ * - Clickable days
+ * - Individual start/end time for every day
+ * - Visual weekly timetable
+ * - Multiple time slots per day
+ * - Add/remove slots
+ *
+ * Existing ClassroomsView compatibility methods:
+ *
+ * getNode()
+ * clear()
+ * setValue(...)
+ * getValue()
+ * getDays()
+ * getEarliestStart()
+ * getLatestEnd()
+ *
+ * New:
+ *
+ * getDailySchedules()
+ */
+public class WeeklyOccupancyGrid {
 
-    private static final String[] DAYS = {"Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"};
-    private static final int[][] BLOCKS = {{7, 9}, {9, 11}, {11, 13}, {13, 15}, {15, 17}, {17, 19}};
+    private static final DateTimeFormatter TIME_FORMAT =
+            DateTimeFormatter.ofPattern("HH:mm");
 
-    private final Map<String, Set<Integer>> selected = new LinkedHashMap<>();
-    private final GridPane grid = new GridPane();
-    private final Map<String, StackPane> cells = new LinkedHashMap<>();
+    private static final LocalTime DEFAULT_START =
+            LocalTime.of(8, 0);
 
+    private static final LocalTime DEFAULT_END =
+            LocalTime.of(12, 0);
+
+    private static final LocalTime GRID_START =
+            LocalTime.of(7, 0);
+
+    private static final LocalTime GRID_END =
+            LocalTime.of(19, 0);
+
+    private static final int SLOT_MINUTES = 30;
+
+    private static final double DAY_WIDTH = 110;
+
+    private final VBox root = new VBox(10);
+
+    private final Map<DayOfWeek, List<TimeSlot>> schedules =
+            new EnumMap<>(DayOfWeek.class);
+
+    private final Map<DayOfWeek, ToggleButton> dayButtons =
+            new EnumMap<>(DayOfWeek.class);
+
+    private final Map<DayOfWeek, VBox> daySlotContainers =
+            new EnumMap<>(DayOfWeek.class);
+
+    private final GridPane timetableGrid = new GridPane();
+
+    private final ScrollPane timetableScroll =
+            new ScrollPane();
+
+    private final Label selectedDayLabel =
+            new Label();
+
+    private DayOfWeek selectedDay =
+            DayOfWeek.MONDAY;
+
+    private final ComboBox<String> startTimeBox =
+            new ComboBox<>();
+
+    private final ComboBox<String> endTimeBox =
+            new ComboBox<>();
+
+    private final Button addSlotButton =
+            new Button("＋ Ajouter");
+
+    private final Button clearDayButton =
+            new Button("Effacer le jour");
+
+    private final VBox editor =
+            new VBox(8);
+
+    private final List<String> timeValues =
+            new ArrayList<>();
+
+    /**
+     * Creates the weekly occupancy editor.
+     */
     public WeeklyOccupancyGrid() {
-        for (String day : DAYS) selected.put(day, new LinkedHashSet<>());
-        buildGrid();
-        refresh(); // ensure the grid reflects the (empty) initial state before it's ever shown
+
+        for (DayOfWeek day : DayOfWeek.values()) {
+            schedules.put(day, new ArrayList<>());
+        }
+
+        createTimeValues();
+        buildUI();
+
+        selectDay(DayOfWeek.MONDAY);
     }
 
-    public GridPane getNode() {
-        return grid;
+    /**
+     * Creates all available time values.
+     */
+    private void createTimeValues() {
+
+        LocalTime time = LocalTime.of(6, 0);
+
+        while (!time.isAfter(LocalTime.of(22, 0))) {
+
+            timeValues.add(
+                    time.format(TIME_FORMAT)
+            );
+
+            time = time.plusMinutes(30);
+        }
     }
 
-    public void clear() {
-        selected.values().forEach(Set::clear);
-        refresh();
+    /**
+     * Builds the complete UI.
+     */
+    private void buildUI() {
+
+        root.setPadding(new Insets(8));
+        root.setSpacing(10);
+
+        root.getStyleClass().add("weekly-occupancy");
+
+        Label title =
+                new Label("Occupation hebdomadaire");
+
+        title.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #0F172A;"
+        );
+
+        /*
+         * =========================================================
+         * DAY SELECTOR
+         * =========================================================
+         */
+
+        HBox daysBox =
+                new HBox(6);
+
+        daysBox.setAlignment(Pos.CENTER_LEFT);
+
+        for (DayOfWeek day : DayOfWeek.values()) {
+
+            ToggleButton button =
+                    new ToggleButton(dayName(day));
+
+            button.setMinWidth(DAY_WIDTH);
+
+            button.setToggleGroup(null);
+
+            button.setOnAction(event ->
+                    selectDay(day)
+            );
+
+            button.getStyleClass()
+                    .add("occupancy-day-button");
+
+            dayButtons.put(day, button);
+
+            daysBox.getChildren().add(button);
+        }
+
+        ScrollPane daysScroll =
+                new ScrollPane(daysBox);
+
+        daysScroll.setFitToHeight(true);
+        daysScroll.setHbarPolicy(
+                ScrollPane.ScrollBarPolicy.AS_NEEDED
+        );
+        daysScroll.setVbarPolicy(
+                ScrollPane.ScrollBarPolicy.NEVER
+        );
+
+        daysScroll.setPrefHeight(48);
+        daysScroll.getStyleClass().add("Occupation-hebdomadaire");
+        daysScroll.getStyleClass().add("weekly-scroll");
+        /*
+         * =========================================================
+         * DAY EDITOR
+         * =========================================================
+         */
+
+        selectedDayLabel.setStyle(
+                "-fx-font-size: 13px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #334155;"
+        );
+
+        startTimeBox.setItems(
+                FXCollections.observableArrayList(timeValues)
+        );
+
+        endTimeBox.setItems(
+                FXCollections.observableArrayList(timeValues)
+        );
+
+        startTimeBox.setValue(
+                DEFAULT_START.format(TIME_FORMAT)
+        );
+
+        endTimeBox.setValue(
+                DEFAULT_END.format(TIME_FORMAT)
+        );
+
+        startTimeBox.setPrefWidth(100);
+        endTimeBox.setPrefWidth(100);
+
+        Label fromLabel =
+                new Label("De");
+
+        Label toLabel =
+                new Label("à");
+
+        addSlotButton.getStyleClass()
+                .add("primary-button");
+
+        clearDayButton.getStyleClass()
+                .add("secondary-button");
+
+        addSlotButton.setOnAction(
+                event -> addCurrentSlot()
+        );
+
+        clearDayButton.setOnAction(
+                event -> {
+
+                    schedules.get(selectedDay)
+                            .clear();
+
+                    refreshDaySlots();
+                    refreshTimetable();
+                }
+        );
+
+        HBox timeEditor =
+                new HBox(
+                        8,
+                        fromLabel,
+                        startTimeBox,
+                        toLabel,
+                        endTimeBox,
+                        addSlotButton,
+                        clearDayButton
+                );
+
+        timeEditor.setAlignment(Pos.CENTER_LEFT);
+
+        editor.getChildren().addAll(
+                selectedDayLabel,
+                timeEditor
+        );
+        ScrollPane editorScroll =
+                new ScrollPane(editor);
+
+        editorScroll.setFitToHeight(true);
+        editorScroll.setHbarPolicy(
+                ScrollPane.ScrollBarPolicy.AS_NEEDED
+        );
+        editorScroll.setVbarPolicy(
+                ScrollPane.ScrollBarPolicy.NEVER
+        );
+
+        editorScroll.setPrefHeight(60);
+        editorScroll.getStyleClass().add("days-occupancy");
+        editorScroll.getStyleClass().add("weekly-scroll");
+        VBox timedaysEditor=new VBox(2,selectedDayLabel,editorScroll);
+
+        /*
+         * =========================================================
+         * CURRENT DAY SLOTS
+         * =========================================================
+         */
+
+        VBox slotsPanel =
+                new VBox(5);
+
+        Label slotsTitle =
+                new Label("Créneaux du jour");
+
+        slotsTitle.setStyle(
+                "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #475569;"
+        );
+
+        slotsPanel.getChildren().add(slotsTitle);
+
+        for (DayOfWeek day : DayOfWeek.values()) {
+
+            VBox container =
+                    new VBox(4);
+
+            daySlotContainers.put(
+                    day,
+                    container
+            );
+
+            if (day != selectedDay) {
+                container.setManaged(false);
+                container.setVisible(false);
+            }
+            container.getStyleClass().add("slotsPanel");
+            slotsPanel.getChildren().add(container);
+            slotsPanel.getStyleClass().add("slotsPanel");
+        }
+
+        /*
+         * =========================================================
+         * WEEKLY TIMETABLE
+         * =========================================================
+         */
+
+        buildTimetable();
+
+        timetableScroll.setContent(
+                timetableGrid
+        );
+
+        timetableScroll.setFitToHeight(true);
+
+        timetableScroll.setHbarPolicy(
+                ScrollPane.ScrollBarPolicy.AS_NEEDED
+        );
+
+        timetableScroll.setVbarPolicy(
+                ScrollPane.ScrollBarPolicy.AS_NEEDED
+        );
+
+        timetableScroll.setPrefHeight(340);
+        timetableScroll.getStyleClass().add("slotsPanel");
+        timetableScroll.getStyleClass().add("weekly-scroll");
+        /*
+         * =========================================================
+         * ROOT
+         * =========================================================
+         */
+
+        root.getChildren().addAll(
+                title,
+                daysScroll,
+                timedaysEditor,
+                slotsPanel,
+                timetableScroll
+        );
+
+        VBox.setVgrow(
+                timetableScroll,
+                Priority.ALWAYS
+        );
     }
 
-    /** Reads the new schedule string, or converts legacy days + shared daily period when needed. */
-    public void setValue(String schedule, String legacyDays, String legacyStart, String legacyEnd) {
-        clear();
-        if (schedule != null && !schedule.isBlank()) {
-            parseSchedule(schedule);
+    /**
+     * Selects a day.
+     */
+    private void selectDay(DayOfWeek day) {
+
+        selectedDay = day;
+
+        for (Map.Entry<DayOfWeek, ToggleButton> entry :
+                dayButtons.entrySet()) {
+
+            ToggleButton button =
+                    entry.getValue();
+
+            boolean selected =
+                    entry.getKey() == day;
+
+            button.setSelected(selected);
+
+            if (selected) {
+                button.setStyle(
+                        "-fx-background-color: #2563EB;" +
+                                "-fx-text-fill: white;" +
+                                "-fx-font-weight: bold;"
+                );
+            } else {
+                button.setStyle(
+                        "-fx-background-color: #E2E8F0;" +
+                                "-fx-text-fill: #334155;"
+                );
+            }
+        }
+
+        selectedDayLabel.setText(
+                "Occupation — " + dayName(day)
+        );
+
+        TimeSlot first =
+                schedules.get(day).isEmpty()
+                        ? null
+                        : schedules.get(day).get(0);
+
+        if (first != null) {
+
+            startTimeBox.setValue(
+                    first.start.format(TIME_FORMAT)
+            );
+
+            endTimeBox.setValue(
+                    first.end.format(TIME_FORMAT)
+            );
+
         } else {
-            applyLegacySchedule(legacyDays, legacyStart, legacyEnd);
+
+            startTimeBox.setValue(
+                    DEFAULT_START.format(TIME_FORMAT)
+            );
+
+            endTimeBox.setValue(
+                    DEFAULT_END.format(TIME_FORMAT)
+            );
         }
-        refresh();
+
+        refreshDaySlots();
+
+        refreshTimetable();
     }
 
-    /** e.g. "Lundi 07:00-09:00; Mardi 09:00-11:00". */
-    public String getValue() {
-        List<String> entries = new ArrayList<>();
-        for (String day : DAYS) {
-            for (Integer block : selected.get(day)) {
-                entries.add(day + " " + format(BLOCKS[block][0]) + "-" + format(BLOCKS[block][1]));
+    /**
+     * Adds a new time slot to the selected day.
+     */
+    private void addCurrentSlot() {
+
+        LocalTime start =
+                parseTime(startTimeBox.getValue());
+
+        LocalTime end =
+                parseTime(endTimeBox.getValue());
+
+        if (start == null || end == null) {
+            return;
+        }
+
+        if (!end.isAfter(start)) {
+            showValidationMessage(
+                    "L'heure de fin doit être après l'heure de début."
+            );
+            return;
+        }
+
+        TimeSlot newSlot =
+                new TimeSlot(start, end);
+
+        /*
+         * Prevent overlapping slots.
+         */
+        for (TimeSlot existing :
+                schedules.get(selectedDay)) {
+
+            if (newSlot.overlaps(existing)) {
+
+                showValidationMessage(
+                        "Ce créneau chevauche un autre créneau."
+                );
+
+                return;
             }
         }
-        return String.join("; ", entries);
+
+        schedules.get(selectedDay)
+                .add(newSlot);
+
+        schedules.get(selectedDay)
+                .sort((a, b) ->
+                        a.start.compareTo(b.start)
+                );
+
+        refreshDaySlots();
+        refreshTimetable();
     }
 
-    /** Legacy compatibility: all days that have at least one selected block. */
-    public String getDays() {
-        List<String> days = new ArrayList<>();
-        for (String day : DAYS) if (!selected.get(day).isEmpty()) days.add(day);
-        return String.join(",", days);
-    }
+    /**
+     * Refreshes the list of slots for the currently selected day.
+     */
+    private void refreshDaySlots() {
 
-    /** Legacy compatibility: earliest occupied time across the week. */
-    public String getEarliestStart() {
-        return selected.values().stream().flatMap(Set::stream).mapToInt(index -> BLOCKS[index][0]).min()
-                .isPresent() ? format(selected.values().stream().flatMap(Set::stream).mapToInt(index -> BLOCKS[index][0]).min().orElseThrow()) : null;
-    }
+        for (Map.Entry<DayOfWeek, VBox> entry :
+                daySlotContainers.entrySet()) {
 
-    /** Legacy compatibility: latest occupied time across the week. */
-    public String getLatestEnd() {
-        return selected.values().stream().flatMap(Set::stream).mapToInt(index -> BLOCKS[index][1]).max()
-                .isPresent() ? format(selected.values().stream().flatMap(Set::stream).mapToInt(index -> BLOCKS[index][1]).max().orElseThrow()) : null;
-    }
+            DayOfWeek day =
+                    entry.getKey();
 
-    private void buildGrid() {
-        grid.getStyleClass().add("class-occupancy-grid");
-        ColumnConstraints timeColumn = new ColumnConstraints(44);
-        grid.getColumnConstraints().add(timeColumn);
-        for (int i = 0; i < DAYS.length; i++) {
-            ColumnConstraints dayColumn = new ColumnConstraints(35);
-            dayColumn.setHgrow(Priority.ALWAYS);
-            grid.getColumnConstraints().add(dayColumn);
-        }
+            VBox container =
+                    entry.getValue();
 
-        for (int column = 0; column < DAYS.length; column++) {
-            Label header = new Label(DAYS[column].substring(0, 3));
-            header.getStyleClass().add("class-occupancy-day");
-            header.setMaxWidth(Double.MAX_VALUE);
-            header.setAlignment(Pos.CENTER);
-            grid.add(header, column + 1, 0);
-        }
+            container.getChildren().clear();
 
-        for (int row = 0; row < BLOCKS.length; row++) {
-            Label time = new Label(BLOCKS[row][0] + "–" + BLOCKS[row][1] + "h");
-            time.getStyleClass().add("class-occupancy-time");
-            grid.add(time, 0, row + 1);
-            for (int column = 0; column < DAYS.length; column++) {
-                String day = DAYS[column];
-                int block = row;
-                Label mark = new Label("✓");
-                mark.getStyleClass().add("class-occupancy-mark");
-                mark.setVisible(false); // hidden until refresh() marks it as actually selected
-                StackPane cell = new StackPane(mark);
-                cell.getStyleClass().add("class-occupancy-cell");
-                cell.setPrefHeight(29);
-                cell.setCursor(Cursor.HAND);
-                cell.setOnMouseClicked(event -> {
-                    Set<Integer> daySelection = selected.get(day);
-                    if (daySelection.contains(block)) daySelection.remove(block); else daySelection.add(block);
-                    refresh();
+            if (day != selectedDay) {
+
+                container.setVisible(false);
+                container.setManaged(false);
+
+                continue;
+            }
+
+            container.setVisible(true);
+            container.setManaged(true);
+
+            List<TimeSlot> slots =
+                    schedules.get(day);
+
+            if (slots.isEmpty()) {
+
+                Label empty =
+                        new Label(
+                                "Aucun créneau défini pour ce jour."
+                        );
+
+                empty.setStyle(
+                        "-fx-text-fill: #94A3B8;"
+                );
+
+                container.getChildren()
+                        .add(empty);
+
+                continue;
+            }
+
+            for (TimeSlot slot : slots) {
+
+                Label time =
+                        new Label(
+                                slot.start.format(TIME_FORMAT)
+                                        + " → "
+                                        + slot.end.format(TIME_FORMAT)
+                        );
+
+                time.setStyle(
+                        "-fx-font-weight: bold;" +
+                                "-fx-text-fill: #1E40AF;"
+                );
+
+                Button remove =
+                        new Button("×");
+
+                remove.setStyle(
+                        "-fx-background-color: transparent;" +
+                                "-fx-text-fill: #DC2626;" +
+                                "-fx-font-weight: bold;"
+                );
+
+                remove.setOnAction(event -> {
+
+                    schedules.get(day)
+                            .remove(slot);
+
+                    refreshDaySlots();
+                    refreshTimetable();
                 });
-                cells.put(day + ":" + block, cell);
-                grid.add(cell, column + 1, row + 1);
+
+                HBox row =
+                        new HBox(
+                                10,
+                                time,
+                                remove
+                        );
+
+                row.setAlignment(
+                        Pos.CENTER_LEFT
+                );
+
+                row.setPadding(
+                        new Insets(5, 10, 5, 10)
+                );
+
+                row.setStyle(
+                        "-fx-background-color: #EFF6FF;" +
+                                "-fx-background-radius: 6;"
+                );
+
+                container.getChildren()
+                        .add(row);
             }
         }
     }
 
-    private void refresh() {
-        cells.forEach((key, cell) -> {
-            String[] parts = key.split(":");
-            boolean occupied = selected.get(parts[0]).contains(Integer.parseInt(parts[1]));
-            if (occupied && !cell.getStyleClass().contains("class-occupancy-cell-selected")) {
-                cell.getStyleClass().add("class-occupancy-cell-selected");
-            }
-            if (!occupied) cell.getStyleClass().remove("class-occupancy-cell-selected");
-            ((Label) cell.getChildren().getFirst()).setVisible(occupied);
-        });
-    }
+    /**
+     * Builds the weekly visual timetable.
+     */
+    private void buildTimetable() {
 
-    private void parseSchedule(String schedule) {
-        for (String raw : schedule.split(";")) {
-            String entry = raw.trim();
-            int split = entry.indexOf(' ');
-            if (split < 0) continue;
-            String day = entry.substring(0, split);
-            String[] range = entry.substring(split + 1).split("-");
-            if (!selected.containsKey(day) || range.length != 2) continue;
-            int start = TimeSlots.toMinutes(range[0]);
-            int end = TimeSlots.toMinutes(range[1]);
-            for (int index = 0; index < BLOCKS.length; index++) {
-                if (start < BLOCKS[index][1] * 60 && BLOCKS[index][0] * 60 < end) selected.get(day).add(index);
+        timetableGrid.getChildren().clear();
+
+        timetableGrid.setHgap(1);
+        timetableGrid.setVgap(1);
+
+        /*
+         * Header.
+         */
+
+        StackPane emptyHeader =
+                timetableCell("", 70, 35);
+
+        timetableGrid.add(
+                emptyHeader,
+                0,
+                0
+        );
+
+        int dayColumn = 1;
+
+        for (DayOfWeek day :
+                DayOfWeek.values()) {
+
+            StackPane header =
+                    timetableCell(
+                            dayName(day),
+                            DAY_WIDTH,
+                            35
+                    );
+
+            header.setStyle(
+                    "-fx-background-color: #1E293B;" +
+                            "-fx-background-radius: 4;"
+            );
+
+            timetableGrid.add(
+                    header,
+                    dayColumn++,
+                    0
+            );
+        }
+
+        /*
+         * Time rows.
+         */
+
+        int row = 1;
+
+        LocalTime time =
+                GRID_START;
+
+        while (!time.isAfter(GRID_END)) {
+
+            Label timeLabel =
+                    new Label(
+                            time.format(TIME_FORMAT)
+                    );
+
+            timeLabel.setPrefWidth(70);
+            timeLabel.setAlignment(
+                    Pos.TOP_RIGHT
+            );
+
+            timeLabel.setPadding(
+                    new Insets(2, 6, 0, 0)
+            );
+
+            timeLabel.setStyle(
+                    "-fx-text-fill: #64748B;" +
+                            "-fx-font-size: 11px;"
+            );
+
+            timetableGrid.add(
+                    timeLabel,
+                    0,
+                    row
+            );
+
+            int column = 1;
+
+            for (DayOfWeek day :
+                    DayOfWeek.values()) {
+
+                StackPane cell =
+                        timetableCell(
+                                "",
+                                DAY_WIDTH,
+                                26
+                        );
+
+                cell.setStyle(
+                        "-fx-background-color: #F8FAFC;" +
+                                "-fx-border-color: #E2E8F0;" +
+                                "-fx-border-width: 0 0 1 1;"
+                );
+
+                if (isOccupied(day, time)) {
+
+                    cell.setStyle(
+                            "-fx-background-color: #3B82F6;" +
+                                    "-fx-background-radius: 2;"
+                    );
+
+                    Label occupied =
+                            new Label("●");
+
+                    occupied.setStyle(
+                            "-fx-text-fill: white;" +
+                                    "-fx-font-size: 9px;"
+                    );
+
+                    cell.getChildren()
+                            .add(occupied);
+                }
+
+                timetableGrid.add(
+                        cell,
+                        column++,
+                        row
+                );
             }
+
+            time =
+                    time.plusMinutes(SLOT_MINUTES);
+
+            row++;
         }
     }
 
-    private void applyLegacySchedule(String days, String startTime, String endTime) {
-        if (days == null || days.isBlank()) return;
-        int start = TimeSlots.toMinutes(startTime);
-        int end = TimeSlots.toMinutes(endTime);
-        if (start < 0 || end <= start) return;
-        for (String day : days.split(",")) {
-            Set<Integer> daySelection = selected.get(day.trim());
-            if (daySelection == null) continue;
-            for (int index = 0; index < BLOCKS.length; index++) {
-                if (start < BLOCKS[index][1] * 60 && BLOCKS[index][0] * 60 < end) daySelection.add(index);
-            }
-        }
+    /**
+     * Refreshes the timetable.
+     */
+    private void refreshTimetable() {
+
+        buildTimetable();
     }
 
-    private String format(int hour) {
-        return String.format("%02d:00", hour);
+    /**
+     * Checks whether a day is occupied at a given time.
+     */
+    private boolean isOccupied(
+            DayOfWeek day,
+            LocalTime time) {
+
+        LocalTime next =
+                time.plusMinutes(SLOT_MINUTES);
+
+        for (TimeSlot slot :
+                schedules.get(day)) {
+
+            /*
+             * The 30-minute visual cell is occupied
+             * if it intersects the actual slot.
+             */
+            if (time.isBefore(slot.end)
+                    && next.isAfter(slot.start)) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Creates a timetable cell.
+     */
+    private StackPane timetableCell(
+            String text,
+            double width,
+            double height) {
+
+        Label label =
+                new Label(text);
+
+        StackPane pane =
+                new StackPane(label);
+
+        pane.setPrefWidth(width);
+        pane.setMinWidth(width);
+        pane.setPrefHeight(height);
+
+        pane.setAlignment(
+                Pos.CENTER
+        );
+
+        return pane;
+    }
+
+    /**
+     * Returns the JavaFX node.
+     */
+    public Node getNode() {
+        return root;
+    }
+
+    /**
+     * Clears all schedules.
+     */
+    public void clear() {
+
+        for (List<TimeSlot> slots :
+                schedules.values()) {
+
+            slots.clear();
+        }
+
+        selectDay(DayOfWeek.MONDAY);
+    }
+
+    /**
+     * Existing compatibility method.
+     *
+     * Loads the old classroom representation:
+     *
+     * attendanceDays
+     * periodStartTime
+     * periodEndTime
+     *
+     * All selected days receive the same time range.
+     *
+     * This keeps compatibility with your current Classroom model.
+     */
+    public void setValue(
+            Object occupancySchedule,
+            String attendanceDays,
+            String periodStartTime,
+            String periodEndTime) {
+
+        clear();
+
+        if (attendanceDays == null
+                || attendanceDays.isEmpty()) {
+
+            return;
+        }
+
+        LocalTime start =
+                periodStartTime == null || periodStartTime.isBlank()
+                        ? DEFAULT_START
+                        : parseTime(periodStartTime);
+
+        LocalTime end =
+                periodEndTime == null || periodEndTime.isBlank()
+                        ? DEFAULT_END
+                        : parseTime(periodEndTime);
+
+        for (String value : attendanceDays.split(",")) {
+
+            DayOfWeek day =
+                    convertDay(value.trim());
+
+            if (day != null) {
+
+                schedules.get(day)
+                        .add(
+                                new TimeSlot(
+                                        start,
+                                        end
+                                )
+                        );
+            }
+        }
+
+        refreshDaySlots();
+        refreshTimetable();
+    }
+    /**
+     * Returns a simple value representing the complete schedule.
+     *
+     * This is retained for compatibility.
+     */
+    public Map<DayOfWeek, List<TimeSlot>>
+    getDailySchedules() {
+
+        Map<DayOfWeek, List<TimeSlot>> copy =
+                new EnumMap<>(DayOfWeek.class);
+
+        for (DayOfWeek day :
+                DayOfWeek.values()) {
+
+            copy.put(
+                    day,
+                    new ArrayList<>(
+                            schedules.get(day)
+                    )
+            );
+        }
+
+        return copy;
+    }
+
+    /**
+     * Compatibility method.
+     *
+     * Returns true when at least one day has an occupancy slot.
+     */
+    public Map<DayOfWeek, List<TimeSlot>> getValue() {
+
+        return getDailySchedules();
+    }
+
+    /**
+     * Returns all occupied days.
+     */
+    public List<DayOfWeek> getDays() {
+
+        return schedules.entrySet()
+                .stream()
+                .filter(entry ->
+                        !entry.getValue().isEmpty())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns the earliest start time among all days.
+     */
+    public LocalTime getEarliestStart() {
+
+        return schedules.values()
+                .stream()
+                .flatMap(List::stream)
+                .map(slot -> slot.start)
+                .min(LocalTime::compareTo)
+                .orElse(null);
+    }
+
+    /**
+     * Returns the latest end time among all days.
+     */
+    public LocalTime getLatestEnd() {
+
+        return schedules.values()
+                .stream()
+                .flatMap(List::stream)
+                .map(slot -> slot.end)
+                .max(LocalTime::compareTo)
+                .orElse(null);
+    }
+
+    /**
+     * Converts different day representations to DayOfWeek.
+     */
+    private DayOfWeek convertDay(Object value) {
+
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof DayOfWeek) {
+            return (DayOfWeek) value;
+        }
+
+        String text =
+                value.toString()
+                        .trim()
+                        .toUpperCase();
+
+        return switch (text) {
+
+            case "MONDAY", "LUNDI", "1" ->
+                    DayOfWeek.MONDAY;
+
+            case "TUESDAY", "MARDI", "2" ->
+                    DayOfWeek.TUESDAY;
+
+            case "WEDNESDAY", "MERCREDI", "3" ->
+                    DayOfWeek.WEDNESDAY;
+
+            case "THURSDAY", "JEUDI", "4" ->
+                    DayOfWeek.THURSDAY;
+
+            case "FRIDAY", "VENDREDI", "5" ->
+                    DayOfWeek.FRIDAY;
+
+            case "SATURDAY", "SAMEDI", "6" ->
+                    DayOfWeek.SATURDAY;
+
+            case "SUNDAY", "DIMANCHE", "7" ->
+                    DayOfWeek.SUNDAY;
+
+            default ->
+                    null;
+        };
+    }
+
+    /**
+     * French day names.
+     */
+    private String dayName(DayOfWeek day) {
+
+        return switch (day) {
+
+            case MONDAY ->
+                    "Lundi";
+
+            case TUESDAY ->
+                    "Mardi";
+
+            case WEDNESDAY ->
+                    "Mercredi";
+
+            case THURSDAY ->
+                    "Jeudi";
+
+            case FRIDAY ->
+                    "Vendredi";
+
+            case SATURDAY ->
+                    "Samedi";
+
+            case SUNDAY ->
+                    "Dimanche";
+        };
+    }
+
+    private LocalTime parseTime(
+            String value) {
+
+        if (value == null
+                || value.isBlank()) {
+
+            return null;
+        }
+
+        return LocalTime.parse(
+                value,
+                TIME_FORMAT
+        );
+    }
+
+    /**
+     * Small validation dialog.
+     *
+     * Replace this with DialogUtil if you prefer.
+     */
+    private void showValidationMessage(
+            String message) {
+
+        javafx.scene.control.Alert alert =
+                new javafx.scene.control.Alert(
+                        javafx.scene.control.Alert.AlertType.WARNING
+                );
+
+        alert.setTitle(
+                "Occupation hebdomadaire"
+        );
+
+        alert.setHeaderText(null);
+
+        alert.setContentText(message);
+
+        alert.showAndWait();
+    }
+
+    /**
+     * Represents one occupied time interval.
+     */
+    public static final class TimeSlot {
+
+        private final LocalTime start;
+        private final LocalTime end;
+
+        public TimeSlot(
+                LocalTime start,
+                LocalTime end) {
+
+            if (start == null
+                    || end == null) {
+
+                throw new IllegalArgumentException(
+                        "Les heures sont obligatoires."
+                );
+            }
+
+            if (!end.isAfter(start)) {
+
+                throw new IllegalArgumentException(
+                        "L'heure de fin doit être après l'heure de début."
+                );
+            }
+
+            this.start = start;
+            this.end = end;
+        }
+
+        public LocalTime getStart() {
+            return start;
+        }
+
+        public LocalTime getEnd() {
+            return end;
+        }
+
+        public boolean overlaps(
+                TimeSlot other) {
+
+            Objects.requireNonNull(other);
+
+            return start.isBefore(other.end)
+                    && end.isAfter(other.start);
+        }
+
+        @Override
+        public String toString() {
+
+            return start.format(TIME_FORMAT)
+                    + " → "
+                    + end.format(TIME_FORMAT);
+        }
     }
 }

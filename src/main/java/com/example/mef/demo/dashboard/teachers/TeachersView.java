@@ -8,430 +8,1418 @@ import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
 import com.example.mef.demo.util.DialogUtil;
-import javafx.beans.property.ReadOnlyStringWrapper;
+
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.print.PageLayout;
+import javafx.print.PageOrientation;
+import javafx.print.Paper;
+import javafx.print.PrinterJob;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
-/** Typed CRUD screen for the "teachers" module (Employee entity). */
+
+/**
+ * Teachers / Personnel screen.
+ *
+ * Reprogrammed to match the StudentsView pattern: the form panel
+ * is hidden by default and only shown on the right when creating
+ * or editing an employee (layout.setRight(form) / setRight(null)),
+ * instead of being permanently docked. The table then uses the
+ * full available width.
+ */
 @Component
 public class TeachersView {
+
+    // =========================================================
+    // SERVICES
+    // =========================================================
 
     private final EmployeeService employeeService;
     private final CourseService courseService;
 
-    private final ObservableList<Employee> rows = FXCollections.observableArrayList();
-    private final TableView<Employee> table = new TableView<>(rows);
-    { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "teachers"); }
-
-    private final TextField searchField = FormFactory.textField("Rechercher un employé...");
-    private final Label countLabel = new Label();
-    private final TextField firstNameField = FormFactory.textField("Prénom");
-    private final TextField lastNameField = FormFactory.textField("Nom");
-    private final TextField emailField = FormFactory.textField("Email");
-    private final TextField phoneField = FormFactory.textField("Téléphone");
-    private final ComboBox<EmployeeRole> roleField = new ComboBox<>(FXCollections.observableArrayList(EmployeeRole.values()));
-    private final TextArea certificationsField = new TextArea();
-    private final TextField availabilityField = FormFactory.textField("Aucun horaire défini");
-    private final Button availabilityButton = new Button("Choisir…");
-    private final Button timetableButton = new Button("📅  Emploi du temps");
-
-    private String currentWorkingDays = "";
-    private String currentWorkStart = "";
-    private String currentWorkEnd = "";
-    private String currentAvailabilitySchedule = "";
+    // =========================================================
+    // STATE
+    // =========================================================
 
     private Employee selected;
 
-    public TeachersView(EmployeeService employeeService, CourseService courseService) {
+    private boolean suppressSelectionListener = false;
+
+    private boolean tableInitialized = false;
+
+    private BorderPane layout;
+
+    private VBox form;
+
+    // =========================================================
+    // TABLE
+    // =========================================================
+
+    private final ObservableList<Employee> rows =
+            FXCollections.observableArrayList();
+
+    private final TableView<Employee> table =
+            new TableView<>(rows);
+
+    // =========================================================
+    // FORM FIELDS
+    // =========================================================
+
+    private final TextField searchField =
+            FormFactory.textField("Rechercher un employé...");
+
+    private final Label countLabel =
+            new Label();
+
+    private final TextField firstNameField =
+            FormFactory.textField("Prénom");
+
+    private final TextField lastNameField =
+            FormFactory.textField("Nom");
+
+    private final TextField emailField =
+            FormFactory.textField("Email");
+
+    private final TextField phoneField =
+            FormFactory.textField("Téléphone");
+
+    private final ComboBox<EmployeeRole> roleField =
+            new ComboBox<>(
+                    FXCollections.observableArrayList(
+                            EmployeeRole.values()
+                    )
+            );
+
+    private final TextArea certificationsField =
+            new TextArea();
+
+    private final TextField availabilityField =
+            FormFactory.textField("Aucune disponibilité");
+
+    private final Button availabilityButton =
+            new Button("Choisir…");
+
+    private final Button timetableButton =
+            new Button("📅 Emploi du temps");
+
+    // =========================================================
+    // AVAILABILITY STATE
+    // =========================================================
+
+    private String currentWorkingDays = "";
+
+    private String currentWorkStart = "";
+
+    private String currentWorkEnd = "";
+
+    private String currentAvailabilitySchedule = "";
+
+    // =========================================================
+    // CONSTRUCTOR
+    // =========================================================
+
+    public TeachersView(
+            EmployeeService employeeService,
+            CourseService courseService
+    ) {
+
         this.employeeService = employeeService;
         this.courseService = courseService;
-        roleField.setMaxWidth(Double.MAX_VALUE);
-        certificationsField.setPromptText("Certifications");
+
+        TableStyleKit.applyTheme(
+                table,
+                "teachers"
+        );
+
+        roleField.setMaxWidth(
+                Double.MAX_VALUE
+        );
+
+        certificationsField.setPromptText(
+                "Certifications"
+        );
+
         certificationsField.setPrefRowCount(3);
+
         availabilityField.setEditable(false);
+
         availabilityField.setFocusTraversable(false);
-        availabilityButton.getStyleClass().add("secondary-button");
-        availabilityButton.setOnAction(e -> openAvailabilityPicker());
-        timetableButton.getStyleClass().add("secondary-button");
-        timetableButton.setOnAction(e -> showTeacherTimetable());
+
+        availabilityButton
+                .getStyleClass()
+                .add("secondary-button");
+
+        availabilityButton.setOnAction(
+                e -> openAvailabilityPicker()
+        );
+
+        timetableButton
+                .getStyleClass()
+                .add("secondary-button");
+
+        timetableButton.setOnAction(
+                e -> showTeacherTimetable()
+        );
+
         updateAvailabilitySummary();
     }
 
+    // =========================================================
+    // AVAILABILITY PICKER
+    // =========================================================
+
     private void openAvailabilityPicker() {
+
+        String originalSchedule =
+                currentAvailabilitySchedule;
+
         TeacherAvailabilityDialog.show(
-                availabilityButton.getScene() == null ? null : availabilityButton.getScene().getWindow(),
-                currentAvailabilitySchedule
+
+                availabilityButton.getScene() == null
+                        ? null
+                        : availabilityButton
+                        .getScene()
+                        .getWindow(),
+
+                originalSchedule
+
         ).ifPresent(result -> {
-            currentAvailabilitySchedule = result.schedule();
-            // The detailed schedule supersedes the former shared daily window.
+
+            currentAvailabilitySchedule =
+                    ScheduleValidator.parse(
+                                    result.schedule()
+                            )
+                            .stream()
+                            .map(
+                                    TeachersView::slotToScheduleString
+                            )
+                            .distinct()
+                            .collect(
+                                    Collectors.joining("; ")
+                            );
+
             currentWorkingDays = "";
             currentWorkStart = "";
             currentWorkEnd = "";
+
             updateAvailabilitySummary();
         });
     }
 
+    // =========================================================
+    // AVAILABILITY SUMMARY
+    // =========================================================
+
     private void updateAvailabilitySummary() {
-        if (currentAvailabilitySchedule != null && !currentAvailabilitySchedule.isBlank()) {
-            availabilityField.setText(currentAvailabilitySchedule);
+
+        if (currentAvailabilitySchedule != null
+                && !currentAvailabilitySchedule.isBlank()) {
+
+            List<ScheduleValidator.Slot> slots =
+                    ScheduleValidator.parse(
+                            currentAvailabilitySchedule
+                    );
+
+            if (!slots.isEmpty()) {
+
+                int visible =
+                        Math.min(2, slots.size());
+
+                StringBuilder summary =
+                        new StringBuilder();
+
+                for (int i = 0; i < visible; i++) {
+
+                    ScheduleValidator.Slot slot =
+                            slots.get(i);
+
+                    if (i > 0) {
+                        summary.append(" · ");
+                    }
+
+                    summary.append(shortDay(slot.day()));
+                    summary.append(" ");
+                    summary.append(formatTime(slot.startMinutes()));
+                    summary.append("–");
+                    summary.append(formatTime(slot.endMinutes()));
+                }
+
+                if (slots.size() > visible) {
+
+                    summary.append(" +");
+                    summary.append(slots.size() - visible);
+                }
+
+                availabilityField.setText(summary.toString());
+
+                return;
+            }
+        }
+
+        // Legacy fallback
+
+        if (currentWorkingDays == null
+                || currentWorkingDays.isBlank()) {
+
+            availabilityField.setText("Aucune disponibilité");
+
             return;
         }
-        if (currentWorkingDays == null || currentWorkingDays.isBlank()) {
-            availabilityField.setText("");
-            return;
+
+        String days =
+                String.join(", ", currentWorkingDays.split(","));
+
+        String hours = "";
+
+        if (currentWorkStart != null
+                && !currentWorkStart.isBlank()
+                && currentWorkEnd != null
+                && !currentWorkEnd.isBlank()) {
+
+            hours = " · " + currentWorkStart + "–" + currentWorkEnd;
         }
-        String days = String.join(", ", currentWorkingDays.split(","));
-        String hours = (currentWorkStart == null || currentWorkStart.isBlank()
-                || currentWorkEnd == null || currentWorkEnd.isBlank())
-                ? "" : "  ·  " + currentWorkStart + "–" + currentWorkEnd;
+
         availabilityField.setText(days + hours);
     }
 
-    public void render(BorderPane contentPane, Label pageTitleLabel) {
+    // =========================================================
+    // RENDER
+    // =========================================================
+
+    public void render(
+            BorderPane contentPane,
+            Label pageTitleLabel
+    ) {
+
         pageTitleLabel.setText("Personnel");
 
-        table.getColumns().clear();
-        TableColumn<Employee, String> number = new TableColumn<>("N°");
-        number.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmployeeNumber()));
-        number.setPrefWidth(140);
-        TableColumn<Employee, String> name = new TableColumn<>("Nom");
-        name.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getFirstName() + " " + d.getValue().getLastName()));
-        name.setPrefWidth(140);
-        TableColumn<Employee, String> role = new TableColumn<>("Rôle");
-        role.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getRole() == null ? "" : d.getValue().getRole().name()));
-        TableColumn<Employee, String> email = new TableColumn<>("Email");
-        email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
-        email.setPrefWidth(140);
-        TableColumn<Employee, Employee> availability = new TableColumn<>("Temps de travail");
-        availability.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
-        availability.setCellFactory(column -> availabilityCell());
-        availability.setPrefWidth(260);
-        table.getColumns().addAll(List.of(number, name, role, email, availability));
+        if (!tableInitialized) {
 
-        Label title = new Label("Personnel");
+            initializeTeacherTable();
+
+            tableInitialized = true;
+        }
+
+        // -----------------------------------------------------
+        // HEADER
+        // -----------------------------------------------------
+
+        Label title =
+                new Label("Personnel");
+
         title.getStyleClass().add("page-title");
+
         countLabel.getStyleClass().add("stat-caption");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox headerRow = new HBox(12, title, spacer);
+        Button add =
+                new Button("+  Ajouter un employé");
+
+        add.getStyleClass().add("primary-button");
+
+        add.setOnAction(e -> startCreate());
+
+        HBox headerRow =
+                new HBox(12, title);
+
+        HBox.setHgrow(title, Priority.ALWAYS);
+
+        headerRow.getChildren().add(add);
+
         headerRow.setAlignment(Pos.CENTER_LEFT);
-        VBox headerBlock = new VBox(4, headerRow, countLabel);
+
+        VBox headerBlock =
+                new VBox(4, headerRow, countLabel);
 
         searchField.getStyleClass().add("filter-field");
-        searchField.textProperty().addListener((obs, old, val) -> reload());
 
-        VBox listPane = new VBox(18, headerBlock, searchField, table);
-        listPane.setPadding(new Insets(24, 20, 24, 24));
+        if (!searchField.getProperties()
+                .containsKey("teachers-search-listener")) {
+
+            searchField.textProperty()
+                    .addListener(
+                            (obs, oldValue, newValue) -> reload()
+                    );
+
+            searchField.getProperties()
+                    .put("teachers-search-listener", Boolean.TRUE);
+        }
+
+        // -----------------------------------------------------
+        // LIST
+        // -----------------------------------------------------
+
+        VBox listPane =
+                new VBox(14, headerBlock, searchField, table);
+
         VBox.setVgrow(table, Priority.ALWAYS);
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
-        VBox form = buildForm();
-        ScrollPane formScroll = new ScrollPane(form);
-        formScroll.setFitToWidth(true);
-        formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        formScroll.getStyleClass().add("panel-scroll");
-        formScroll.setPrefWidth(320);
-        formScroll.setMinWidth(300);
+        listPane.setPadding(new Insets(24));
 
-        BorderPane layout = new BorderPane();
+        table.getSelectionModel()
+                .selectedItemProperty()
+                .addListener(
+                        (obs, oldValue, newValue) -> {
+
+                            if (suppressSelectionListener) {
+                                return;
+                            }
+
+                            selectRow(newValue);
+                        }
+                );
+
+        // -----------------------------------------------------
+        // FORM (built once, panel shown/hidden on demand)
+        // -----------------------------------------------------
+
+        form = buildForm();
+
+        // -----------------------------------------------------
+        // LAYOUT
+        // -----------------------------------------------------
+
+        layout = new BorderPane();
+
         layout.setCenter(listPane);
-        layout.setRight(formScroll);
-        BorderPane.setMargin(formScroll, new Insets(24, 24, 24, 0));
 
         contentPane.setCenter(layout);
+
+        contentPane.setPadding(new Insets(20));
+
         reload();
     }
 
+    // =========================================================
+    // SHOW / HIDE FORM PANEL
+    // =========================================================
+
+    private void startCreate() {
+
+        clearForm();
+
+        showFormPanel();
+    }
+
+    private void showFormPanel() {
+
+        layout.setRight(form);
+
+        BorderPane.setMargin(
+                form,
+                new Insets(0, 0, 0, 16)
+        );
+    }
+
+    private void closeForm() {
+
+        layout.setRight(null);
+
+        clearForm();
+    }
+
+    // =========================================================
+    // FORM
+    // =========================================================
+
     private VBox buildForm() {
-        GridPane grid = FormFactory.sectionGrid();
+
+        GridPane grid =
+                FormFactory.sectionGrid();
+
         FormFactory.addRow(grid, 0, "Prénom", firstNameField);
         FormFactory.addRow(grid, 1, "Nom", lastNameField);
         FormFactory.addRow(grid, 2, "Email", emailField);
         FormFactory.addRow(grid, 3, "Téléphone", phoneField);
         FormFactory.addRow(grid, 4, "Rôle", roleField);
         FormFactory.addRow(grid, 5, "Certifications", certificationsField);
-        HBox availabilityRow = new HBox(8, availabilityField, availabilityButton);
+
+        HBox availabilityRow =
+                new HBox(6, availabilityField, availabilityButton);
+
         availabilityRow.setAlignment(Pos.CENTER_LEFT);
+
         HBox.setHgrow(availabilityField, Priority.ALWAYS);
+
         FormFactory.addRow(grid, 6, "Disponibilité", availabilityRow);
 
-        Button save = new Button("Enregistrer");
+        // -----------------------------------------------------
+        // BUTTONS
+        // -----------------------------------------------------
+
+        Button save =
+                new Button("Enregistrer");
+
         save.getStyleClass().add("primary-button");
+
         save.setOnAction(e -> save());
-        Button clear = new Button("Nouveau");
-        clear.getStyleClass().add("secondary-button");
-        clear.setOnAction(e -> clearForm());
-        Button delete = new Button("Supprimer");
+
+        Button cancel =
+                new Button("Annuler");
+
+        cancel.getStyleClass().add("secondary-button");
+
+        cancel.setOnAction(e -> closeForm());
+
+        Button delete =
+                new Button("Supprimer");
+
         delete.getStyleClass().add("danger-button");
+
         delete.setOnAction(e -> delete());
 
-        HBox actions = new HBox(8, save, clear, delete);
+        HBox actions =
+                new HBox(8, save, cancel, delete);
 
-        Label formTitle = new Label("Détails de l'employé");
-        formTitle.getStyleClass().add("section-title");
+        VBox panel =
+                new VBox(
+                        12,
+                        new Label("Détails de l'employé"),
+                        grid,
+                        actions,
+                        timetableButton
+                );
 
-        VBox panel = new VBox(14, formTitle, grid, actions, timetableButton);
         panel.getStyleClass().add("side-panel");
+
         panel.setPrefWidth(320);
-        panel.setMinWidth(300);
+
         return panel;
     }
 
-    /** Compact day/time badges for the employee table, matching the timetable selection. */
+    // =========================================================
+    // TABLE CELL
+    // =========================================================
+
     private TableCell<Employee, Employee> availabilityCell() {
+
         return new TableCell<>() {
+
             {
                 setAlignment(Pos.CENTER);
             }
 
             @Override
             protected void updateItem(Employee employee, boolean empty) {
+
                 super.updateItem(employee, empty);
+
                 setText(null);
+
                 if (empty || employee == null) {
+
                     setGraphic(null);
-                    return;
-                }
-                String schedule = employee.getAvailabilitySchedule();
-                if (schedule == null || schedule.isBlank()) {
-                    schedule = legacyAvailabilitySchedule(employee.getWorkingDays(),
-                            employee.getWorkStartTime(), employee.getWorkEndTime());
-                }
-                List<ScheduleValidator.Slot> slots = ScheduleValidator.parse(schedule);
-                if (slots.isEmpty()) {
-                    setGraphic(new Label("—"));
+
                     return;
                 }
 
-                FlowPane badges = new FlowPane(6, 4);
+                String schedule =
+                        employee.getAvailabilitySchedule();
+
+                if (schedule == null || schedule.isBlank()) {
+
+                    schedule =
+                            legacyAvailabilitySchedule(
+                                    employee.getWorkingDays(),
+                                    employee.getWorkStartTime(),
+                                    employee.getWorkEndTime()
+                            );
+                }
+
+                List<ScheduleValidator.Slot> slots =
+                        ScheduleValidator.parse(schedule);
+
+                if (slots.isEmpty()) {
+
+                    setGraphic(new Label("—"));
+
+                    return;
+                }
+
+                FlowPane badges =
+                        new FlowPane(5, 4);
+
                 badges.setAlignment(Pos.CENTER);
-                int visible = Math.min(3, slots.size());
+
+                int visible =
+                        Math.min(2, slots.size());
+
                 for (int i = 0; i < visible; i++) {
-                    ScheduleValidator.Slot slot = slots.get(i);
-                    String label = shortDay(slot.day()) + " " + formatTime(slot.startMinutes())
-                            + "–" + formatTime(slot.endMinutes());
-                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
-                            .pill(label, "#FCE7F3", "#9D174D"));
+
+                    ScheduleValidator.Slot slot =
+                            slots.get(i);
+
+                    String label =
+                            shortDay(slot.day())
+                                    + " "
+                                    + formatTime(slot.startMinutes())
+                                    + "–"
+                                    + formatTime(slot.endMinutes());
+
+                    badges.getChildren().add(
+                            TableStyleKit.pill(label, "#FCE7F3", "#9D174D")
+                    );
                 }
+
                 if (slots.size() > visible) {
-                    badges.getChildren().add(com.example.mef.demo.dashboard.common.TableStyleKit
-                            .pill("+" + (slots.size() - visible), "#F3E8FF", "#6B21A8"));
+
+                    badges.getChildren().add(
+                            TableStyleKit.pill(
+                                    "+" + (slots.size() - visible),
+                                    "#F3E8FF",
+                                    "#6B21A8"
+                            )
+                    );
                 }
+
                 setGraphic(badges);
             }
         };
     }
 
-    /** Modal dialog listing every course/session taught by the selected teacher. */
-    private void showTeacherTimetable() {
-        if (selected == null) {
-            DialogUtil.info("Emploi du temps", "Sélectionnez d'abord un enseignant dans la liste.");
-            return;
-        }
-        Employee teacher = selected;
+    // =========================================================
+    // INITIALIZE TABLE
+    // =========================================================
 
-        Stage dialog = new Stage();
-        dialog.initModality(Modality.APPLICATION_MODAL);
-        if (timetableButton.getScene() != null) {
-            dialog.initOwner(timetableButton.getScene().getWindow());
-        }
-        dialog.setTitle("Emploi du temps — " + teacher.getFirstName() + " " + teacher.getLastName());
-        dialog.setMinWidth(420);
-        dialog.setMinHeight(360);
+    private void initializeTeacherTable() {
 
-        ListView<String> listView = new ListView<>();
-        listView.setPlaceholder(new Label("Aucune séance planifiée pour cet enseignant."));
-
-        Label loading = new Label("Chargement...");
-        VBox root = new VBox(12, loading);
-        root.setPadding(new Insets(20));
-        root.setMinSize(400, 320);
-
-        AsyncTasks.run(
-                courseService::findAll,
-                allCourses -> {
-                    root.getChildren().remove(loading);
-
-                    record Row(String day, int start, String label) {}
-                    List<Row> lines = new java.util.ArrayList<>();
-                    for (Course c : allCourses) {
-                        if (c.getTeacher() == null || !teacher.getId().equals(c.getTeacher().getId())) continue;
-                        for (ScheduleValidator.Slot slot : ScheduleValidator.parse(c.getSchedule())) {
-                            String classroomName = c.getClassroom() == null ? "—" : c.getClassroom().getName();
-                            lines.add(new Row(slot.day(), slot.startMinutes(),
-                                    slot.day() + "  " + formatSlot(slot) + "   —   " + c.getName() + " (" + classroomName + ")"));
-                        }
-                    }
-                    lines.sort(Comparator.comparing(Row::day, Comparator.comparingInt(DaysPicker.DAYS::indexOf))
-                            .thenComparingInt(Row::start));
-                    listView.getItems().setAll(lines.stream().map(Row::label).toList());
-
-                    Button closeBtn = new Button("Fermer");
-                    closeBtn.getStyleClass().add("secondary-button");
-                    closeBtn.setOnAction(ev -> dialog.close());
-
-                    root.getChildren().addAll(listView, new HBox(10, closeBtn));
-                },
-                err -> {
-                    root.getChildren().remove(loading);
-                    root.getChildren().add(new Label("Erreur : " + err.getMessage()));
-                }
+        table.setColumnResizePolicy(
+                TableView.UNCONSTRAINED_RESIZE_POLICY
         );
 
-        dialog.setScene(new Scene(root, 420, 380));
-        dialog.showAndWait();
+        TableColumn<Employee, String> number =
+                new TableColumn<>("N°");
+
+        number.setCellValueFactory(
+                d -> new ReadOnlyStringWrapper(
+                        safe(d.getValue().getEmployeeNumber())
+                )
+        );
+
+        number.setPrefWidth(90);
+
+        TableColumn<Employee, String> name =
+                new TableColumn<>("Nom");
+
+        name.setCellValueFactory(
+                d -> new ReadOnlyStringWrapper(
+                        safe(d.getValue().getFirstName())
+                                + " "
+                                + safe(d.getValue().getLastName())
+                )
+        );
+
+        name.setPrefWidth(180);
+
+        TableColumn<Employee, String> role =
+                new TableColumn<>("Rôle");
+
+        role.setCellValueFactory(
+                d -> new ReadOnlyStringWrapper(
+                        d.getValue().getRole() == null
+                                ? ""
+                                : d.getValue().getRole().name()
+                )
+        );
+
+        role.setPrefWidth(120);
+
+        TableColumn<Employee, String> email =
+                new TableColumn<>("Email");
+
+        email.setCellValueFactory(
+                d -> new ReadOnlyStringWrapper(
+                        safe(d.getValue().getEmail())
+                )
+        );
+
+        email.setPrefWidth(200);
+
+        TableColumn<Employee, Employee> availability =
+                new TableColumn<>("Disponibilité");
+
+        availability.setCellValueFactory(
+                d -> new ReadOnlyObjectWrapper<>(d.getValue())
+        );
+
+        availability.setCellFactory(column -> availabilityCell());
+
+        availability.setPrefWidth(260);
+
+        table.getColumns().setAll(
+                number, name, role, email, availability
+        );
     }
 
-    private static String formatSlot(ScheduleValidator.Slot slot) {
-        return String.format("%02d:%02d-%02d:%02d",
-                slot.startMinutes() / 60, slot.startMinutes() % 60,
-                slot.endMinutes() / 60, slot.endMinutes() % 60);
-    }
+    // =========================================================
+    // SELECT EMPLOYEE
+    // =========================================================
 
     private void selectRow(Employee employee) {
+
         selected = employee;
-        if (employee == null) { clearForm(); return; }
-        firstNameField.setText(employee.getFirstName());
-        lastNameField.setText(employee.getLastName());
-        emailField.setText(employee.getEmail());
-        phoneField.setText(employee.getPhoneNumber());
+
+        if (employee == null) {
+            return;
+        }
+
+        firstNameField.setText(safe(employee.getFirstName()));
+        lastNameField.setText(safe(employee.getLastName()));
+        emailField.setText(safe(employee.getEmail()));
+        phoneField.setText(safe(employee.getPhoneNumber()));
         roleField.setValue(employee.getRole());
-        certificationsField.setText(employee.getCertifications());
-        currentWorkingDays = employee.getWorkingDays() == null ? "" : employee.getWorkingDays();
-        currentWorkStart = employee.getWorkStartTime() == null ? "" : employee.getWorkStartTime();
-        currentWorkEnd = employee.getWorkEndTime() == null ? "" : employee.getWorkEndTime();
-        currentAvailabilitySchedule = employee.getAvailabilitySchedule() == null
-                ? legacyAvailabilitySchedule(currentWorkingDays, currentWorkStart, currentWorkEnd)
-                : employee.getAvailabilitySchedule();
+        certificationsField.setText(safe(employee.getCertifications()));
+
+        currentWorkingDays = safe(employee.getWorkingDays());
+        currentWorkStart = safe(employee.getWorkStartTime());
+        currentWorkEnd = safe(employee.getWorkEndTime());
+
+        currentAvailabilitySchedule =
+                employee.getAvailabilitySchedule() == null
+                        ? legacyAvailabilitySchedule(
+                        currentWorkingDays,
+                        currentWorkStart,
+                        currentWorkEnd
+                )
+                        : employee.getAvailabilitySchedule();
+
         updateAvailabilitySummary();
+
+        showFormPanel();
     }
+
+    // =========================================================
+    // CLEAR FORM
+    // =========================================================
 
     private void clearForm() {
-        selected = null;
-        firstNameField.clear();
-        lastNameField.clear();
-        emailField.clear();
-        phoneField.clear();
-        roleField.setValue(null);
-        certificationsField.clear();
-        currentWorkingDays = "";
-        currentWorkStart = "";
-        currentWorkEnd = "";
-        currentAvailabilitySchedule = "";
-        updateAvailabilitySummary();
-        table.getSelectionModel().clearSelection();
+
+        suppressSelectionListener = true;
+
+        try {
+
+            selected = null;
+
+            firstNameField.clear();
+            lastNameField.clear();
+            emailField.clear();
+            phoneField.clear();
+
+            roleField.setValue(null);
+
+            certificationsField.clear();
+
+            currentWorkingDays = "";
+            currentWorkStart = "";
+            currentWorkEnd = "";
+            currentAvailabilitySchedule = "";
+
+            updateAvailabilitySummary();
+
+            if (table.getSelectionModel().getSelectedIndex() >= 0) {
+
+                table.getSelectionModel().clearSelection();
+            }
+
+        } finally {
+
+            suppressSelectionListener = false;
+        }
     }
 
+    // =========================================================
+    // SAVE
+    // =========================================================
+
     private void save() {
-        if (firstNameField.getText().isBlank() || lastNameField.getText().isBlank() || emailField.getText().isBlank()) {
-            DialogUtil.error("Champs requis", "Le prénom, le nom et l'email sont obligatoires.");
+
+        if (firstNameField.getText().isBlank()
+                || lastNameField.getText().isBlank()
+                || emailField.getText().isBlank()) {
+
+            DialogUtil.error(
+                    "Champs requis",
+                    "Le prénom, le nom et l'email sont obligatoires."
+            );
+
             return;
         }
-        String phone = phoneField.getText().trim();
+
+        String phone =
+                phoneField.getText().trim();
+
         if (!phone.matches("^(05|06|07)\\d{8}$")) {
-            DialogUtil.error("Téléphone invalide",
-                    "Le numéro doit contenir 10 chiffres et commencer par 05, 06 ou 07.");
+
+            DialogUtil.error(
+                    "Téléphone invalide",
+                    "Le numéro doit contenir 10 chiffres et commencer par 05, 06 ou 07."
+            );
+
             return;
         }
-        Employee employee = selected != null ? selected : new Employee();
+
+        Employee employee =
+                selected != null ? selected : new Employee();
+
         employee.setFirstName(firstNameField.getText().trim());
         employee.setLastName(lastNameField.getText().trim());
         employee.setEmail(emailField.getText().trim());
         employee.setPhoneNumber(phone);
         employee.setRole(roleField.getValue());
-        employee.setCertifications(certificationsField.getText());
-        employee.setWorkingDays(currentWorkingDays.isBlank() ? null : currentWorkingDays);
-        employee.setWorkStartTime(currentWorkStart.isBlank() ? null : currentWorkStart);
-        employee.setWorkEndTime(currentWorkEnd.isBlank() ? null : currentWorkEnd);
-        employee.setAvailabilitySchedule(currentAvailabilitySchedule.isBlank() ? null : currentAvailabilitySchedule);
-        employee.replaceAvailabilitySlots(toAvailabilitySlots(currentAvailabilitySchedule));
+        employee.setCertifications(certificationsField.getText().trim());
+
+        String normalizedSchedule =
+                ScheduleValidator.parse(currentAvailabilitySchedule)
+                        .stream()
+                        .map(TeachersView::slotToScheduleString)
+                        .distinct()
+                        .collect(Collectors.joining("; "));
+
+        employee.setAvailabilitySchedule(
+                normalizedSchedule.isBlank() ? null : normalizedSchedule
+        );
+
+        employee.setWorkingDays(null);
+        employee.setWorkStartTime(null);
+        employee.setWorkEndTime(null);
+
+        employee.replaceAvailabilitySlots(
+                toAvailabilitySlots(normalizedSchedule)
+        );
 
         AsyncTasks.run(
+
                 () -> employeeService.save(employee),
-                saved -> { clearForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+
+                saved -> { closeForm(); reload(); },
+
+                err -> DialogUtil.error(
+                        "Erreur",
+                        "Échec de l'enregistrement : " + err.getMessage()
+                )
         );
     }
+
+    // =========================================================
+    // DELETE
+    // =========================================================
 
     private void delete() {
-        if (selected == null) return;
-        if (!DialogUtil.confirm("Confirmer", "Supprimer cet employé ?")) return;
+
+        if (selected == null) {
+            return;
+        }
+
+        if (!DialogUtil.confirm("Confirmer", "Supprimer cet employé ?")) {
+            return;
+        }
+
         String id = selected.getId();
+
         AsyncTasks.run(
+
                 () -> employeeService.delete(id),
-                () -> { clearForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
+
+                () -> { closeForm(); reload(); },
+
+                err -> DialogUtil.error(
+                        "Erreur",
+                        "Échec de la suppression : " + err.getMessage()
+                )
         );
     }
+
+    // =========================================================
+    // RELOAD
+    // =========================================================
 
     private void reload() {
+
         String needle = searchField.getText();
+
         AsyncTasks.run(
+
                 () -> employeeService.search(needle),
+
                 list -> {
-                    rows.setAll(list);
-                    countLabel.setText(list.size() + " employé" + (list.size() > 1 ? "s" : ""));
+
+                    suppressSelectionListener = true;
+
+                    try {
+
+                        selected = null;
+
+                        table.getSelectionModel().clearSelection();
+
+                        rows.setAll(list);
+
+                    } finally {
+
+                        suppressSelectionListener = false;
+                    }
+
+                    countLabel.setText(
+                            list.size()
+                                    + (list.size() > 1
+                                    ? " employés"
+                                    : " employé")
+                    );
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
+
+                err -> DialogUtil.error(
+                        "Erreur",
+                        "Échec du chargement : " + err.getMessage()
+                )
         );
     }
 
-    /** Converts the former shared daily window into selectable per-day slots. */
-    private static String legacyAvailabilitySchedule(String days, String start, String end) {
-        if (days == null || days.isBlank() || start == null || start.isBlank() || end == null || end.isBlank()) {
+    // =========================================================
+    // TIMETABLE
+    // =========================================================
+
+    private void showTeacherTimetable() {
+
+        if (selected == null) {
+
+            DialogUtil.info(
+                    "Emploi du temps",
+                    "Sélectionnez d'abord un enseignant."
+            );
+
+            return;
+        }
+
+        Employee teacher = selected;
+
+        Stage dialog = new Stage();
+
+        dialog.initModality(Modality.APPLICATION_MODAL);
+
+        if (timetableButton.getScene() != null) {
+
+            dialog.initOwner(timetableButton.getScene().getWindow());
+        }
+
+        dialog.setTitle(
+                "Emploi du temps — "
+                        + safe(teacher.getFirstName())
+                        + " "
+                        + safe(teacher.getLastName())
+        );
+
+        dialog.setWidth(900);
+        dialog.setHeight(600);
+
+        dialog.setMinWidth(800);
+        dialog.setMinHeight(500);
+
+        VBox root = new VBox(10);
+
+        root.setPadding(new Insets(12));
+
+        root.setStyle("-fx-background-color: #F8FAFC;");
+
+        Label title =
+                new Label(
+                        "Emploi du temps : "
+                                + safe(teacher.getFirstName())
+                                + " "
+                                + safe(teacher.getLastName())
+                );
+
+        title.setStyle(
+                "-fx-font-size: 17px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #172554;"
+        );
+
+        Label subtitle =
+                new Label("Planning hebdomadaire");
+
+        subtitle.setStyle(
+                "-fx-font-size: 11px;" +
+                        "-fx-text-fill: #64748B;"
+        );
+
+        VBox header = new VBox(2, title, subtitle);
+
+        BorderPane timetableContainer = new BorderPane();
+
+        Label loading = new Label("Chargement...");
+
+        loading.setStyle("-fx-text-fill: #64748B;");
+
+        timetableContainer.setCenter(loading);
+
+        Button printButton = new Button("🖨 Imprimer");
+
+        printButton.getStyleClass().add("primary-button");
+
+        printButton.setDisable(true);
+
+        Button closeButton = new Button("Fermer");
+
+        closeButton.getStyleClass().add("secondary-button");
+
+        closeButton.setOnAction(e -> dialog.close());
+
+        HBox buttons = new HBox(8, printButton, closeButton);
+
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        root.getChildren().addAll(header, timetableContainer, buttons);
+
+        VBox.setVgrow(timetableContainer, Priority.ALWAYS);
+
+        AsyncTasks.run(
+
+                courseService::findAll,
+
+                allCourses -> {
+
+                    GridPane grid =
+                            buildTeacherTimetableGrid(teacher, allCourses);
+
+                    ScrollPane scroll = new ScrollPane(grid);
+
+                    scroll.setFitToWidth(true);
+                    scroll.setFitToHeight(true);
+                    scroll.setPannable(true);
+
+                    scroll.setStyle(
+                            "-fx-background-color: transparent;" +
+                                    "-fx-background: transparent;"
+                    );
+
+                    timetableContainer.setCenter(scroll);
+
+                    printButton.setDisable(false);
+
+                    printButton.setOnAction(
+                            e -> printTeacherTimetable(teacher, grid)
+                    );
+                },
+
+                err -> {
+
+                    Label error =
+                            new Label("Erreur : " + safe(err.getMessage()));
+
+                    error.setWrapText(true);
+
+                    error.setStyle("-fx-text-fill: #DC2626;");
+
+                    timetableContainer.setCenter(error);
+                }
+        );
+
+        Scene scene = new Scene(root, 900, 600);
+
+        dialog.setScene(scene);
+
+        dialog.showAndWait();
+    }
+
+    // =========================================================
+    // BUILD TIMETABLE GRID
+    // =========================================================
+
+    private GridPane buildTeacherTimetableGrid(
+            Employee teacher,
+            List<Course> allCourses
+    ) {
+
+        GridPane grid = new GridPane();
+
+        grid.setHgap(0);
+        grid.setVgap(0);
+
+        grid.setPadding(new Insets(6));
+
+        grid.setStyle("-fx-background-color: #CBD5E1;");
+
+        ColumnConstraints timeColumn = new ColumnConstraints();
+
+        timeColumn.setPrefWidth(65);
+        timeColumn.setMinWidth(65);
+        timeColumn.setMaxWidth(65);
+
+        grid.getColumnConstraints().add(timeColumn);
+
+        for (int i = 0; i < 7; i++) {
+
+            ColumnConstraints dayColumn = new ColumnConstraints();
+
+            dayColumn.setPrefWidth(115);
+            dayColumn.setMinWidth(95);
+
+            dayColumn.setHgrow(Priority.ALWAYS);
+
+            grid.getColumnConstraints().add(dayColumn);
+        }
+
+        addTimetableCell(grid, 0, 0, "Heure", "#E2E8F0", "#1E293B", true);
+
+        for (int i = 0; i < DaysPicker.DAYS.size(); i++) {
+
+            String day = DaysPicker.DAYS.get(i);
+
+            addTimetableCell(
+                    grid, i + 1, 0, day.toUpperCase(), "#DBEAFE", "#1E3A8A", true
+            );
+        }
+
+        int firstHour = 8;
+        int lastHour = 18;
+
+        int row = 1;
+
+        for (int hour = firstHour; hour < lastHour; hour++) {
+
+            if (hour == 12) {
+
+                for (int col = 0; col <= 7; col++) {
+
+                    addTimetableCell(
+                            grid,
+                            col,
+                            row,
+                            col == 0 ? "12:00" : "PAUSE",
+                            "#DBEAFE",
+                            "#1E40AF",
+                            true
+                    );
+                }
+
+                row++;
+
+                continue;
+            }
+
+            String time = String.format("%02d:00", hour);
+
+            addTimetableCell(grid, 0, row, time, "#F1F5F9", "#334155", true);
+
+            for (int dayIndex = 0; dayIndex < 7; dayIndex++) {
+
+                String day = DaysPicker.DAYS.get(dayIndex);
+
+                Course course =
+                        findCourseAt(teacher, allCourses, day, hour * 60);
+
+                if (course != null) {
+
+                    String classroom = "";
+
+                    if (course.getClassroom() != null) {
+
+                        classroom = safe(course.getClassroom().getName());
+                    }
+
+                    String text = safe(course.getName());
+
+                    if (!classroom.isBlank()) {
+
+                        text += "\n📍 " + classroom;
+                    }
+
+                    addTimetableCell(
+                            grid, dayIndex + 1, row, text, "#BFDBFE", "#1E3A8A", false
+                    );
+
+                } else {
+
+                    addTimetableCell(
+                            grid, dayIndex + 1, row, "", "#FFFFFF", "#334155", false
+                    );
+                }
+            }
+
+            row++;
+        }
+
+        return grid;
+    }
+
+    // =========================================================
+    // FIND COURSE
+    // =========================================================
+
+    private Course findCourseAt(
+            Employee teacher,
+            List<Course> courses,
+            String day,
+            int minute
+    ) {
+
+        for (Course course : courses) {
+
+            if (course.getTeacher() == null) {
+                continue;
+            }
+
+            if (!teacher.getId().equals(course.getTeacher().getId())) {
+                continue;
+            }
+
+            String schedule = course.getSchedule();
+
+            if (schedule == null || schedule.isBlank()) {
+                continue;
+            }
+
+            for (ScheduleValidator.Slot slot : ScheduleValidator.parse(schedule)) {
+
+                if (!slot.day().equals(day)) {
+                    continue;
+                }
+
+                if (minute >= slot.startMinutes() && minute < slot.endMinutes()) {
+
+                    return course;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // =========================================================
+    // TIMETABLE CELL
+    // =========================================================
+
+    private void addTimetableCell(
+            GridPane grid,
+            int column,
+            int row,
+            String text,
+            String background,
+            String textColor,
+            boolean bold
+    ) {
+
+        Label label = new Label(text);
+
+        label.setAlignment(Pos.CENTER);
+
+        label.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+        label.setMinHeight(42);
+
+        label.setWrapText(true);
+
+        String weight = bold ? "bold" : "normal";
+
+        label.setStyle(
+                "-fx-background-color: " + background + ";"
+                        + "-fx-text-fill: " + textColor + ";"
+                        + "-fx-font-size: " + (bold ? "10px" : "9px") + ";"
+                        + "-fx-font-weight: " + weight + ";"
+                        + "-fx-alignment: center;"
+                        + "-fx-padding: 5px;"
+                        + "-fx-border-color: #CBD5E1;"
+                        + "-fx-border-width: 0.5px;"
+        );
+
+        GridPane.setHgrow(label, Priority.ALWAYS);
+        GridPane.setVgrow(label, Priority.ALWAYS);
+
+        grid.add(label, column, row);
+    }
+
+    // =========================================================
+    // PRINT TIMETABLE
+    // =========================================================
+
+    private void printTeacherTimetable(Employee teacher, GridPane timetable) {
+
+        PrinterJob job = PrinterJob.createPrinterJob();
+
+        if (job == null) {
+
+            DialogUtil.error("Impression", "Aucune imprimante disponible.");
+
+            return;
+        }
+
+        boolean accepted = job.showPrintDialog(
+                timetable.getScene() == null
+                        ? null
+                        : timetable.getScene().getWindow()
+        );
+
+        if (!accepted) {
+            return;
+        }
+
+        javafx.print.Printer printer = job.getPrinter();
+
+        PageLayout pageLayout = printer.createPageLayout(
+                Paper.A4,
+                PageOrientation.LANDSCAPE,
+                javafx.print.Printer.MarginType.DEFAULT
+        );
+
+        timetable.applyCss();
+        timetable.layout();
+
+        double width = timetable.getLayoutBounds().getWidth();
+        double height = timetable.getLayoutBounds().getHeight();
+
+        if (width <= 0 || height <= 0) {
+
+            DialogUtil.error(
+                    "Impression",
+                    "Impossible de déterminer la taille de l'emploi du temps."
+            );
+
+            job.endJob();
+
+            return;
+        }
+
+        double printableWidth = pageLayout.getPrintableWidth();
+        double printableHeight = pageLayout.getPrintableHeight();
+
+        double scaleX = printableWidth / width;
+        double scaleY = printableHeight / height;
+
+        double scale = Math.min(scaleX, scaleY);
+
+        scale = Math.min(scale, 1.0);
+
+        double oldScaleX = timetable.getScaleX();
+        double oldScaleY = timetable.getScaleY();
+
+        try {
+
+            timetable.setScaleX(scale);
+            timetable.setScaleY(scale);
+
+            boolean success = job.printPage(pageLayout, timetable);
+
+            if (success) {
+
+                job.endJob();
+
+                DialogUtil.info(
+                        "Impression",
+                        "L'emploi du temps a été envoyé à l'imprimante."
+                );
+
+            } else {
+
+                DialogUtil.error("Impression", "L'impression a échoué.");
+            }
+
+        } finally {
+
+            timetable.setScaleX(oldScaleX);
+            timetable.setScaleY(oldScaleY);
+        }
+    }
+
+    // =========================================================
+    // LEGACY AVAILABILITY
+    // =========================================================
+
+    private static String legacyAvailabilitySchedule(
+            String days,
+            String start,
+            String end
+    ) {
+
+        if (days == null || days.isBlank()
+                || start == null || start.isBlank()
+                || end == null || end.isBlank()) {
+
             return "";
         }
+
         return java.util.Arrays.stream(days.split(","))
                 .map(String::trim)
                 .filter(day -> !day.isEmpty())
                 .map(day -> day + " " + start + "-" + end)
-                .collect(java.util.stream.Collectors.joining("; "));
+                .collect(Collectors.joining("; "));
     }
 
+    // =========================================================
+    // AVAILABILITY SLOTS
+    // =========================================================
+
     private static List<TeacherAvailabilitySlot> toAvailabilitySlots(String schedule) {
-        return ScheduleValidator.parse(schedule).stream()
+
+        return ScheduleValidator.parse(schedule)
+                .stream()
                 .map(slot -> new TeacherAvailabilitySlot(
-                        slot.day(), formatTime(slot.startMinutes()), formatTime(slot.endMinutes())))
+                        slot.day(),
+                        formatTime(slot.startMinutes()),
+                        formatTime(slot.endMinutes())
+                ))
                 .toList();
     }
 
+    // =========================================================
+    // SLOT TO STRING
+    // =========================================================
+
+    private static String slotToScheduleString(ScheduleValidator.Slot slot) {
+
+        return slot.day()
+                + " "
+                + formatTime(slot.startMinutes())
+                + "-"
+                + formatTime(slot.endMinutes());
+    }
+
+    // =========================================================
+    // FORMAT TIME
+    // =========================================================
+
     private static String formatTime(int minutes) {
+
         return String.format("%02d:%02d", minutes / 60, minutes % 60);
     }
 
+    // =========================================================
+    // SHORT DAY
+    // =========================================================
+
     private static String shortDay(String day) {
+
         return switch (day) {
+
             case "Lundi" -> "Lun";
             case "Mardi" -> "Mar";
             case "Mercredi" -> "Mer";
@@ -441,5 +1429,14 @@ public class TeachersView {
             case "Dimanche" -> "Dim";
             default -> day;
         };
+    }
+
+    // =========================================================
+    // SAFE
+    // =========================================================
+
+    private static String safe(String value) {
+
+        return value == null ? "" : value;
     }
 }

@@ -253,7 +253,8 @@ public class RoomsView {
         cardScroll.setFitToWidth(true);
         cardScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         cardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-
+        formScroll.setPrefWidth(400);
+        formScroll.setMinWidth(320);
         VBox cardPanel = new VBox(10, addNew, cardScroll);
         VBox.setVgrow(cardScroll, Priority.ALWAYS);
 

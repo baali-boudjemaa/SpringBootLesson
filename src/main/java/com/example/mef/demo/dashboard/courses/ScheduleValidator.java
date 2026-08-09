@@ -7,10 +7,7 @@ import com.example.mef.demo.Model.CourseScheduleSlot;
 import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.dashboard.common.TimeSlots;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Enforces the school's timetable rules before a course is saved:
@@ -87,8 +84,48 @@ public final class ScheduleValidator {
             if (teacher != null) {
                 if (!teacherAvailability.isEmpty()) {
                     if (!isCoveredByAvailability(slot, teacherAvailability)) {
-                        errors.add("❌ " + slot.day() + " " + slot.range()
-                                + " : en dehors des créneaux de disponibilité de l'enseignant.");
+
+                        String availableText =
+                                teacherAvailability.stream()
+                                        .filter(a ->
+                                                a.day().equals(slot.day())
+                                        )
+                                        .sorted(
+                                                Comparator.comparingInt(
+                                                        Slot::startMinutes
+                                                )
+                                        )
+                                        .map(Slot::range)
+                                        .distinct()
+                                        .collect(
+                                                java.util.stream.Collectors.joining(
+                                                        ", "
+                                                )
+                                        );
+
+                        if (availableText.isBlank()) {
+
+                            errors.add(
+                                    "❌ "
+                                            + slot.day()
+                                            + " "
+                                            + slot.range()
+                                            + " : l'enseignant n'est pas disponible ce jour."
+                            );
+
+                        } else {
+
+                            errors.add(
+                                    "❌ "
+                                            + slot.day()
+                                            + " "
+                                            + slot.range()
+                                            + " : créneau hors disponibilité de l'enseignant. "
+                                            + "Disponibilités ce jour : "
+                                            + availableText
+                                            + "."
+                            );
+                        }
                     }
                 } else {
                     if (!teacherDays.isEmpty() && !teacherDays.contains(slot.day())) {
@@ -144,8 +181,23 @@ public final class ScheduleValidator {
                         continue;
                     }
                     if (sameTeacher) {
-                        errors.add("❌ L'enseignant est déjà réservé : " + slot.day() + " " + slot.range()
-                                + " (cours « " + other.getName() + " »).");
+
+                        String teacherName =
+                                teacher.getFirstName()
+                                        + " "
+                                        + teacher.getLastName();
+
+                        errors.add(
+                                "❌ Conflit enseignant : "
+                                        + teacherName
+                                        + " est déjà affecté au cours « "
+                                        + other.getName()
+                                        + " » le "
+                                        + slot.day()
+                                        + " de "
+                                        + slot.range()
+                                        + "."
+                        );
                     }
                     if (sameClassroom) {
                         errors.add("❌ La classe/salle est déjà réservée : " + slot.day() + " " + slot.range()

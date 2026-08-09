@@ -73,7 +73,9 @@ public class StudentsView {
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onEnrollNew) {
         this.onEnrollNew = onEnrollNew;
         pageTitleLabel.setText("Enfants");
-
+        table.setColumnResizePolicy(
+                TableView.UNCONSTRAINED_RESIZE_POLICY
+        );
         buildColumns();
 
         Label title = new Label("Enfants");
@@ -109,6 +111,7 @@ public class StudentsView {
         layout.setCenter(listPane);
 
         contentPane.setCenter(layout);
+        contentPane.setPadding(new Insets(20));
         reload();
     }
 
