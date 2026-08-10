@@ -45,7 +45,7 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
-
+import com.example.mef.demo.dashboard.outcoming.OutcomingsView;
 import java.util.Locale;
 
 @Component
@@ -95,7 +95,7 @@ public class DashboardController {
     private final ReportsView reportsView;
     private final UsersView usersView;
     private final LicenseActivationDialog licenseActivationDialog;
-
+    private final OutcomingsView outcomingsView;
     private GlobalSearch globalSearch;
     private MonthlyReport monthlyReport;
     private Module activeModule;
@@ -120,8 +120,11 @@ public class DashboardController {
             PaymentsView paymentsView,
             ReportsView reportsView,
             UsersView usersView,
-            LicenseActivationDialog licenseActivationDialog) {
-
+            LicenseActivationDialog licenseActivationDialog,
+            OutcomingsView outcomingsView
+            ) {
+        this.paymentsView = paymentsView;
+        this.outcomingsView = outcomingsView;
         this.dao = dao;
         this.backupRestorePanel = new BackupRestorePanel(backupRestoreService);
         this.attendanceView = attendanceView;
@@ -137,7 +140,6 @@ public class DashboardController {
         this.coursesView = coursesView;
         this.enrollmentsView = enrollmentsView;
         this.enrollmentWizard = enrollmentWizard;
-        this.paymentsView = paymentsView;
         this.reportsView = reportsView;
         this.usersView = usersView;
         this.licenseActivationDialog = licenseActivationDialog;
@@ -399,7 +401,10 @@ public class DashboardController {
             usersView.render(contentPane, pageTitleLabel);
             return;
         }
-
+        if ("outcoming".equals(module.table())) {
+            outcomingsView.render(contentPane, pageTitleLabel);
+            return;
+        }
         // No modules currently fall through to the generic table view —
         // every registered module now has a typed screen. Kept as a safety
         // net in case a new module is registered before its typed view exists.

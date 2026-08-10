@@ -39,6 +39,7 @@ public class NavigationBuilder {
             Map.entry("attendance", "fth-check-circle"),
             Map.entry("enrollments", "fth-edit"),
             Map.entry("payments", "fth-credit-card"),
+            Map.entry("outcoming", "fth-trending-down"),
             Map.entry("reports", "fth-bar-chart-2"),
             Map.entry("users", "fth-key"),
             Map.entry("settings", "fth-settings")

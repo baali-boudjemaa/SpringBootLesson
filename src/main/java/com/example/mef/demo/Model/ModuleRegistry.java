@@ -138,5 +138,15 @@ public final class ModuleRegistry {
                         new Field("setting_value", "field.value"),
                         new Field("description",   "field.description")
                 )));
+        modules.add(new Module("nav.outcoming", "outcoming", "date_outcome DESC",
+                List.of(
+                        new Field("date_outcome",  "field.date"),
+                        new Field("label",         "field.label"),
+                        new Field("beneficiary",   "field.beneficiary"),
+                        new Field("amount",        "field.amount"),
+                        new Field("method",        "field.method",   List.of("Cash", "Virement", "Carte", "Chèque")),
+                        new Field("category",      "field.category", List.of("Salaires", "Loyer", "Fournitures", "Électricité", "Eau", "Maintenance", "Nourriture", "Transport", "Autre")),
+                        new Field("status",        "field.status",   List.of("PAID", "PENDING", "OVERDUE"))
+                )));
     }
 }
