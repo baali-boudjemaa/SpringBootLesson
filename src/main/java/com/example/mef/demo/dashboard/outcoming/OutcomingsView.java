@@ -3,6 +3,7 @@ package com.example.mef.demo.dashboard.outcoming;
 import com.example.mef.demo.Model.Outcoming;
 import com.example.mef.demo.Services.OutcomingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.OutcomingCategory;
@@ -29,6 +30,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -42,7 +44,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-/** Typed CRUD screen for the "outcoming" module (Outcoming entity) — expenses / money going out, with recurring support. */
+/**
+ * Typed CRUD screen for the "outcoming" module (Outcoming entity) — expenses / money going out,
+ * with recurring-expense support and a floating (draggable + resizable) details panel.
+ */
 @Component
 public class OutcomingsView {
 
@@ -90,8 +95,11 @@ public class OutcomingsView {
 
     private List<Outcoming> allOutcomings = List.of();
     private Outcoming selected;
-    private BorderPane layout;
     private VBox form;
+
+    /** Overlay Pane that floating panels live in, stacked on top of the normal screen content. */
+    private Pane overlay;
+    private FloatingPanel floatingForm;
 
     public OutcomingsView(OutcomingService outcomingService) {
         this.outcomingService = outcomingService;
@@ -178,10 +186,14 @@ public class OutcomingsView {
 
         form = buildForm();
 
-        layout = new BorderPane();
-        layout.setCenter(center);
+        // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
+        // to the table/buttons underneath wherever the overlay itself has no floating panel.
+        overlay = new Pane();
+        overlay.setPickOnBounds(false);
 
-        contentPane.setCenter(layout);
+        StackPane root = new StackPane(center, overlay);
+
+        contentPane.setCenter(root);
         wireFilters();
         reload();
     }
@@ -481,7 +493,7 @@ public class OutcomingsView {
         FormFactory.addRow(grid, 4, "Méthode", methodField);
         FormFactory.addRow(grid, 5, "Statut", statusField);
         FormFactory.addRow(grid, 6, startDateLabel.getText(), outcomingDateField);
-        FormFactory.addRow(grid, 7, recurringCheck);
+        grid.add(recurringCheck, 0, 7, 2, 1);
         FormFactory.addRow(grid, 8, "Fréquence", frequencyField);
 
         Button save = new Button("Enregistrer");
@@ -494,12 +506,9 @@ public class OutcomingsView {
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        Label title = new Label("Détails de la sortie");
-        title.getStyleClass().add("section-title");
-
-        VBox panel = new VBox(12, title, grid, new HBox(8, save, clear, delete));
-        panel.getStyleClass().add("side-panel");
-        panel.setPrefWidth(340);
+        // No title label here — the FloatingPanel header already shows "Détails de la sortie".
+        VBox panel = new VBox(12, grid, new HBox(8, save, clear, delete));
+        panel.setPrefWidth(320);
         return panel;
     }
 
@@ -509,8 +518,22 @@ public class OutcomingsView {
     }
 
     private void showFormPanel() {
-        layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(0, 24, 24, 0));
+        if (floatingForm == null) {
+            floatingForm = new FloatingPanel("Détails de la sortie", form, this::closeForm);
+        }
+        if (!overlay.getChildren().contains(floatingForm)) {
+            overlay.getChildren().add(floatingForm);
+        }
+        double x = Math.max(24, overlay.getWidth() - floatingForm.getPrefWidth() - 24);
+        floatingForm.positionAt(x, 24);
+        floatingForm.toFront();
+    }
+
+    private void closeForm() {
+        if (floatingForm != null) {
+            overlay.getChildren().remove(floatingForm);
+        }
+        clearForm();
     }
 
     private void selectRow(Outcoming outcoming) {
@@ -578,7 +601,7 @@ public class OutcomingsView {
 
         AsyncTasks.run(
                 () -> outcomingService.save(outcoming),
-                saved -> { clearForm(); reload(); },
+                saved -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
         );
     }
@@ -589,7 +612,7 @@ public class OutcomingsView {
         String id = selected.getId();
         AsyncTasks.run(
                 () -> outcomingService.delete(id),
-                () -> { clearForm(); reload(); },
+                () -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );
     }
