@@ -93,12 +93,11 @@ tasks.register('jpackageWindows', Exec) {
             '--name', 'SchoolAdmin',
             '--input', "${buildDir}/libs",
             '--main-jar', 'app.jar',
-            '--main-class', 'com.example.mef.demo.Launcher',
+            '--main-class', 'org.springframework.boot.loader.launch.JarLauncher',
             '--dest', "${buildDir}/jpackage",
             '--app-version', project.version.toString().replace('-SNAPSHOT', ''),
-            '--java-options', '-Dfile.encoding=UTF-8'
+            '--java-options', '-Dfile.encoding=UTF-8','--win-per-user-install'
 }
-
 tasks.register('jpackageWindowsInstaller', Exec) {
     dependsOn 'jpackageWindows'
     group = 'distribution'
