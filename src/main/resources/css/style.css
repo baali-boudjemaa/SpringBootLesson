@@ -1096,3 +1096,190 @@
         transparent 66%, transparent 80%, #CBD5E1 80%, #CBD5E1 86%,
         transparent 86%);
 }
+/* Make the whole control (text + arrow) look like one pill */
+.date-picker.filter-field {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1;
+    -fx-padding: 0;
+}
+
+/* Text portion — remove its own border/background so only the outer pill shows */
+.date-picker.filter-field > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-radius: 8 0 0 8;
+    -fx-padding: 8 6 8 10;
+    -fx-font-size: 13px;
+    -fx-text-fill: #1E293B;
+}
+
+/* Calendar icon button */
+.date-picker.filter-field > .arrow-button {
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 0 8 8 0;
+    -fx-border-color: transparent transparent transparent #E2E8F0;
+    -fx-border-width: 0 0 0 1;
+    -fx-padding: 0 8 0 8;
+}
+
+.date-picker.filter-field > .arrow-button > .arrow {
+    -fx-background-color: #64748B; /* icon color */
+    -fx-shape: "M3 4a1 1 0 011-1h1V2a1 1 0 112 0v1h6V2a1 1 0 112 0v1h1a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"; /* optional: swap default triangle for calendar glyph */
+}
+
+/* Focus state to match the rest of your filters */
+.date-picker.filter-field:focused {
+    -fx-border-color: #2563EB;
+}
+
+/* Popup calendar itself, if you want it themed */
+.date-picker-popup {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 4);
+}
+.date-picker-popup .month-year-pane {
+    -fx-background-color: #1E293B;
+}
+.date-picker-popup .spinner .button {
+    -fx-background-color: transparent;
+}
+.date-picker.filter-field {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-border-color: -line;
+    -fx-border-width: 1;
+    -fx-padding: 0;
+}
+.date-picker.filter-field > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-radius: 999 0 0 999;
+    -fx-padding: 9 6 9 14;   /* match .filter-field's 9 14 9 14 vertical rhythm */
+    -fx-font-size: 13px;
+    -fx-text-fill: -ink;
+}
+.date-picker.filter-field > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 999 999 0;
+    -fx-border-color: transparent transparent transparent -line;
+    -fx-border-width: 0 0 0 1;
+    -fx-padding: 0 12 0 10;
+}
+.date-picker.filter-field > .arrow-button > .arrow {
+    -fx-background-color: -muted;
+}
+.date-picker.filter-field:hover {
+    -fx-border-color: -line-strong;
+}
+.date-picker.filter-field:focused {
+    -fx-border-color: -accent;
+    -fx-effect: dropshadow(gaussian, -glow, 0, 0, 0, 0);
+}
+/* ══════════════════════════════════════════════════ DATE PICKER POPUP */
+.date-picker-popup {
+    -fx-background-color: -surface;
+    -fx-background-radius: 12;
+    -fx-border-color: -line;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15,23,42,0.18), 24, 0, 0, 8);
+    -fx-padding: 4;
+}
+
+/* month/year header bar */
+.date-picker-popup .month-year-pane {
+    -fx-background-color: -accent;
+    -fx-background-radius: 10 10 0 0;
+    -fx-padding: 8 4 8 4;
+}
+.date-picker-popup .month-year-pane .label {
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.date-picker-popup .spinner .button {
+    -fx-background-color: transparent;
+}
+.date-picker-popup .spinner .button .left-arrow,
+.date-picker-popup .spinner .button .right-arrow {
+    -fx-background-color: white;
+}
+.date-picker-popup .spinner .button:hover {
+    -fx-background-color: rgba(255,255,255,0.18);
+    -fx-background-radius: 6;
+}
+
+/* weekday header row (Mo Tu We ...) */
+.date-picker-popup .day-name-cell {
+    -fx-text-fill: -muted;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+/* day cells */
+.date-picker-popup .day-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-text-fill: -ink;
+    -fx-font-size: 12px;
+}
+.date-picker-popup .day-cell:hover {
+    -fx-background-color: -accent-soft;
+}
+.date-picker-popup .day-cell:focused {
+    -fx-background-color: -accent-tint;
+}
+.date-picker-popup .today {
+    -fx-border-color: -accent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-background-color: transparent;
+}
+.date-picker-popup .selected {
+    -fx-background-color: -accent;
+    -fx-background-radius: 8;
+    -fx-text-fill: white;
+}
+.date-picker-popup .selected:hover {
+    -fx-background-color: -accent-hover;
+}
+.date-picker-popup .previous-month,
+.date-picker-popup .next-month {
+    -fx-text-fill: -muted-light;
+}
+.date-picker-popup .week-number-cell {
+    -fx-text-fill: -muted-light;
+    -fx-font-size: 10px;
+}
+.date-picker-popup .month-year-pane .spinner {
+    -fx-background-color: transparent;
+}
+.nav-button-settings {
+    -fx-background-color: transparent;
+    -fx-text-fill: -sidebar-ink;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 9;
+    -fx-padding: 11 14 11 14;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-graphic-text-gap: 12;
+}
+.nav-button-settings:hover { -fx-background-color: -sidebar-hover; -fx-text-fill: #E2E8F0; }
+
+.nav-button-settings-active {
+    -fx-background-color: linear-gradient(to right, #7C3AED, #A855F7); /* purple instead of blue */
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 9;
+    -fx-padding: 11 14 11 14;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-graphic-text-gap: 12;
+    -fx-effect: dropshadow(gaussian, rgba(124,58,237,0.38), 12, 0, 0, 3);
+}
+.nav-button-settings-active:hover { -fx-background-color: linear-gradient(to right, #6D28D9, #9333EA); }

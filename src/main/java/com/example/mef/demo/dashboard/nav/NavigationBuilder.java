@@ -3,6 +3,7 @@ package com.example.mef.demo.dashboard.nav;
 import com.example.mef.demo.Model.Module;
 import com.example.mef.demo.Model.ModuleRegistry;
 import com.example.mef.demo.util.I18n;
+import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.layout.VBox;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,31 +62,40 @@ public class NavigationBuilder {
                       Runnable onDashboard, Runnable onMonthlyReport, Consumer<Module> onModule) {
         navigationBox.getChildren().clear();
 
-        Button dashboard = navButton(I18n.t("nav.dashboard"), "fth-home", "dashboard".equals(activeKey));
+        Button dashboard = navButton(I18n.t("nav.dashboard"), "fth-home", "dashboard".equals(activeKey), false);
+        Button monthly = navButton(I18n.t("nav.monthly_report"), "fth-clipboard", "monthly".equals(activeKey), false);
         dashboard.setOnAction(event -> onDashboard.run());
         navigationBox.getChildren().add(dashboard);
 
-        Button monthly = navButton(I18n.t("nav.monthly_report"), "fth-clipboard", "monthly".equals(activeKey));
         monthly.setOnAction(event -> onMonthlyReport.run());
         navigationBox.getChildren().add(monthly);
 
         for (Module module : registry.all()) {
             String icon = MODULE_ICONS.getOrDefault(module.table(), "fth-circle");
             boolean active = module.table().equals(activeKey);
-            Button button = navButton(I18n.t(module.titleKey()), icon, active);
+            boolean isSettings = module.table().equals("settings");
+            Button button = navButton(I18n.t(module.titleKey()), icon, active, isSettings);
             button.setOnAction(event -> onModule.accept(module));
             navigationBox.getChildren().add(button);
         }
     }
 
-    private Button navButton(String text, String iconLiteral, boolean active) {
+    private Button navButton(String text, String iconLiteral, boolean active, boolean isSettings) {
         Button button = new Button(text);
         FontIcon icon = new FontIcon(iconLiteral);
         icon.setIconSize(16);
         icon.setIconColor(active ? Color.WHITE : Color.web("#94A3B8"));
         button.setGraphic(icon);
-        button.getStyleClass().add(active ? "nav-button-active" : "nav-button");
+
+        if (isSettings) {
+            button.getStyleClass().add(active ? "nav-button-settings-active" : "nav-button-settings");
+        } else {
+            button.getStyleClass().add(active ? "nav-button-active" : "nav-button");
+        }
+
         button.setMaxWidth(Double.MAX_VALUE);
+        button.setPadding(new Insets(3));
+        VBox.setMargin(button, new Insets(0, 0, 4, 0));
         return button;
     }
 }

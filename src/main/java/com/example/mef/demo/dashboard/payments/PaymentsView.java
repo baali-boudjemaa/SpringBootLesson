@@ -5,6 +5,7 @@ import com.example.mef.demo.Model.Payment;
 import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.PaymentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.PaymentStatus;
@@ -22,13 +23,17 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -42,7 +47,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-/** Typed CRUD screen for the "payments" module (Payment entity). */
+/**
+ * Typed CRUD screen for the "payments" module (Payment entity), restyled to match the
+ * Students/Courses modules: filter toolbar, summary cards, and a floating (draggable)
+ * details panel instead of a fixed side form.
+ */
 @Component
 public class PaymentsView {
 
@@ -77,8 +86,11 @@ public class PaymentsView {
 
     private List<Payment> allPayments = List.of();
     private Payment selected;
-    private BorderPane layout;
     private VBox form;
+
+    /** Overlay Pane that the floating panel lives in, stacked on top of the normal screen content. */
+    private Pane overlay;
+    private FloatingPanel floatingForm;
 
     public PaymentsView(PaymentService paymentService, EnrollmentService enrollmentService) {
         this.paymentService = paymentService;
@@ -96,6 +108,7 @@ public class PaymentsView {
         pageTitleLabel.setText("Paiements");
 
         buildColumns();
+        wireRowDoubleClick();
 
         Label subtitle = new Label("Gérer les paiements des élèves");
         subtitle.getStyleClass().add("page-subtitle");
@@ -137,12 +150,20 @@ public class PaymentsView {
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        form = buildForm();
+        if (form == null) {
+            form = buildForm();
+        }
 
-        layout = new BorderPane();
-        layout.setCenter(center);
+        // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
+        // to the table/buttons underneath wherever the overlay itself has no floating panel.
+        overlay = new Pane();
+        overlay.setPickOnBounds(false);
 
-        contentPane.setCenter(layout);
+        StackPane root = new StackPane(center, overlay);
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.getStyleClass().add("details-scroll");
+        contentPane.setCenter(scrollPane);
+
         wireFilters();
         loadPickers();
         reload();
@@ -163,12 +184,26 @@ public class PaymentsView {
         dateTo.valueProperty().addListener((o, a, b) -> applyFilters());
     }
 
+    /** Opens the floating details panel for a row when the user double-clicks it. */
+    private void wireRowDoubleClick() {
+        table.setRowFactory(tv -> {
+            TableRow<Payment> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    selectRow(row.getItem());
+                }
+            });
+            return row;
+        });
+    }
+
     private void buildColumns() {
         table.getColumns().clear();
 
         TableColumn<Payment, String> date = new TableColumn<>("DATE");
         date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getDatePay() == null ? "—" : d.getValue().getDatePay().format(DATE_FORMAT)));
+        date.setPrefWidth(100);
 
         TableColumn<Payment, String> student = new TableColumn<>("ÉLÈVE");
         student.setCellValueFactory(d -> new ReadOnlyStringWrapper(studentLabel(d.getValue())));
@@ -244,7 +279,7 @@ public class PaymentsView {
         fi.setIconSize(14);
         btn.setGraphic(fi);
         btn.getStyleClass().add("icon-action-btn");
-        btn.setTooltip(new javafx.scene.control.Tooltip(tooltip));
+        btn.setTooltip(new Tooltip(tooltip));
         return btn;
     }
 
@@ -327,20 +362,20 @@ public class PaymentsView {
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
+
         Button clear = new Button("+ Nouveau");
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
+
         Button delete = new Button("Supprimer");
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        Label title = new Label("Détails du paiement");
-        title.getStyleClass().add("section-title");
-
-        VBox panel = new VBox(12, title, grid, new HBox(8, save, clear, delete));
-        panel.getStyleClass().add("side-panel");
-        panel.setPrefWidth(320);
-        return panel;
+        // No title label here — the FloatingPanel header already shows "Détails du paiement".
+        // NOTE: no setPrefWidth() on this VBox — same reasoning as StudentsView: the panel
+        // sits inside a ScrollPane with fitToWidth(true) (see FloatingPanel), and forcing a
+        // fixed prefWidth here fought that constraint on the very first layout pass.
+        return new VBox(12, grid, new HBox(8, save, clear, delete));
     }
 
     private void startCreate() {
@@ -349,8 +384,30 @@ public class PaymentsView {
     }
 
     private void showFormPanel() {
-        layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(0, 24, 24, 0));
+        if (floatingForm == null) {
+            floatingForm = new FloatingPanel("Détails du paiement", form, this::closeForm);
+        }
+        boolean wasAdded = !overlay.getChildren().contains(floatingForm);
+        if (wasAdded) {
+            overlay.getChildren().add(floatingForm);
+        }
+        double x = Math.max(24, overlay.getWidth() - floatingForm.getPrefWidth() - 24);
+        floatingForm.positionAt(x, 24);
+        floatingForm.toFront();
+
+        if (wasAdded) {
+            // Force an immediate CSS + layout pass now, before the panel is ever painted —
+            // see StudentsView.showFormPanel() for why this is needed.
+            floatingForm.applyCss();
+            floatingForm.layout();
+        }
+    }
+
+    private void closeForm() {
+        if (floatingForm != null) {
+            overlay.getChildren().remove(floatingForm);
+        }
+        clearForm();
     }
 
     private void selectRow(Payment payment) {
@@ -401,7 +458,7 @@ public class PaymentsView {
 
         AsyncTasks.run(
                 () -> paymentService.save(payment, inscriptionId),
-                saved -> { clearForm(); reload(); },
+                saved -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
         );
     }
@@ -412,7 +469,7 @@ public class PaymentsView {
         String id = selected.getId();
         AsyncTasks.run(
                 () -> paymentService.delete(id),
-                () -> { clearForm(); reload(); },
+                () -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );
     }

@@ -44,6 +44,17 @@ public final class FormFactory {
         grid.getStyleClass().add("form-grid");
         ColumnConstraints label = new ColumnConstraints(120);
         ColumnConstraints input = new ColumnConstraints();
+        // CRITICAL: give the field column a real floor width. Without a minWidth,
+        // this column has nothing but Hgrow=ALWAYS to go on — inside a FloatingPanel's
+        // ScrollPane(fitToWidth=true) sitting in a plain (non-managing) Pane overlay,
+        // the very first layout pass can resolve the GridPane's available width to 0
+        // before the panel's real prefWidth (380) is propagated down. When that
+        // happens this column collapses to 0px and every editor (TextField, ComboBox,
+        // DatePicker) in it renders with zero width — i.e. invisible, even though the
+        // Label column next to it is fine. A concrete minWidth means the column can
+        // never collapse below something usable, regardless of what the parent chain
+        // reports on that first pass.
+        input.setMinWidth(180);
         input.setHgrow(Priority.ALWAYS);
         grid.getColumnConstraints().addAll(label, input);
         return grid;
@@ -52,6 +63,13 @@ public final class FormFactory {
         grid.add(new Label(label), 0, row);
         grid.add(editor, 1, row);
         GridPane.setHgrow(editor, Priority.ALWAYS);
+        // Belt-and-suspenders alongside the column's minWidth: make sure the editor
+        // itself never reports a computed-size min narrower than the column floor,
+        // for editor types (DatePicker in particular) that don't already get
+        // setMaxWidth(Double.MAX_VALUE) from their call site.
+        if (editor instanceof javafx.scene.control.Control control) {
+            control.setMaxWidth(Double.MAX_VALUE);
+        }
     }
     public static void addRow(GridPane grid, int row, String label) {
         grid.add(new Label(label), 0, row);

@@ -1,5 +1,6 @@
 package com.example.mef.demo.dashboard.common;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -97,6 +98,25 @@ public class FloatingPanel extends VBox {
         resizeGrip.setOnMouseReleased(e -> {
             isResizing = false;
             e.consume();
+        });
+
+        // CRITICAL FIX: this panel lives inside a plain, non-managing Pane overlay
+        // (see class doc), so nothing forces a fresh layout pass once it's actually
+        // attached to a live Scene. A caller doing applyCss()/layout() right after
+        // overlay.getChildren().add(this) can still run before the Scene itself has
+        // resolved this panel's real geometry, which can leave the inner ScrollPane
+        // (fitToWidth=true) — and therefore the form GridPane's field column — stuck
+        // at 0 width, so every editor renders invisible. Self-heal here instead of
+        // relying on every call site to get the timing right: once we're attached to
+        // a Scene, defer one more CSS+layout pass to the next pulse, by which point
+        // the Scene has had a chance to size us for real.
+        sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Platform.runLater(() -> {
+                    applyCss();
+                    layout();
+                });
+            }
         });
     }
 

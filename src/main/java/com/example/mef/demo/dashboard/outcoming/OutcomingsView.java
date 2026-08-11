@@ -18,15 +18,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -136,7 +128,7 @@ public class OutcomingsView {
 
         buildColumns();
         buildRecurringColumns();
-
+        wireRowDoubleClick();
         Label subtitle = new Label("Gérer les dépenses et sorties d'argent");
         subtitle.getStyleClass().add("page-subtitle");
 
@@ -179,21 +171,24 @@ public class OutcomingsView {
         Label recurringTitle = new Label("Dépenses récurrentes");
         recurringTitle.getStyleClass().add("section-title");
         VBox recurringBlock = new VBox(8, recurringTitle, recurringTable);
-
+        recurringBlock.setMinHeight(250);
         VBox center = new VBox(16, subtitle, toolbar, tableBlock, summaryCards, recurringBlock);
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        form = buildForm();
 
+        if (form == null) {
+            form = buildForm();
+        }
         // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
         // to the table/buttons underneath wherever the overlay itself has no floating panel.
         overlay = new Pane();
         overlay.setPickOnBounds(false);
 
         StackPane root = new StackPane(center, overlay);
-
-        contentPane.setCenter(root);
+        ScrollPane scrollPane=new ScrollPane(root);
+        scrollPane.getStyleClass().add("details-scroll");
+        contentPane.setCenter(scrollPane);
         wireFilters();
         reload();
     }
@@ -212,6 +207,10 @@ public class OutcomingsView {
         categoryFilter.valueProperty().addListener((o, a, b) -> applyFilters());
         dateFrom.valueProperty().addListener((o, a, b) -> applyFilters());
         dateTo.valueProperty().addListener((o, a, b) -> applyFilters());
+        dateFrom.setStyle("-fx-show-week-numbers: false;");
+        dateTo.setStyle("-fx-show-week-numbers: false;");
+        outcomingDateField.setStyle("-fx-show-week-numbers: false;");
+
     }
 
     private void buildColumns() {
@@ -507,8 +506,12 @@ public class OutcomingsView {
         delete.setOnAction(e -> delete());
 
         // No title label here — the FloatingPanel header already shows "Détails de la sortie".
+        // NOTE: intentionally no setPrefWidth() here anymore — the panel sits inside a
+        // ScrollPane with fitToWidth(true) (see FloatingPanel), and forcing a fixed
+        // prefWidth on this VBox fought that constraint on the very first layout pass,
+        // which could resolve the GridPane's input column to 0 width and make every
+        // TextField/ComboBox/DatePicker inside it render invisible.
         VBox panel = new VBox(12, grid, new HBox(8, save, clear, delete));
-        panel.setPrefWidth(320);
         return panel;
     }
 
@@ -521,12 +524,23 @@ public class OutcomingsView {
         if (floatingForm == null) {
             floatingForm = new FloatingPanel("Détails de la sortie", form, this::closeForm);
         }
-        if (!overlay.getChildren().contains(floatingForm)) {
+        boolean wasAdded = !overlay.getChildren().contains(floatingForm);
+        if (wasAdded) {
             overlay.getChildren().add(floatingForm);
         }
         double x = Math.max(24, overlay.getWidth() - floatingForm.getPrefWidth() - 24);
         floatingForm.positionAt(x, 24);
         floatingForm.toFront();
+
+        if (wasAdded) {
+            // Force an immediate CSS + layout pass now, before the panel is ever painted.
+            // Without this, the GridPane's column widths can resolve on a stale/zero-width
+            // parent chain the first time the panel is added to the overlay, leaving the
+            // form's editors invisible until some later event (e.g. a manual resize)
+            // triggers a fresh layout pass.
+            floatingForm.applyCss();
+            floatingForm.layout();
+        }
     }
 
     private void closeForm() {
@@ -721,5 +735,16 @@ public class OutcomingsView {
         card.getStyleClass().add("stat-box");
         card.setPadding(new Insets(14));
         return card;
+    }
+    private void wireRowDoubleClick() {
+        table.setRowFactory(tv -> {
+            TableRow<Outcoming> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    selectRow(row.getItem());
+                }
+            });
+            return row;
+        });
     }
 }

@@ -132,12 +132,6 @@ public final class ModuleRegistry {
                         new Field("full_name",     "field.full_name"),
                         new Field("role",          "field.role", List.of("ADMIN", "TEACHER", "STAFF"))
                 )));
-        modules.add(new Module("nav.settings", "settings", "setting_key",
-                List.of(
-                        new Field("setting_key",   "field.setting"),
-                        new Field("setting_value", "field.value"),
-                        new Field("description",   "field.description")
-                )));
         modules.add(new Module("nav.outcoming", "outcoming", "date_outcome DESC",
                 List.of(
                         new Field("date_outcome",  "field.date"),
@@ -148,5 +142,12 @@ public final class ModuleRegistry {
                         new Field("category",      "field.category", List.of("Salaires", "Loyer", "Fournitures", "Électricité", "Eau", "Maintenance", "Nourriture", "Transport", "Autre")),
                         new Field("status",        "field.status",   List.of("PAID", "PENDING", "OVERDUE"))
                 )));
+        modules.add(new Module("nav.settings", "settings", "setting_key",
+                List.of(
+                        new Field("setting_key",   "field.setting"),
+                        new Field("setting_value", "field.value"),
+                        new Field("description",   "field.description")
+                )));
+
     }
 }

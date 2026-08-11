@@ -7,6 +7,7 @@ import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.DaysPicker;
+import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
@@ -23,6 +24,7 @@ import javafx.print.PageLayout;
 import javafx.print.PageOrientation;
 import javafx.print.Paper;
 import javafx.print.PrinterJob;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -33,17 +35,21 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -51,13 +57,10 @@ import java.util.stream.Collectors;
 
 
 /**
- * Teachers / Personnel screen.
- *
- * Reprogrammed to match the StudentsView pattern: the form panel
- * is hidden by default and only shown on the right when creating
- * or editing an employee (layout.setRight(form) / setRight(null)),
- * instead of being permanently docked. The table then uses the
- * full available width.
+ * Teachers / Personnel screen, restyled to match the Outcomings/Courses/Students pattern:
+ * filter toolbar, summary cards, and a floating (draggable) details panel instead of a
+ * fixed side panel. Availability picking, the weekly timetable dialog and printing are
+ * unchanged from the previous version.
  */
 @Component
 public class TeachersView {
@@ -74,14 +77,13 @@ public class TeachersView {
     // =========================================================
 
     private Employee selected;
-
-    private boolean suppressSelectionListener = false;
-
+    private List<Employee> allEmployees = List.of();
     private boolean tableInitialized = false;
-
-    private BorderPane layout;
-
     private VBox form;
+
+    /** Overlay Pane that the floating panel lives in, stacked on top of the normal screen content. */
+    private Pane overlay;
+    private FloatingPanel floatingForm;
 
     // =========================================================
     // TABLE
@@ -94,14 +96,20 @@ public class TeachersView {
             new TableView<>(rows);
 
     // =========================================================
-    // FORM FIELDS
+    // FILTERS
     // =========================================================
 
     private final TextField searchField =
             FormFactory.textField("Rechercher un employé...");
 
-    private final Label countLabel =
-            new Label();
+    private final ComboBox<String> roleFilter = new ComboBox<>();
+
+    private final Label footerCountLabel = new Label();
+    private final HBox summaryCards = new HBox(14);
+
+    // =========================================================
+    // FORM FIELDS
+    // =========================================================
 
     private final TextField firstNameField =
             FormFactory.textField("Prénom");
@@ -162,6 +170,7 @@ public class TeachersView {
                 table,
                 "teachers"
         );
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         roleField.setMaxWidth(
                 Double.MAX_VALUE
@@ -194,6 +203,13 @@ public class TeachersView {
         );
 
         updateAvailabilitySummary();
+
+        ObservableList<String> roleOptions = FXCollections.observableArrayList("Tous");
+        for (EmployeeRole r : EmployeeRole.values()) {
+            roleOptions.add(r.name());
+        }
+        roleFilter.setItems(roleOptions);
+        roleFilter.setValue("Tous");
     }
 
     // =========================================================
@@ -332,16 +348,12 @@ public class TeachersView {
             tableInitialized = true;
         }
 
-        // -----------------------------------------------------
-        // HEADER
-        // -----------------------------------------------------
+        Label subtitle = new Label("Gérer les enseignants et le personnel");
+        subtitle.getStyleClass().add("page-subtitle");
 
-        Label title =
-                new Label("Personnel");
-
-        title.getStyleClass().add("page-title");
-
-        countLabel.getStyleClass().add("stat-caption");
+        searchField.getStyleClass().add("filter-field");
+        roleFilter.getStyleClass().add("filter-field");
+        roleFilter.setPrefWidth(150);
 
         Button add =
                 new Button("+  Ajouter un employé");
@@ -350,53 +362,36 @@ public class TeachersView {
 
         add.setOnAction(e -> startCreate());
 
-        HBox headerRow =
-                new HBox(12, title);
+        HBox filters = new HBox(10, roleFilter, searchField);
+        filters.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        HBox.setHgrow(title, Priority.ALWAYS);
+        HBox toolbar = new HBox(12, filters, add);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        toolbar.getStyleClass().add("module-toolbar");
 
-        headerRow.getChildren().add(add);
+        footerCountLabel.getStyleClass().add("footer-stat");
+        HBox footer = new HBox(20, footerCountLabel, new Region());
+        footer.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(footer.getChildren().get(1), Priority.ALWAYS);
+        footer.getStyleClass().add("table-footer");
 
-        headerRow.setAlignment(Pos.CENTER_LEFT);
+        for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
 
-        VBox headerBlock =
-                new VBox(4, headerRow, countLabel);
-
-        searchField.getStyleClass().add("filter-field");
-
-        if (!searchField.getProperties()
-                .containsKey("teachers-search-listener")) {
-
-            searchField.textProperty()
-                    .addListener(
-                            (obs, oldValue, newValue) -> reload()
-                    );
-
-            searchField.getProperties()
-                    .put("teachers-search-listener", Boolean.TRUE);
-        }
-
-        // -----------------------------------------------------
-        // LIST
-        // -----------------------------------------------------
-
-        VBox listPane =
-                new VBox(14, headerBlock, searchField, table);
-
+        VBox tableBlock = new VBox(0, table, footer);
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        listPane.setPadding(new Insets(24));
+        VBox center = new VBox(16, subtitle, toolbar, tableBlock, summaryCards);
+        center.setPadding(new Insets(24));
+        VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
         table.getSelectionModel()
                 .selectedItemProperty()
                 .addListener(
                         (obs, oldValue, newValue) -> {
-
-                            if (suppressSelectionListener) {
-                                return;
+                            if (newValue != null) {
+                                selectRow(newValue);
                             }
-
-                            selectRow(newValue);
                         }
                 );
 
@@ -404,21 +399,26 @@ public class TeachersView {
         // FORM (built once, panel shown/hidden on demand)
         // -----------------------------------------------------
 
-        form = buildForm();
+        if (form == null) {
+            form = buildForm();
+        }
+        // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
+        // to the table/buttons underneath wherever the overlay itself has no floating panel.
+        overlay = new Pane();
+        overlay.setPickOnBounds(false);
 
-        // -----------------------------------------------------
-        // LAYOUT
-        // -----------------------------------------------------
+        StackPane root = new StackPane(center, overlay);
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.getStyleClass().add("details-scroll");
+        contentPane.setCenter(scrollPane);
 
-        layout = new BorderPane();
-
-        layout.setCenter(listPane);
-
-        contentPane.setCenter(layout);
-
-        contentPane.setPadding(new Insets(20));
-
+        wireFilters();
         reload();
+    }
+
+    private void wireFilters() {
+        searchField.textProperty().addListener((o, a, b) -> applyFilters());
+        roleFilter.valueProperty().addListener((o, a, b) -> applyFilters());
     }
 
     // =========================================================
@@ -433,19 +433,32 @@ public class TeachersView {
     }
 
     private void showFormPanel() {
+        if (floatingForm == null) {
+            floatingForm = new FloatingPanel("Détails de l'employé", form, this::closeForm);
+        }
+        boolean wasAdded = !overlay.getChildren().contains(floatingForm);
+        if (wasAdded) {
+            overlay.getChildren().add(floatingForm);
+        }
+        double x = Math.max(24, overlay.getWidth() - floatingForm.getPrefWidth() - 24);
+        floatingForm.positionAt(x, 24);
+        floatingForm.toFront();
 
-        layout.setRight(form);
-
-        BorderPane.setMargin(
-                form,
-                new Insets(0, 0, 0, 16)
-        );
+        if (wasAdded) {
+            // Force an immediate CSS + layout pass now, before the panel is ever painted.
+            // Without this, the GridPane's column widths can resolve on a stale/zero-width
+            // parent chain the first time the panel is added to the overlay, leaving the
+            // form's editors invisible until some later event (e.g. a manual resize)
+            // triggers a fresh layout pass.
+            floatingForm.applyCss();
+            floatingForm.layout();
+        }
     }
 
     private void closeForm() {
-
-        layout.setRight(null);
-
+        if (floatingForm != null) {
+            overlay.getChildren().remove(floatingForm);
+        }
         clearForm();
     }
 
@@ -485,12 +498,12 @@ public class TeachersView {
 
         save.setOnAction(e -> save());
 
-        Button cancel =
-                new Button("Annuler");
+        Button clear =
+                new Button("+ Nouveau");
 
-        cancel.getStyleClass().add("secondary-button");
+        clear.getStyleClass().add("secondary-button");
 
-        cancel.setOnAction(e -> closeForm());
+        clear.setOnAction(e -> startCreate());
 
         Button delete =
                 new Button("Supprimer");
@@ -500,26 +513,18 @@ public class TeachersView {
         delete.setOnAction(e -> delete());
 
         HBox actions =
-                new HBox(8, save, cancel, delete);
+                new HBox(8, save, clear, delete);
 
-        VBox panel =
-                new VBox(
-                        12,
-                        new Label("Détails de l'employé"),
-                        grid,
-                        actions,
-                        timetableButton
-                );
-
-        panel.getStyleClass().add("side-panel");
-
-        panel.setPrefWidth(320);
-
-        return panel;
+        // No title label here — the FloatingPanel header already shows "Détails de l'employé".
+        // NOTE: no setPrefWidth() on this VBox — the panel sits inside a ScrollPane with
+        // fitToWidth(true) (see FloatingPanel), and forcing a fixed prefWidth here fought
+        // that constraint on the very first layout pass, which could resolve the GridPane's
+        // input column to 0 width and make every field render invisible.
+        return new VBox(12, grid, actions, timetableButton);
     }
 
     // =========================================================
-    // TABLE CELL
+    // TABLE CELLS
     // =========================================================
 
     private TableCell<Employee, Employee> availabilityCell() {
@@ -608,15 +613,61 @@ public class TeachersView {
         };
     }
 
+    private TableCell<Employee, String> rolePillCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isBlank()) {
+                    setGraphic(null);
+                } else {
+                    setText(null);
+                    setGraphic(TableStyleKit.pill(item, "#EEF2FF", "#4338CA"));
+                }
+            }
+        };
+    }
+
+    private TableCell<Employee, Employee> actionCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Employee item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                    return;
+                }
+                Button view = iconBtn("fth-eye", "Voir");
+                Button edit = iconBtn("fth-edit-2", "Modifier");
+                Button del = iconBtn("fth-trash-2", "Supprimer");
+                del.getStyleClass().add("icon-action-danger");
+
+                view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                edit.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                del.setOnAction(e -> { selected = item; delete(); });
+
+                HBox box = new HBox(4, view, edit, del);
+                box.setAlignment(Pos.CENTER);
+                setGraphic(box);
+            }
+        };
+    }
+
+    private Button iconBtn(String icon, String tooltip) {
+        Button btn = new Button();
+        FontIcon fi = new FontIcon(icon);
+        fi.setIconSize(14);
+        btn.setGraphic(fi);
+        btn.getStyleClass().add("icon-action-btn");
+        btn.setTooltip(new Tooltip(tooltip));
+        return btn;
+    }
+
     // =========================================================
     // INITIALIZE TABLE
     // =========================================================
 
     private void initializeTeacherTable() {
-
-        table.setColumnResizePolicy(
-                TableView.UNCONSTRAINED_RESIZE_POLICY
-        );
 
         TableColumn<Employee, String> number =
                 new TableColumn<>("N°");
@@ -627,10 +678,10 @@ public class TeachersView {
                 )
         );
 
-        number.setPrefWidth(90);
+        number.setPrefWidth(80);
 
         TableColumn<Employee, String> name =
-                new TableColumn<>("Nom");
+                new TableColumn<>("NOM");
 
         name.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -640,10 +691,10 @@ public class TeachersView {
                 )
         );
 
-        name.setPrefWidth(180);
+        name.setPrefWidth(160);
 
         TableColumn<Employee, String> role =
-                new TableColumn<>("Rôle");
+                new TableColumn<>("RÔLE");
 
         role.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -653,10 +704,12 @@ public class TeachersView {
                 )
         );
 
+        role.setCellFactory(col -> rolePillCell());
+
         role.setPrefWidth(120);
 
         TableColumn<Employee, String> email =
-                new TableColumn<>("Email");
+                new TableColumn<>("EMAIL");
 
         email.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -664,10 +717,10 @@ public class TeachersView {
                 )
         );
 
-        email.setPrefWidth(200);
+        email.setPrefWidth(180);
 
         TableColumn<Employee, Employee> availability =
-                new TableColumn<>("Disponibilité");
+                new TableColumn<>("DISPONIBILITÉ");
 
         availability.setCellValueFactory(
                 d -> new ReadOnlyObjectWrapper<>(d.getValue())
@@ -675,10 +728,18 @@ public class TeachersView {
 
         availability.setCellFactory(column -> availabilityCell());
 
-        availability.setPrefWidth(260);
+        availability.setPrefWidth(230);
+
+        TableColumn<Employee, Employee> actions =
+                new TableColumn<>("ACTION");
+
+        actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        actions.setCellFactory(col -> actionCell());
+        actions.setPrefWidth(110);
+        actions.setMaxWidth(120);
 
         table.getColumns().setAll(
-                number, name, role, email, availability
+                number, name, role, email, availability, actions
         );
     }
 
@@ -725,37 +786,25 @@ public class TeachersView {
 
     private void clearForm() {
 
-        suppressSelectionListener = true;
+        selected = null;
 
-        try {
+        firstNameField.clear();
+        lastNameField.clear();
+        emailField.clear();
+        phoneField.clear();
 
-            selected = null;
+        roleField.setValue(null);
 
-            firstNameField.clear();
-            lastNameField.clear();
-            emailField.clear();
-            phoneField.clear();
+        certificationsField.clear();
 
-            roleField.setValue(null);
+        currentWorkingDays = "";
+        currentWorkStart = "";
+        currentWorkEnd = "";
+        currentAvailabilitySchedule = "";
 
-            certificationsField.clear();
+        updateAvailabilitySummary();
 
-            currentWorkingDays = "";
-            currentWorkStart = "";
-            currentWorkEnd = "";
-            currentAvailabilitySchedule = "";
-
-            updateAvailabilitySummary();
-
-            if (table.getSelectionModel().getSelectedIndex() >= 0) {
-
-                table.getSelectionModel().clearSelection();
-            }
-
-        } finally {
-
-            suppressSelectionListener = false;
-        }
+        table.getSelectionModel().clearSelection();
     }
 
     // =========================================================
@@ -822,7 +871,7 @@ public class TeachersView {
 
                 () -> employeeService.save(employee),
 
-                saved -> { closeForm(); reload(); },
+                saved -> { clearForm(); closeForm(); reload(); },
 
                 err -> DialogUtil.error(
                         "Erreur",
@@ -851,7 +900,7 @@ public class TeachersView {
 
                 () -> employeeService.delete(id),
 
-                () -> { closeForm(); reload(); },
+                () -> { clearForm(); closeForm(); reload(); },
 
                 err -> DialogUtil.error(
                         "Erreur",
@@ -861,40 +910,18 @@ public class TeachersView {
     }
 
     // =========================================================
-    // RELOAD
+    // RELOAD / FILTER
     // =========================================================
 
     private void reload() {
 
-        String needle = searchField.getText();
-
         AsyncTasks.run(
 
-                () -> employeeService.search(needle),
+                () -> employeeService.search(""),
 
                 list -> {
-
-                    suppressSelectionListener = true;
-
-                    try {
-
-                        selected = null;
-
-                        table.getSelectionModel().clearSelection();
-
-                        rows.setAll(list);
-
-                    } finally {
-
-                        suppressSelectionListener = false;
-                    }
-
-                    countLabel.setText(
-                            list.size()
-                                    + (list.size() > 1
-                                    ? " employés"
-                                    : " employé")
-                    );
+                    allEmployees = list;
+                    applyFilters();
                 },
 
                 err -> DialogUtil.error(
@@ -902,6 +929,82 @@ public class TeachersView {
                         "Échec du chargement : " + err.getMessage()
                 )
         );
+    }
+
+    private void applyFilters() {
+        String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+        String roleVal = roleFilter.getValue();
+
+        List<Employee> filtered = allEmployees.stream()
+                .filter(emp -> {
+                    if (!needle.isBlank()) {
+                        String first = safe(emp.getFirstName()).toLowerCase();
+                        String last = safe(emp.getLastName()).toLowerCase();
+                        String email = safe(emp.getEmail()).toLowerCase();
+                        if (!first.contains(needle) && !last.contains(needle) && !email.contains(needle)) {
+                            return false;
+                        }
+                    }
+                    if (roleVal != null && !"Tous".equals(roleVal)) {
+                        String role = emp.getRole() == null ? "" : emp.getRole().name();
+                        if (!role.equals(roleVal)) return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        rows.setAll(filtered);
+        updateFooter(filtered);
+        updateSummaryCards(allEmployees);
+    }
+
+    private void updateFooter(List<Employee> data) {
+        footerCountLabel.setText(data.size() + (data.size() > 1 ? " employés" : " employé"));
+    }
+
+    private void updateSummaryCards(List<Employee> data) {
+        summaryCards.getChildren().clear();
+
+        long withAvailability = data.stream()
+                .filter(e -> {
+                    String sched = e.getAvailabilitySchedule();
+                    if (sched == null || sched.isBlank()) {
+                        sched = legacyAvailabilitySchedule(e.getWorkingDays(), e.getWorkStartTime(), e.getWorkEndTime());
+                    }
+                    return !ScheduleValidator.parse(sched).isEmpty();
+                })
+                .count();
+
+        long roleCount = data.stream().map(e -> e.getRole() == null ? "—" : e.getRole().name()).distinct().count();
+
+        summaryCards.getChildren().addAll(
+                summaryCard("fth-users", String.valueOf(data.size()), "Total Employés", "#4338CA", "#EEF2FF"),
+                summaryCard("fth-calendar", String.valueOf(withAvailability), "Avec Disponibilité", "#9D174D", "#FCE7F3"),
+                summaryCard("fth-briefcase", String.valueOf(roleCount), "Rôles Distincts", "#0E7490", "#CFFAFE")
+        );
+        for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
+    }
+
+    private HBox summaryCard(String icon, String value, String label, String accent, String bg) {
+        FontIcon fi = new FontIcon(icon);
+        fi.setIconSize(20);
+        fi.setStyle("-fx-icon-color: " + accent + ";");
+        StackPane iconWrap = new StackPane(fi);
+        iconWrap.getStyleClass().add("stat-icon-wrap");
+        iconWrap.setStyle("-fx-background-color: " + bg + ";");
+
+        Label valLbl = new Label(value);
+        valLbl.getStyleClass().add("stat-number");
+        valLbl.setStyle("-fx-font-size: 20px;");
+        Label capLbl = new Label(label);
+        capLbl.getStyleClass().add("stat-caption");
+
+        VBox text = new VBox(2, valLbl, capLbl);
+        HBox card = new HBox(12, iconWrap, text);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.getStyleClass().add("stat-box");
+        card.setPadding(new Insets(14));
+        return card;
     }
 
     // =========================================================

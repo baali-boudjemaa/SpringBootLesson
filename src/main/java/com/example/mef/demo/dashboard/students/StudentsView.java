@@ -3,37 +3,51 @@ package com.example.mef.demo.dashboard.students;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.BloodType;
 import com.example.mef.demo.enums.Sexe;
 import com.example.mef.demo.util.DateUtil;
 import com.example.mef.demo.util.DialogUtil;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
 
-/** Typed CRUD screen for the "students" ("Enfants") module. */
+/**
+ * Typed CRUD screen for the "students" ("Enfants") module, restyled to match the
+ * Outcomings/Courses modules: filter toolbar, summary cards, and a floating (draggable)
+ * details panel instead of a fixed side form.
+ */
 @Component
 public class StudentsView {
 
@@ -49,38 +63,48 @@ public class StudentsView {
     }
 
     private final TextField searchField = FormFactory.textField("Rechercher par nom ...");
-    private final Label countLabel = new Label();
+    private final ComboBox<String> genderFilter = new ComboBox<>(
+            FXCollections.observableArrayList("Tous", "Garçon", "Fille"));
 
     private final TextField firstNameField = FormFactory.textField("Prénom");
     private final TextField lastNameField = FormFactory.textField("Nom");
     private final ComboBox<Sexe> genderField = new ComboBox<>(FXCollections.observableArrayList(Sexe.values()));
     private final DatePicker dobField = new DatePicker();
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
-    private final TextField medicalInfoField = FormFactory.textField("Informations médicales");;
+    private final TextField medicalInfoField = FormFactory.textField("Informations médicales");
 
+    private final Label footerCountLabel = new Label();
+    private final HBox summaryCards = new HBox(14);
 
-    private BorderPane layout;
-    private VBox form;
+    private List<Student> allStudents = List.of();
     private Student selected;
+    private VBox form;
     private Runnable onEnrollNew;
+
+    /** Overlay Pane that the floating panel lives in, stacked on top of the normal screen content. */
+    private Pane overlay;
+    private FloatingPanel floatingForm;
 
     public StudentsView(StudentService studentService) {
         this.studentService = studentService;
         genderField.setMaxWidth(Double.MAX_VALUE);
+        genderFilter.setValue("Tous");
     }
 
     /** @param onEnrollNew invoked when the user wants to run the full enrollment wizard instead of a bare add. */
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onEnrollNew) {
         this.onEnrollNew = onEnrollNew;
         pageTitleLabel.setText("Enfants");
-        table.setColumnResizePolicy(
-                TableView.UNCONSTRAINED_RESIZE_POLICY
-        );
-        buildColumns();
 
-        Label title = new Label("Enfants");
-        title.getStyleClass().add("page-title");
-        countLabel.getStyleClass().add("stat-caption");
+        buildColumns();
+        wireRowDoubleClick();
+
+        Label subtitle = new Label("Gérer les enfants inscrits");
+        subtitle.getStyleClass().add("page-subtitle");
+
+        searchField.getStyleClass().add("filter-field");
+        genderFilter.getStyleClass().add("filter-field");
+        genderFilter.setPrefWidth(130);
 
         Button add = new Button("+  Ajouter un Enfant");
         add.getStyleClass().add("primary-button");
@@ -88,70 +112,107 @@ public class StudentsView {
 
         Button wizard = new Button("Assistant d'inscription");
         wizard.getStyleClass().add("link-button");
-        add.setOnAction(e -> this.onEnrollNew.run());
+        wizard.setOnAction(e -> this.onEnrollNew.run());
 
-        HBox headerRow = new HBox(12, title);
-        HBox.setHgrow(title, Priority.ALWAYS);
-        headerRow.getChildren().addAll(wizard, add);
-        headerRow.setAlignment(Pos.CENTER_LEFT);
+        HBox filters = new HBox(10, genderFilter, searchField);
+        filters.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        VBox headerBlock = new VBox(4, headerRow, countLabel);
+        HBox toolbar = new HBox(12, filters, wizard, add);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        toolbar.getStyleClass().add("module-toolbar");
 
-        searchField.getStyleClass().add("filter-field");
-        searchField.textProperty().addListener((obs, old, val) -> reload());
+        footerCountLabel.getStyleClass().add("footer-stat");
+        HBox footer = new HBox(20, footerCountLabel, new Region());
+        footer.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(footer.getChildren().get(1), Priority.ALWAYS);
+        footer.getStyleClass().add("table-footer");
 
-        VBox listPane = new VBox(14, headerBlock, searchField, table);
+        for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
+
+        VBox tableBlock = new VBox(0, table, footer);
         VBox.setVgrow(table, Priority.ALWAYS);
-        listPane.setPadding(new Insets(24));
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
 
-        form = buildForm();
+        VBox center = new VBox(16, subtitle, toolbar, tableBlock, summaryCards);
+        center.setPadding(new Insets(24));
+        VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        layout = new BorderPane();
-        layout.setCenter(listPane);
+        if (form == null) {
+            form = buildForm();
+        }
 
-        contentPane.setCenter(layout);
-        contentPane.setPadding(new Insets(20));
+        // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
+        // to the table/buttons underneath wherever the overlay itself has no floating panel.
+        overlay = new Pane();
+        overlay.setPickOnBounds(false);
+
+        StackPane root = new StackPane(center, overlay);
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.getStyleClass().add("details-scroll");
+        contentPane.setCenter(scrollPane);
+
+        wireFilters();
         reload();
+    }
+
+    private void wireFilters() {
+        searchField.textProperty().addListener((o, a, b) -> applyFilters());
+        genderFilter.valueProperty().addListener((o, a, b) -> applyFilters());
+    }
+
+    /** Opens the floating details panel for a row when the user double-clicks it. */
+    private void wireRowDoubleClick() {
+        table.setRowFactory(tv -> {
+            TableRow<Student> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    selectRow(row.getItem());
+                }
+            });
+            return row;
+        });
     }
 
     private void buildColumns() {
         table.getColumns().clear();
 
         TableColumn<Student, Student> child = new TableColumn<>("ENFANT");
-        child.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyObjectWrapper<>(d.getValue()));
+        child.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         child.setCellFactory(col -> childCell());
-        child.setPrefWidth(260);
+        child.setPrefWidth(240);
 
         TableColumn<Student, String> age = new TableColumn<>("ÂGE");
-        age.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(ageLabel(d.getValue())));
+        age.setCellValueFactory(d -> new ReadOnlyStringWrapper(ageLabel(d.getValue())));
         age.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         age.setPrefWidth(90);
 
         TableColumn<Student, String> section = new TableColumn<>("SECTION");
-        section.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper("—"));
-        section.setPrefWidth(100);
+        section.setCellValueFactory(d -> new ReadOnlyStringWrapper("—"));
+        section.setPrefWidth(90);
 
         TableColumn<Student, String> groupage = new TableColumn<>("GROUPAGE");
-        groupage.setCellValueFactory(d -> {
-            return new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getBloodType().getLabel());
-        });
+        groupage.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().getBloodType() == null ? "" : d.getValue().getBloodType().getLabel()));
         groupage.setCellFactory(col -> bloodCell());
-        groupage.setPrefWidth(110);
+        groupage.setPrefWidth(100);
 
         TableColumn<Student, String> inscription = new TableColumn<>("INSCRIPTION");
-        inscription.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(
+        inscription.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 DateUtil.frShort(d.getValue().getEnrollmentDate())));
-        inscription.setPrefWidth(120);
-
-
+        inscription.setPrefWidth(110);
 
         TableColumn<Student, String> notes = new TableColumn<>("INFORMATIONS MÉDICALES");
-        notes.setCellValueFactory(d -> new javafx.beans.property.ReadOnlyStringWrapper(d.getValue().getNotes()));
+        notes.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getNotes()));
         notes.setCellFactory(col -> dashIfBlankCell());
-        notes.setPrefWidth(140);
+        notes.setPrefWidth(160);
 
-        table.getColumns().addAll(List.of(child, age, section, groupage, inscription, notes));
+        TableColumn<Student, Student> actions = new TableColumn<>("ACTION");
+        actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        actions.setCellFactory(col -> actionCell());
+        actions.setPrefWidth(110);
+        actions.setMaxWidth(120);
+
+        table.getColumns().addAll(List.of(child, age, section, groupage, inscription, notes, actions));
     }
 
     private TableCell<Student, Student> childCell() {
@@ -167,8 +228,7 @@ public class StudentsView {
                 String color = TableStyleKit.colorFor(s.getGender() == null ? "" : s.getGender().name());
                 String fullName = (s.getFirstName() == null ? "" : s.getFirstName()) + " " +
                         (s.getLastName() == null ? "" : s.getLastName());
-                String genderLabel = s.getGender() == Sexe.FEMALE ? "Fille"
-                        : s.getGender() == Sexe.MALE ? "Garçon" : "—";
+                String genderLabel = genderLabel(s.getGender());
                 String subtitle = genderLabel + " · " + DateUtil.frShort(s.getDateOfBirth());
                 setGraphic(TableStyleKit.avatarNameCell(initials, color, fullName.trim(), subtitle));
             }
@@ -215,6 +275,45 @@ public class StudentsView {
         };
     }
 
+    private TableCell<Student, Student> actionCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Student item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                    return;
+                }
+                Button view = iconBtn("fth-eye", "Voir");
+                Button edit = iconBtn("fth-edit-2", "Modifier");
+                Button del = iconBtn("fth-trash-2", "Supprimer");
+                del.getStyleClass().add("icon-action-danger");
+
+                view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                edit.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                del.setOnAction(e -> { selected = item; delete(); });
+
+                HBox box = new HBox(4, view, edit, del);
+                box.setAlignment(Pos.CENTER);
+                setGraphic(box);
+            }
+        };
+    }
+
+    private Button iconBtn(String icon, String tooltip) {
+        Button btn = new Button();
+        FontIcon fi = new FontIcon(icon);
+        fi.setIconSize(14);
+        btn.setGraphic(fi);
+        btn.getStyleClass().add("icon-action-btn");
+        btn.setTooltip(new Tooltip(tooltip));
+        return btn;
+    }
+
+    private static String genderLabel(Sexe gender) {
+        return gender == Sexe.FEMALE ? "Fille" : gender == Sexe.MALE ? "Garçon" : "—";
+    }
+
     private String ageLabel(Student s) {
         if (s.getDateOfBirth() == null) return "—";
         Period p = Period.between(s.getDateOfBirth().toLocalDate(), LocalDate.now());
@@ -236,19 +335,20 @@ public class StudentsView {
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button cancel = new Button("Annuler");
-        cancel.getStyleClass().add("secondary-button");
-        cancel.setOnAction(e -> closeForm());
+        Button clear = new Button("+ Nouveau");
+        clear.getStyleClass().add("secondary-button");
+        clear.setOnAction(e -> startCreate());
 
         Button delete = new Button("Supprimer");
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label("Détails de l'élève"), grid, actions);
-        panel.getStyleClass().add("side-panel");
-        panel.setPrefWidth(320);
-        return panel;
+        // No title label here — the FloatingPanel header already shows "Détails de l'élève".
+        // NOTE: no setPrefWidth() on this VBox — the panel sits inside a ScrollPane with
+        // fitToWidth(true) (see FloatingPanel), and forcing a fixed prefWidth here fought
+        // that constraint on the very first layout pass, which could resolve the GridPane's
+        // input column to 0 width and make every field render invisible.
+        return new VBox(12, grid, new HBox(8, save, clear, delete));
     }
 
     private void startCreate() {
@@ -257,12 +357,32 @@ public class StudentsView {
     }
 
     private void showFormPanel() {
-        layout.setRight(form);
-        BorderPane.setMargin(form, new Insets(0, 0, 0, 16));
+        if (floatingForm == null) {
+            floatingForm = new FloatingPanel("Détails de l'élève", form, this::closeForm);
+        }
+        boolean wasAdded = !overlay.getChildren().contains(floatingForm);
+        if (wasAdded) {
+            overlay.getChildren().add(floatingForm);
+        }
+        double x = Math.max(24, overlay.getWidth() - floatingForm.getPrefWidth() - 24);
+        floatingForm.positionAt(x, 24);
+        floatingForm.toFront();
+
+        if (wasAdded) {
+            // Force an immediate CSS + layout pass now, before the panel is ever painted.
+            // Without this, the GridPane's column widths can resolve on a stale/zero-width
+            // parent chain the first time the panel is added to the overlay, leaving the
+            // form's editors invisible until some later event (e.g. a manual resize)
+            // triggers a fresh layout pass.
+            floatingForm.applyCss();
+            floatingForm.layout();
+        }
     }
 
     private void closeForm() {
-        layout.setRight(null);
+        if (floatingForm != null) {
+            overlay.getChildren().remove(floatingForm);
+        }
         clearForm();
     }
 
@@ -275,7 +395,7 @@ public class StudentsView {
         lastNameField.setText(student.getLastName());
         genderField.setValue(student.getGender());
         dobField.setValue(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toLocalDate());
-        bloodTypeField.setValue(student.getBloodType().getLabel());
+        bloodTypeField.setValue(student.getBloodType() == null ? null : student.getBloodType().getLabel());
         medicalInfoField.setText(student.getMedicalInfo());
         showFormPanel();
     }
@@ -287,7 +407,6 @@ public class StudentsView {
         genderField.setValue(null);
         dobField.setValue(null);
         bloodTypeField.setValue(null);
-
         medicalInfoField.clear();
         table.getSelectionModel().clearSelection();
     }
@@ -307,7 +426,7 @@ public class StudentsView {
 
         AsyncTasks.run(
                 () -> studentService.save(student),
-                saved -> { closeForm(); reload(); },
+                saved -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
         );
     }
@@ -318,20 +437,85 @@ public class StudentsView {
         String id = selected.getId();
         AsyncTasks.run(
                 () -> studentService.delete(id),
-                () -> { closeForm(); reload(); },
+                () -> { clearForm(); closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );
     }
 
     private void reload() {
-        String needle = searchField.getText();
         AsyncTasks.run(
-                () -> studentService.search(needle),
+                () -> studentService.search(""),
                 list -> {
-                    rows.setAll(list);
-                    countLabel.setText(list.size() + (list.size() > 1 ? " enfants inscrits" : " enfant inscrit"));
+                    allStudents = list;
+                    applyFilters();
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
+    }
+
+    private void applyFilters() {
+        String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+        String genderVal = genderFilter.getValue();
+
+        List<Student> filtered = allStudents.stream()
+                .filter(s -> {
+                    if (!needle.isBlank()) {
+                        String first = s.getFirstName() == null ? "" : s.getFirstName().toLowerCase();
+                        String last = s.getLastName() == null ? "" : s.getLastName().toLowerCase();
+                        if (!first.contains(needle) && !last.contains(needle)) return false;
+                    }
+                    if (genderVal != null && !"Tous".equals(genderVal)) {
+                        if (!genderLabel(s.getGender()).equals(genderVal)) return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        rows.setAll(filtered);
+        updateFooter(filtered);
+        updateSummaryCards(allStudents);
+    }
+
+    private void updateFooter(List<Student> data) {
+        footerCountLabel.setText(data.size() + (data.size() > 1 ? " enfants inscrits" : " enfant inscrit"));
+    }
+
+    private void updateSummaryCards(List<Student> data) {
+        summaryCards.getChildren().clear();
+
+        long boys = data.stream().filter(s -> s.getGender() == Sexe.MALE).count();
+        long girls = data.stream().filter(s -> s.getGender() == Sexe.FEMALE).count();
+        long withMedicalInfo = data.stream()
+                .filter(s -> s.getMedicalInfo() != null && !s.getMedicalInfo().isBlank())
+                .count();
+
+        summaryCards.getChildren().addAll(
+                summaryCard("fth-users", String.valueOf(data.size()), "Total Enfants", "#4338CA", "#EEF2FF"),
+                summaryCard("fth-user", boys + " · " + girls, "Garçons · Filles", "#0E7490", "#CFFAFE"),
+                summaryCard("fth-heart", String.valueOf(withMedicalInfo), "Infos Médicales", "#B91C1C", "#FEE2E2")
+        );
+        for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
+    }
+
+    private HBox summaryCard(String icon, String value, String label, String accent, String bg) {
+        FontIcon fi = new FontIcon(icon);
+        fi.setIconSize(20);
+        fi.setStyle("-fx-icon-color: " + accent + ";");
+        StackPane iconWrap = new StackPane(fi);
+        iconWrap.getStyleClass().add("stat-icon-wrap");
+        iconWrap.setStyle("-fx-background-color: " + bg + ";");
+
+        Label valLbl = new Label(value);
+        valLbl.getStyleClass().add("stat-number");
+        valLbl.setStyle("-fx-font-size: 20px;");
+        Label capLbl = new Label(label);
+        capLbl.getStyleClass().add("stat-caption");
+
+        VBox text = new VBox(2, valLbl, capLbl);
+        HBox card = new HBox(12, iconWrap, text);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.getStyleClass().add("stat-box");
+        card.setPadding(new Insets(14));
+        return card;
     }
 }
