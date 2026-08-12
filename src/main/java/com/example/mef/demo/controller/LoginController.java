@@ -156,6 +156,10 @@ public class LoginController {
             toggleHint.setText(I18n.t("login.no_account"));
             toggleButton.setText(I18n.t("login.register_link"));
         }
+
+        if (rootPane != null) {
+            I18n.applyArabicFontRecursively(rootPane, rtl);
+        }
     }
 
     /* ── toggle between login / register ── */

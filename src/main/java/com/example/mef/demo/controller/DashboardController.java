@@ -257,6 +257,8 @@ public class DashboardController {
         } else {
             showDashboard();
         }
+
+        I18n.applyArabicFontRecursively(rootPane, rtl);
     }
 
     private void navigateDashboard() {

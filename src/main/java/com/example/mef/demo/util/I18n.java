@@ -41,10 +41,15 @@ public final class I18n {
                 Font loaded = Font.loadFont(fontStream, 13);
                 if (loaded != null) {
                     arabicFontFamily = loaded.getFamily();
+                    System.out.println("[I18n] Arabic font loaded OK. Family = \"" + arabicFontFamily + "\"");
+                } else {
+                    System.out.println("[I18n] Font.loadFont(...) returned null for " + ARABIC_FONT_RESOURCE);
                 }
+            } else {
+                System.out.println("[I18n] Resource not found on classpath: " + ARABIC_FONT_RESOURCE);
             }
-        } catch (Exception ignored) {
-            // Falls back to system font resolution (arabicFontFamily default) if bundling fails.
+        } catch (Exception e) {
+            System.out.println("[I18n] Exception while loading Arabic font: " + e);
         }
     }
 
@@ -66,6 +71,41 @@ public final class I18n {
     /** Family name of the bundled Arabic font, guaranteed loaded (or the best-effort fallback name). */
     public static String getArabicFontFamily() {
         return arabicFontFamily;
+    }
+
+    /**
+     * Recursively forces (or clears) the Arabic font on every node in the subtree.
+     *
+     * Why this is necessary: JavaFX's built-in default stylesheet (Modena) sets
+     * "-fx-font: 1em System;" directly on Label/Button/TextField/etc. That shorthand
+     * assigns -fx-font-family explicitly on each control itself. An explicit value set
+     * on a node — even one coming from JavaFX's own low-priority built-in stylesheet —
+     * always wins over an *inherited* value from a parent's style, no matter how the
+     * parent's value was set. So setting -fx-font-family only on a root/container node
+     * does NOT reliably cascade down to child Labels/Buttons/TextFields: Modena's default
+     * silently overrides it on each of them individually. The only way to reliably force
+     * a font onto controls in JavaFX is to set it inline, directly, on each control node.
+     */
+    public static void applyArabicFontRecursively(javafx.scene.Node node, boolean rtl) {
+        if (node == null) return;
+
+        String existing = node.getStyle();
+        if (existing == null) existing = "";
+        // Strip any font-family override we previously applied, to avoid stacking duplicates
+        // when switching languages back and forth.
+        existing = existing.replaceAll("-fx-font-family:\\s*'[^']*';?", "").trim();
+
+        if (rtl) {
+            if (!existing.isEmpty() && !existing.endsWith(";")) existing += ";";
+            existing += "-fx-font-family: '" + arabicFontFamily + "';";
+        }
+        node.setStyle(existing);
+
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                applyArabicFontRecursively(child, rtl);
+            }
+        }
     }
 
     /**

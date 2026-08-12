@@ -98,8 +98,8 @@ tasks.register('jpackageWindows', Exec) {
             '--app-version', project.version.toString().replace('-SNAPSHOT', ''),
             '--java-options', '-Dfile.encoding=UTF-8',
             '--java-options', '-Dsun.jnu.encoding=UTF-8',
-             '--java-options', '-Dsun.jnu.encoding=UTF-8',
-             '--java-options', '-Dprism.order=sw'
+            '--java-options', '-Dprism.order=sw',
+            '--win-console'
 }
 tasks.register('jpackageWindowsInstaller', Exec) {
     dependsOn 'jpackageWindows'

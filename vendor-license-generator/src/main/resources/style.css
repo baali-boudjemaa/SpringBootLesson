@@ -1,0 +1,148 @@
+/* Rawdati License Generator Stylesheet */
+
+.root {
+    -fx-font-family: "Segoe UI", "System Font", sans-serif;
+    -fx-font-size: 12;
+    -fx-base: #f5f5f5;
+    -fx-background: #fafafa;
+}
+
+/* Text Input */
+.text-field,
+.text-area {
+    -fx-font-size: 11;
+    -fx-padding: 8;
+    -fx-border-width: 1;
+    -fx-border-color: #d0d0d0;
+    -fx-border-radius: 4;
+    -fx-control-inner-background: #ffffff;
+}
+
+.text-field:focused,
+.text-area:focused {
+    -fx-border-color: #1976d2;
+    -fx-border-width: 2;
+    -fx-padding: 7;
+}
+
+.text-area:focused {
+    -fx-control-inner-background: #ffffff;
+}
+
+/* ComboBox */
+.combo-box {
+    -fx-font-size: 11;
+    -fx-padding: 8;
+    -fx-border-width: 1;
+    -fx-border-color: #d0d0d0;
+    -fx-border-radius: 4;
+}
+
+.combo-box:focused {
+    -fx-border-color: #1976d2;
+    -fx-border-width: 2;
+}
+
+.combo-box-popup .list-view {
+    -fx-padding: 5;
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-padding: 8;
+    -fx-border-color: transparent;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover {
+    -fx-background-color: #e3f2fd;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: #1976d2;
+    -fx-text-fill: white;
+}
+
+/* Buttons */
+.button {
+    -fx-font-size: 12;
+    -fx-padding: 8 20;
+    -fx-border-radius: 4;
+    -fx-cursor: hand;
+    -fx-background-color: #1976d2;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.button:hover {
+    -fx-background-color: #1565c0;
+}
+
+.button:pressed {
+    -fx-background-color: #0d47a1;
+}
+
+.button:disabled {
+    -fx-background-color: #ccc;
+    -fx-text-fill: #999;
+    -fx-cursor: default;
+}
+
+/* Separator */
+.separator {
+    -fx-padding: 0;
+    -fx-border-color: #e0e0e0;
+}
+
+/* Labels */
+.label {
+    -fx-text-fill: #333;
+}
+
+.label:disabled {
+    -fx-text-fill: #999;
+}
+
+/* ScrollPane */
+.scroll-pane {
+    -fx-padding: 0;
+    -fx-background-color: #fafafa;
+}
+
+.scroll-pane:focused {
+    -fx-padding: 0;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: #fafafa;
+}
+
+/* VBox and HBox - remove default spacing */
+.vbox,
+.hbox {
+    -fx-spacing: 0;
+}
+
+/* Focus indicator */
+*:focused {
+    -fx-focus-color: #1976d2;
+    -fx-faint-focus-color: #1976d2;
+}
+
+/* Success styling */
+.success-text {
+    -fx-text-fill: #2e7d32;
+}
+
+.success-border {
+    -fx-border-color: #e8f5e9;
+    -fx-background-color: #f1f8f6;
+}
+
+/* Error styling */
+.error-text {
+    -fx-text-fill: #d32f2f;
+}
+
+.error-border {
+    -fx-border-color: #ffebee;
+    -fx-background-color: #fef5f5;
+}
