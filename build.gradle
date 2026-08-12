@@ -96,7 +96,10 @@ tasks.register('jpackageWindows', Exec) {
             '--main-class', 'org.springframework.boot.loader.launch.JarLauncher',
             '--dest', "${buildDir}/jpackage",
             '--app-version', project.version.toString().replace('-SNAPSHOT', ''),
-            '--java-options', '-Dfile.encoding=UTF-8'
+            '--java-options', '-Dfile.encoding=UTF-8',
+            '--java-options', '-Dsun.jnu.encoding=UTF-8',
+             '--java-options', '-Dsun.jnu.encoding=UTF-8',
+             '--java-options', '-Dprism.order=sw'
 }
 tasks.register('jpackageWindowsInstaller', Exec) {
     dependsOn 'jpackageWindows'
@@ -110,4 +113,10 @@ tasks.register('jpackageWindowsInstaller', Exec) {
             '--app-version', project.version.toString().replace('-SNAPSHOT', ''),
             '--win-menu',
             '--win-shortcut'
+}
+tasks.named('bootRun') {
+    jvmArgs = ['-Dprism.order=sw', '-Dfile.encoding=UTF-8']
+}
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }

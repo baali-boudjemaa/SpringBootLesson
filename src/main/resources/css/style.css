@@ -1,4 +1,4 @@
-/* ===== Rawdati — Gestion de Crèche — style.css (v2, enhanced) =====
+/* =====  Gestion de Crèche — style.css (v2, enhanced) =====
  *
  * Drop-in replacement: every selector from your original file is preserved,
  * so no Java changes are required.
@@ -59,7 +59,7 @@
     -panel-soft:    #EEF4FF;
     -glow:          rgba(37, 99, 235, 0.18);
 
-    -fx-font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-family: "Segoe UI", "Tahoma" , "Arial","Inter", "Helvetica Neue", Arial, sans-serif;
     -fx-background-color: -bg;
     -fx-font-size: 13px;
     -fx-text-fill: -ink;

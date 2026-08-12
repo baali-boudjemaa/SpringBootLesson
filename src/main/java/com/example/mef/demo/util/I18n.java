@@ -1,5 +1,7 @@
 package com.example.mef.demo.util;
 
+import javafx.scene.text.Font;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,6 +23,31 @@ public final class I18n {
     private static Locale  currentLocale = Locale.FRENCH;
     private static ResourceBundle bundle  = load(currentLocale);
 
+    /**
+     * JavaFX (especially the Direct3D pipeline on Windows, and any font
+     * that lacks embedded Arabic glyphs / relies on OS-level font linking)
+     * can fail to render Arabic text, showing "?" for every character.
+     * To make Arabic rendering independent of whatever fonts happen to be
+     * installed/resolved on the target machine, we bundle a real Arabic
+     * font (Noto Naskh Arabic, OFL license) as a resource and load it
+     * directly at startup, instead of relying on the OS to resolve one.
+     */
+    private static final String ARABIC_FONT_RESOURCE = "/fonts/NotoNaskhArabic-Regular.ttf";
+    private static String arabicFontFamily = "Noto Naskh Arabic"; // fallback if load fails
+
+    static {
+        try (InputStream fontStream = I18n.class.getResourceAsStream(ARABIC_FONT_RESOURCE)) {
+            if (fontStream != null) {
+                Font loaded = Font.loadFont(fontStream, 13);
+                if (loaded != null) {
+                    arabicFontFamily = loaded.getFamily();
+                }
+            }
+        } catch (Exception ignored) {
+            // Falls back to system font resolution (arabicFontFamily default) if bundling fails.
+        }
+    }
+
     private I18n() {}
 
     /* ── Public API ───────────────────────────────────────────── */
@@ -34,6 +61,11 @@ public final class I18n {
 
     public static boolean isRTL() {
         return "ar".equals(currentLocale.getLanguage());
+    }
+
+    /** Family name of the bundled Arabic font, guaranteed loaded (or the best-effort fallback name). */
+    public static String getArabicFontFamily() {
+        return arabicFontFamily;
     }
 
     /**

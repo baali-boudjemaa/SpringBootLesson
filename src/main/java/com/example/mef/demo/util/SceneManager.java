@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -38,6 +39,7 @@ public final class SceneManager {
     public static void switchTo(String fxmlPath, String cssPath) {
         try {
             FXMLLoader loader = new FXMLLoader(SceneManager.class.getResource(fxmlPath));
+            loader.setCharset(StandardCharsets.UTF_8);
             if (applicationContext != null) {
                 loader.setControllerFactory(applicationContext::getBean);
             }
