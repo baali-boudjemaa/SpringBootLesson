@@ -96,7 +96,7 @@ tasks.register('jpackageWindows', Exec) {
             '--main-class', 'org.springframework.boot.loader.launch.JarLauncher',
             '--dest', "${buildDir}/jpackage",
             '--app-version', project.version.toString().replace('-SNAPSHOT', ''),
-            '--java-options', '-Dfile.encoding=UTF-8','--win-per-user-install'
+            '--java-options', '-Dfile.encoding=UTF-8'
 }
 tasks.register('jpackageWindowsInstaller', Exec) {
     dependsOn 'jpackageWindows'
