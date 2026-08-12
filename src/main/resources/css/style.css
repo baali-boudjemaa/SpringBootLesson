@@ -496,7 +496,6 @@
     -fx-border-radius: 14;
     -fx-background-radius: 14;
     -fx-padding: 26;
-    -fx-min-height: 520;
     -fx-effect: dropshadow(gaussian, rgba(15,23,42,0.06), 16, 0, 0, 5);
 }
 .workflow-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -ink; }

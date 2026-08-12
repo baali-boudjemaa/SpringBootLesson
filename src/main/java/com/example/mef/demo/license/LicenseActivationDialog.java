@@ -74,6 +74,12 @@ public class LicenseActivationDialog {
         return Math.max(0, TRIAL_DAYS - elapsed);
     }
 
+    /** Days left before the active license expires and needs reactivation. Empty if not activated. */
+    public Optional<Long> getDaysUntilExpiry() {
+        return getActiveLicense()
+                .map(payload -> ChronoUnit.DAYS.between(LocalDate.now(), payload.expiresAt()));
+    }
+
     /** Validates and persists a license in both the database and user profile. */
     public void activate(String activationKey) {
         String candidate = activationKey == null ? "" : activationKey.trim();

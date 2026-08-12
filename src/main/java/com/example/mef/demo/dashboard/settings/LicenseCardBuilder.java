@@ -79,6 +79,21 @@ public class LicenseCardBuilder {
             Label bannerBody = new Label(I18n.t("license.active_message"));
             bannerBody.setStyle("-fx-text-fill: #065F46; -fx-font-weight: bold;");
             banner.getChildren().add(bannerBody);
+
+            licenseActivationDialog.getDaysUntilExpiry().ifPresent(daysLeft -> {
+                String daysText;
+                if (daysLeft <= 0) {
+                    daysText = I18n.t("license.expires_today");
+                } else if (daysLeft == 1) {
+                    daysText = I18n.t("license.days_left_one");
+                } else {
+                    daysText = I18n.t("license.days_left_other").replace("{days}", String.valueOf(daysLeft));
+                }
+                Label daysLabel = new Label(daysText);
+                daysLabel.setStyle("-fx-text-fill: #065F46;");
+                banner.getChildren().add(daysLabel);
+            });
+
             card.getChildren().add(banner);
         }
 

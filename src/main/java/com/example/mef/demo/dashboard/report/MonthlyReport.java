@@ -45,6 +45,9 @@ public final class MonthlyReport {
         DatePicker monthPicker = new DatePicker(LocalDate.now().withDayOfMonth(1));
         monthPicker.setPromptText(I18n.t("monthly.select_month"));
         monthPicker.setEditable(false);
+        monthPicker.getStyleClass().add("filter-field");
+        monthPicker.setPrefWidth(120);
+        monthPicker.setStyle("-fx-show-week-numbers: false;");
 
         Button generateBtn = new Button(I18n.t("monthly.generate"));
         generateBtn.getStyleClass().add("primary-button");

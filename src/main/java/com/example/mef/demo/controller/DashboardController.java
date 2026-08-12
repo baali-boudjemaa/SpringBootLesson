@@ -3,6 +3,7 @@ package com.example.mef.demo.controller;
 import com.example.mef.demo.Model.Module;
 import com.example.mef.demo.Model.ModuleRegistry;
 import com.example.mef.demo.Model.User;
+import com.example.mef.demo.Services.AppSettingsKeys;
 import com.example.mef.demo.Services.DynamicDatabaseService;
 import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.config.Session;
@@ -96,6 +97,7 @@ public class DashboardController {
     private final UsersView usersView;
     private final LicenseActivationDialog licenseActivationDialog;
     private final OutcomingsView outcomingsView;
+    private final SettingService settingService;
     private GlobalSearch globalSearch;
     private MonthlyReport monthlyReport;
     private Module activeModule;
@@ -122,7 +124,7 @@ public class DashboardController {
             UsersView usersView,
             LicenseActivationDialog licenseActivationDialog,
             OutcomingsView outcomingsView
-            ) {
+    ) {
         this.paymentsView = paymentsView;
         this.outcomingsView = outcomingsView;
         this.dao = dao;
@@ -133,7 +135,8 @@ public class DashboardController {
         this.dashboardHomeView = dashboardHomeView;
         this.registry = registry;
         this.navigationBuilder = navigationBuilder;
-        this.settingsView = new SettingsView(licenseCardBuilder, settingService);
+        this.settingsView = new SettingsView(licenseCardBuilder, settingService, this::applyLocale);
+        this.settingService = settingService;
         this.studentsView = studentsView;
         this.teachersView = teachersView;
         this.guardiansView = guardiansView;
@@ -160,7 +163,7 @@ public class DashboardController {
 
         installSmoothScroll(sidebarScroll);
 
-        I18n.setLocale(Locale.FRENCH);
+        I18n.setLocale(loadSavedLocale());
         applyLocale();
         updateTrialStatus();
 
@@ -182,13 +185,24 @@ public class DashboardController {
     @FXML
     private void handleLangFr() {
         I18n.setLocale(Locale.FRENCH);
+        saveLocale("fr");
         applyLocale();
     }
 
     @FXML
     private void handleLangAr() {
         I18n.setLocale(new Locale("ar"));
+        saveLocale("ar");
         applyLocale();
+    }
+
+    private Locale loadSavedLocale() {
+        String saved = settingService.get(AppSettingsKeys.LOCALE, AppSettingsKeys.LOCALE_DEFAULT);
+        return "ar".equals(saved) ? new Locale("ar") : Locale.FRENCH;
+    }
+
+    private void saveLocale(String languageTag) {
+        settingService.set(AppSettingsKeys.LOCALE, languageTag, "Langue de l'application");
     }
 
     @FXML
@@ -257,8 +271,6 @@ public class DashboardController {
         } else {
             showDashboard();
         }
-
-        I18n.applyArabicFontRecursively(rootPane, rtl);
     }
 
     private void navigateDashboard() {

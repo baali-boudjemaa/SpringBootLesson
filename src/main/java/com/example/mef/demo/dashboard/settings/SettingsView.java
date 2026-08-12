@@ -1,5 +1,6 @@
 package com.example.mef.demo.dashboard.settings;
 
+import com.example.mef.demo.Services.AppSettingsKeys;
 import com.example.mef.demo.Services.EnrollmentSettingsKeys;
 import com.example.mef.demo.Services.ScheduleSettingsKeys;
 import com.example.mef.demo.Services.SettingService;
@@ -16,6 +17,8 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import java.util.Locale;
+
 /**
  * Renders the Settings module page, extracted from
  * DashboardController.showSettingsPage. The license card itself is built by
@@ -26,10 +29,12 @@ public class SettingsView {
 
     private final LicenseCardBuilder licenseCardBuilder;
     private final SettingService settingService;
+    private final Runnable onLocaleChange;
 
-    public SettingsView(LicenseCardBuilder licenseCardBuilder, SettingService settingService) {
+    public SettingsView(LicenseCardBuilder licenseCardBuilder, SettingService settingService, Runnable onLocaleChange) {
         this.licenseCardBuilder = licenseCardBuilder;
         this.settingService = settingService;
+        this.onLocaleChange = onLocaleChange;
     }
 
     /**
@@ -39,17 +44,51 @@ public class SettingsView {
      * controller for {@code showModule(activeModule)} as the original code did.
      */
     public void render(BorderPane contentPane) {
+        VBox languageCard = buildLanguageCard();
         VBox licenseCard = licenseCardBuilder.build(() -> render(contentPane));
         VBox enrollmentRulesCard = buildEnrollmentRulesCard();
         VBox scheduleRulesCard = buildScheduleRulesCard();
 
-        VBox root = new VBox(20, enrollmentRulesCard, scheduleRulesCard, licenseCard);
+        VBox root = new VBox(20, languageCard, enrollmentRulesCard, scheduleRulesCard, licenseCard);
         root.setPadding(new Insets(24));
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         contentPane.setCenter(scroll);
+    }
+
+    /** "Language" card: switch the app between French and Arabic. */
+    private VBox buildLanguageCard() {
+        Label title = new Label(I18n.t("settings.language.title"));
+        title.getStyleClass().add("workflow-title");
+
+        Label hint = new Label(I18n.t("settings.language.hint"));
+        hint.setWrapText(true);
+
+        boolean rtl = I18n.isRTL();
+
+        Button frButton = new Button(I18n.t("settings.language.fr"));
+        frButton.getStyleClass().add(rtl ? "lang-button" : "lang-button-active");
+        frButton.setOnAction(event -> {
+            I18n.setLocale(Locale.FRENCH);
+            settingService.set(AppSettingsKeys.LOCALE, "fr", "Langue de l'application");
+            onLocaleChange.run();
+        });
+
+        Button arButton = new Button(I18n.t("settings.language.ar"));
+        arButton.getStyleClass().add(rtl ? "lang-button-active" : "lang-button");
+        arButton.setOnAction(event -> {
+            I18n.setLocale(new Locale("ar"));
+            settingService.set(AppSettingsKeys.LOCALE, "ar", "Langue de l'application");
+            onLocaleChange.run();
+        });
+
+        HBox buttons = new HBox(10, frButton, arButton);
+
+        VBox card = new VBox(14, title, hint, buttons);
+        card.getStyleClass().add("workflow-card");
+        return card;
     }
 
     /** "Enrollment rules" card: currently just the minimum enrollment age. */
@@ -62,13 +101,13 @@ public class SettingsView {
 
         TextField minAgeField = new TextField();
         minAgeField.setPromptText(I18n.t("settings.min_age.label"));
-        minAgeField.setMaxWidth(120);
+        minAgeField.setMaxWidth(70);
         int currentMinAge = settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT);
         minAgeField.setText(String.valueOf(currentMinAge));
 
         TextField schoolyear = new TextField();
         schoolyear.setPromptText(I18n.t("settings.schoolyear.label"));
-        schoolyear.setMaxWidth(120);
+        schoolyear.setMaxWidth(140);
 
         GridPane grid = new GridPane();
         grid.setHgap(12);
