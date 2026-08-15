@@ -70,6 +70,7 @@ public class StudentsView {
     private final TextField lastNameField = FormFactory.textField("Nom");
     private final ComboBox<Sexe> genderField = new ComboBox<>(FXCollections.observableArrayList(Sexe.values()));
     private final DatePicker dobField = new DatePicker();
+
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
     private final TextField medicalInfoField = FormFactory.textField("Informations médicales");
 
@@ -105,7 +106,7 @@ public class StudentsView {
         searchField.getStyleClass().add("filter-field");
         genderFilter.getStyleClass().add("filter-field");
         genderFilter.setPrefWidth(130);
-
+        dobField.getStyleClass().add("filter-field");
         Button add = new Button("+  Ajouter un Enfant");
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
@@ -412,8 +413,9 @@ public class StudentsView {
     }
 
     private void save() {
-        if (firstNameField.getText().isBlank() || lastNameField.getText().isBlank()) {
-            DialogUtil.error("Champs requis", "Le prénom et le nom sont obligatoires.");
+        if (firstNameField.getText().isBlank() || lastNameField.getText().isBlank() || genderField.getValue() == null ||
+                bloodTypeField.getValue()==null || medicalInfoField.getText().isBlank() || dobField.getValue()==null) {
+            DialogUtil.error("Champs requis", "Tout les Champs sont obligatoires.");
             return;
         }
         Student student = selected != null ? selected : new Student();
