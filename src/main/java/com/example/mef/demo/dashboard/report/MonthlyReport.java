@@ -52,7 +52,10 @@ public final class MonthlyReport {
         Button generateBtn = new Button(I18n.t("monthly.generate"));
         generateBtn.getStyleClass().add("primary-button");
 
-        HBox toolbar = new HBox(12, new Label(I18n.t("monthly.select_month") + " :"), monthPicker, generateBtn);
+        Button seedBtn = new Button(I18n.t("monthly.seed_data"));
+        seedBtn.getStyleClass().add("secondary-button");
+
+        HBox toolbar = new HBox(12, new Label(I18n.t("monthly.select_month") + " :"), monthPicker, generateBtn, seedBtn);
         toolbar.setAlignment(Pos.CENTER_LEFT);
 
         Label incomeNum  = new Label("—");  incomeNum.getStyleClass().add("monthly-stat-number");
@@ -93,7 +96,7 @@ public final class MonthlyReport {
         VBox reportCard = new VBox(10, reportHeader, reportArea);
         reportCard.getStyleClass().add("monthly-card");
 
-        generateBtn.setOnAction(e -> {
+        Runnable generateReport = () -> {
             LocalDate selected = monthPicker.getValue();
             if (selected == null) return;
             LocalDate start = selected.withDayOfMonth(1);
@@ -126,6 +129,36 @@ public final class MonthlyReport {
                 reportArea.setText("Erreur : " + task.getException().getMessage());
             });
             startDaemonThread(task);
+        };
+
+        generateBtn.setOnAction(e -> generateReport.run());
+
+        seedBtn.setOnAction(e -> {
+            LocalDate selected = monthPicker.getValue();
+            if (selected == null) return;
+            LocalDate month = selected.withDayOfMonth(1);
+
+            seedBtn.setDisable(true);
+            Task<Integer> seedTask = new Task<>() {
+                @Override
+                protected Integer call() {
+                    return dao.seedSampleDataForMonth(month);
+                }
+            };
+            seedTask.setOnSucceeded(ev -> {
+                seedBtn.setDisable(false);
+                int created = seedTask.getValue();
+                if (created == 0) {
+                    reportArea.setText(I18n.t("monthly.seed_no_data"));
+                } else {
+                    generateReport.run();
+                }
+            });
+            seedTask.setOnFailed(ev -> {
+                seedBtn.setDisable(false);
+                reportArea.setText("Erreur : " + seedTask.getException().getMessage());
+            });
+            startDaemonThread(seedTask);
         });
 
         VBox root = new VBox(20, toolbar, statsRow, reportCard);

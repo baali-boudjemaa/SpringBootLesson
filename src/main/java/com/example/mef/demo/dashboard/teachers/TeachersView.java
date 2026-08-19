@@ -845,7 +845,7 @@ public class TeachersView {
         employee.setLastName(lastNameField.getText().trim());
         employee.setEmail(emailField.getText().trim());
         employee.setPhoneNumber(phone);
-        employee.setRole(roleField.getValue());
+        employee.setRole(EmployeeRole.TEACHER);
         employee.setCertifications(certificationsField.getText().trim());
 
         String normalizedSchedule =

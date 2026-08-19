@@ -301,6 +301,62 @@ public class DynamicDatabaseService {
 
     public record MonthlyReportData(double income, int paymentCount, int present, int absent, int late) {}
 
+    /**
+     * Creates a handful of sample Payment and Attendance rows for the given
+     * month, reusing existing students/inscriptions already in the database
+     * (never invents students or inscriptions). Intended for demo/testing
+     * so the monthly report has something to show. Returns how many rows
+     * were created, or 0 if there are no students/inscriptions to attach to.
+     */
+    @Transactional
+    public int seedSampleDataForMonth(LocalDate month) {
+        List<Student> students = entityManager.createQuery("select s from Student s", Student.class)
+                .setMaxResults(15)
+                .getResultList();
+        List<Inscription> inscriptions = entityManager.createQuery("select i from Inscription i", Inscription.class)
+                .setMaxResults(15)
+                .getResultList();
+
+        if (students.isEmpty() && inscriptions.isEmpty()) {
+            return 0;
+        }
+
+        int daysInMonth = month.lengthOfMonth();
+        java.util.Random random = new java.util.Random();
+        int created = 0;
+
+        for (Inscription inscription : inscriptions) {
+            LocalDateTime payDate = month.withDayOfMonth(1 + random.nextInt(daysInMonth)).atTime(10, 0);
+            com.example.mef.demo.Model.Payment payment = com.example.mef.demo.Model.Payment.builder()
+                    .inscription(inscription)
+                    .amount(3000.0 + random.nextInt(6) * 500.0)
+                    .paymentMethod(com.example.mef.demo.enums.PaymentType.CASH)
+                    .datePay(payDate)
+                    .label("Scolarite")
+                    .status(com.example.mef.demo.enums.PaymentStatus.PAID)
+                    .build();
+            entityManager.persist(payment);
+            created++;
+        }
+
+        for (Student student : students) {
+            for (int day = 1; day <= daysInMonth; day += 2) {
+                AttendanceStatus status = random.nextInt(10) < 8
+                        ? AttendanceStatus.PRESENT
+                        : AttendanceStatus.ABSENT;
+                Attendance attendance = Attendance.builder()
+                        .student(student)
+                        .date(month.withDayOfMonth(day).atTime(8, 30))
+                        .status(status)
+                        .build();
+                entityManager.persist(attendance);
+                created++;
+            }
+        }
+
+        return created;
+    }
+
     @Transactional
     public void createStudentEnrollment(Map<String, String> student, Map<String, String> guardian,
                                         String course, Map<String, String> payment) {
