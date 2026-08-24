@@ -73,6 +73,10 @@ public class StudentsView {
 
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
     private final TextField medicalInfoField = FormFactory.textField("Informations médicales");
+    private final TextField notesField = FormFactory.textField("Notes générales");
+
+    private final Label studentNumberValue = new Label("—");
+    private final Label enrollmentDateValue = new Label("—");
 
     private final Label footerCountLabel = new Label();
     private final HBox summaryCards = new HBox(14);
@@ -90,6 +94,9 @@ public class StudentsView {
         this.studentService = studentService;
         genderField.setMaxWidth(Double.MAX_VALUE);
         genderFilter.setValue("Tous");
+
+        genderField.setCellFactory(cb -> genderListCell());
+        genderField.setButtonCell(genderListCell());
     }
 
     /** @param onEnrollNew invoked when the user wants to run the full enrollment wizard instead of a bare add. */
@@ -150,6 +157,7 @@ public class StudentsView {
         StackPane root = new StackPane(center, overlay);
         ScrollPane scrollPane = new ScrollPane(root);
         scrollPane.getStyleClass().add("details-scroll");
+        scrollPane.setFitToWidth(true);
         contentPane.setCenter(scrollPane);
 
         wireFilters();
@@ -315,6 +323,16 @@ public class StudentsView {
         return gender == Sexe.FEMALE ? "Fille" : gender == Sexe.MALE ? "Garçon" : "—";
     }
 
+    private javafx.scene.control.ListCell<Sexe> genderListCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Sexe item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : genderLabel(item));
+            }
+        };
+    }
+
     private String ageLabel(Student s) {
         if (s.getDateOfBirth() == null) return "—";
         Period p = Period.between(s.getDateOfBirth().toLocalDate(), LocalDate.now());
@@ -324,13 +342,19 @@ public class StudentsView {
     }
 
     private VBox buildForm() {
+        studentNumberValue.getStyleClass().add("field-label");
+        enrollmentDateValue.getStyleClass().add("field-label");
+
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Prénom", firstNameField);
-        FormFactory.addRow(grid, 1, "Nom", lastNameField);
-        FormFactory.addRow(grid, 2, "Genre", genderField);
-        FormFactory.addRow(grid, 3, "Naissance", dobField);
-        FormFactory.addRow(grid, 4, "Groupage", bloodTypeField);
-        FormFactory.addRow(grid, 5, "Médical", medicalInfoField);
+        FormFactory.addRow(grid, 0, "N° Élève", studentNumberValue);
+        FormFactory.addRow(grid, 1, "Prénom", firstNameField);
+        FormFactory.addRow(grid, 2, "Nom", lastNameField);
+        FormFactory.addRow(grid, 3, "Genre", genderField);
+        FormFactory.addRow(grid, 4, "Naissance", dobField);
+        FormFactory.addRow(grid, 5, "Date d'inscription", enrollmentDateValue);
+        FormFactory.addRow(grid, 6, "Groupage", bloodTypeField);
+        FormFactory.addRow(grid, 7, "Médical", medicalInfoField);
+        FormFactory.addRow(grid, 8, "Notes", notesField);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -360,6 +384,7 @@ public class StudentsView {
     private void showFormPanel() {
         if (floatingForm == null) {
             floatingForm = new FloatingPanel("Détails de l'élève", form, this::closeForm);
+            floatingForm.setPrefWidth(450);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {
@@ -392,23 +417,29 @@ public class StudentsView {
         if (student == null) {
             return;
         }
+        studentNumberValue.setText(student.getStudentNumber() == null ? "—" : student.getStudentNumber());
+        enrollmentDateValue.setText(DateUtil.frShort(student.getEnrollmentDate()));
         firstNameField.setText(student.getFirstName());
         lastNameField.setText(student.getLastName());
         genderField.setValue(student.getGender());
         dobField.setValue(student.getDateOfBirth() == null ? null : student.getDateOfBirth().toLocalDate());
         bloodTypeField.setValue(student.getBloodType() == null ? null : student.getBloodType().getLabel());
         medicalInfoField.setText(student.getMedicalInfo());
+        notesField.setText(student.getNotes());
         showFormPanel();
     }
 
     private void clearForm() {
         selected = null;
+        studentNumberValue.setText("—");
+        enrollmentDateValue.setText("—");
         firstNameField.clear();
         lastNameField.clear();
         genderField.setValue(null);
         dobField.setValue(null);
         bloodTypeField.setValue(null);
         medicalInfoField.clear();
+        notesField.clear();
         table.getSelectionModel().clearSelection();
     }
 
@@ -425,6 +456,7 @@ public class StudentsView {
         student.setDateOfBirth(dobField.getValue() == null ? null : dobField.getValue().atStartOfDay());
         student.setBloodType(BloodType.fromLabel(bloodTypeField.getValue()));
         student.setMedicalInfo(medicalInfoField.getText());
+        student.setNotes(notesField.getText());
 
         AsyncTasks.run(
                 () -> studentService.save(student),

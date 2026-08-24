@@ -35,8 +35,11 @@ public class Inscription  {
     @JoinColumn(name = "anneeScolaireId", nullable = false)
     private AnneeScolaire anneeScolaire;
 
+    /** Optional now: a student's real attendance is driven by their courses (each course
+     *  already has its own classroom), so an inscription no longer requires a single fixed
+     *  classroom — a student can follow courses held in different classrooms. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classId", nullable = false)
+    @JoinColumn(name = "classId")
     private Classroom classroom;
 
     @Enumerated(EnumType.STRING)

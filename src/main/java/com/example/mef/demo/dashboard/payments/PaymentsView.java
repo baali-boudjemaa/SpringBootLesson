@@ -100,8 +100,24 @@ public class PaymentsView {
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
         paymentDateField.setMaxWidth(Double.MAX_VALUE);
+        paymentDateField.getStyleClass().add("filter-field");
         inscriptionField.setCellFactory(cb -> inscriptionCell());
         inscriptionField.setButtonCell(inscriptionCell());
+        // Explicit converter: without this, the button cell can fall back to
+        // Inscription#toString() (e.g. "com.example...@1a2b3c") instead of the
+        // label, particularly when the selected value isn't reference-equal
+        // to an item already loaded into the combo's items list.
+        inscriptionField.setConverter(new javafx.util.StringConverter<Inscription>() {
+            @Override
+            public String toString(Inscription i) {
+                return i == null ? "" : inscriptionLabel(i);
+            }
+
+            @Override
+            public Inscription fromString(String s) {
+                return inscriptionField.getValue();
+            }
+        });
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
@@ -162,6 +178,7 @@ public class PaymentsView {
         StackPane root = new StackPane(center, overlay);
         ScrollPane scrollPane = new ScrollPane(root);
         scrollPane.getStyleClass().add("details-scroll");
+        scrollPane.setFitToWidth(true);
         contentPane.setCenter(scrollPane);
 
         wireFilters();
@@ -385,7 +402,7 @@ public class PaymentsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails du paiement", form, this::closeForm);
+            floatingForm = new FloatingPanel("Détails du paiement", form, this::closeForm, 480);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {

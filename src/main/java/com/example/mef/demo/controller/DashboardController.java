@@ -66,6 +66,11 @@ public class DashboardController {
     @FXML private VBox navigationBox;
     @FXML private ScrollPane sidebarScroll;
     @FXML private BorderPane contentPane;
+    @FXML private VBox sidebar;
+    @FXML private VBox brandTextBox;
+    @FXML private org.kordamp.ikonli.javafx.FontIcon sidebarToggleIcon;
+
+    private boolean sidebarCollapsed = false;
 
     /**
      * JavaFX's default ScrollPane mouse-wheel handling derives the per-notch
@@ -261,6 +266,7 @@ public class DashboardController {
         navigationBuilder.build(
                 navigationBox,
                 activeNavKey,
+                sidebarCollapsed,
                 this::navigateDashboard,
                 this::navigateMonthly,
                 this::navigateModule
@@ -271,6 +277,19 @@ public class DashboardController {
         } else {
             showDashboard();
         }
+    }
+
+    @FXML
+    private void toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        sidebar.getStyleClass().removeAll("sidebar-collapsed");
+        if (sidebarCollapsed) {
+            sidebar.getStyleClass().add("sidebar-collapsed");
+        }
+        brandTextBox.setVisible(!sidebarCollapsed);
+        brandTextBox.setManaged(!sidebarCollapsed);
+        sidebarToggleIcon.setIconLiteral(sidebarCollapsed ? "fth-chevrons-right" : "fth-chevrons-left");
+        rebuildNav();
     }
 
     private void navigateDashboard() {
@@ -297,6 +316,7 @@ public class DashboardController {
         navigationBuilder.build(
                 navigationBox,
                 activeNavKey,
+                sidebarCollapsed,
                 this::navigateDashboard,
                 this::navigateMonthly,
                 this::navigateModule

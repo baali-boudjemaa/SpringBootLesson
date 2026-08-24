@@ -438,7 +438,10 @@ public class EnrollmentWizard {
         previous.getStyleClass().add("secondary-button");
         Button next = new Button(I18n.t("wizard.next"));
         next.getStyleClass().add("primary-button");
-        HBox actions = new HBox(10, previous, next, finish, clear);
+        Button cancel = new Button(I18n.t("wizard.cancel"));
+        cancel.getStyleClass().add("secondary-button");
+        cancel.setOnAction(event -> onBackToList.run());
+        HBox actions = new HBox(10, previous, next, finish, clear, cancel);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         clear.setOnAction(event -> {

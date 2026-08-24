@@ -14,13 +14,14 @@ public interface InscriptionRepository extends JpaRepository<Inscription, String
 
     /**
      * Same as findAll(), but eagerly fetches the lazy student/classroom/
-     * anneeScolaire associations so the UI (which reads them on the JavaFX
+     * anneeScolaire/courses associations so the UI (which reads them on the JavaFX
      * thread, after the transaction has closed) doesn't hit a
      * LazyInitializationException.
      */
     @Query("SELECT DISTINCT i FROM Inscription i " +
-           "JOIN FETCH i.student " +
-           "JOIN FETCH i.classroom " +
-           "LEFT JOIN FETCH i.anneeScolaire")
+            "JOIN FETCH i.student " +
+            "JOIN FETCH i.classroom " +
+            "LEFT JOIN FETCH i.anneeScolaire " +
+            "LEFT JOIN FETCH i.courses")
     List<Inscription> findAllWithDetails();
 }

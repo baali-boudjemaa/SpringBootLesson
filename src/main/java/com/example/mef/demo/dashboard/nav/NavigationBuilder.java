@@ -5,6 +5,7 @@ import com.example.mef.demo.Model.ModuleRegistry;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.VBox;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -58,12 +59,22 @@ public class NavigationBuilder {
      * @param onMonthlyReport  invoked when the "Monthly report" entry is clicked
      * @param onModule         invoked with the corresponding Module when a module entry is clicked
      */
-    public void build(VBox navigationBox, String activeKey,
+    /**
+     * Clears and rebuilds the sidebar nav buttons into navigationBox.
+     *
+     * @param navigationBox    the VBox to populate with nav buttons (cleared first)
+     * @param activeKey        "dashboard", "monthly", or a module table name
+     * @param collapsed        when true, buttons show icon only (label becomes a tooltip)
+     * @param onDashboard      invoked when the "Dashboard" entry is clicked
+     * @param onMonthlyReport  invoked when the "Monthly report" entry is clicked
+     * @param onModule         invoked with the corresponding Module when a module entry is clicked
+     */
+    public void build(VBox navigationBox, String activeKey, boolean collapsed,
                       Runnable onDashboard, Runnable onMonthlyReport, Consumer<Module> onModule) {
         navigationBox.getChildren().clear();
 
-        Button dashboard = navButton(I18n.t("nav.dashboard"), "fth-home", "dashboard".equals(activeKey), false);
-        Button monthly = navButton(I18n.t("nav.monthly_report"), "fth-clipboard", "monthly".equals(activeKey), false);
+        Button dashboard = navButton(I18n.t("nav.dashboard"), "fth-home", "dashboard".equals(activeKey), false, collapsed);
+        Button monthly = navButton(I18n.t("nav.monthly_report"), "fth-clipboard", "monthly".equals(activeKey), false, collapsed);
         dashboard.setOnAction(event -> onDashboard.run());
         navigationBox.getChildren().add(dashboard);
 
@@ -74,18 +85,24 @@ public class NavigationBuilder {
             String icon = MODULE_ICONS.getOrDefault(module.table(), "fth-circle");
             boolean active = module.table().equals(activeKey);
             boolean isSettings = module.table().equals("settings");
-            Button button = navButton(I18n.t(module.titleKey()), icon, active, isSettings);
+            Button button = navButton(I18n.t(module.titleKey()), icon, active, isSettings, collapsed);
             button.setOnAction(event -> onModule.accept(module));
             navigationBox.getChildren().add(button);
         }
     }
 
-    private Button navButton(String text, String iconLiteral, boolean active, boolean isSettings) {
-        Button button = new Button(text);
+    private Button navButton(String text, String iconLiteral, boolean active, boolean isSettings, boolean collapsed) {
+        Button button = new Button(collapsed ? "" : text);
         FontIcon icon = new FontIcon(iconLiteral);
         icon.setIconSize(16);
         icon.setIconColor(active ? Color.WHITE : Color.web("#94A3B8"));
         button.setGraphic(icon);
+
+        if (collapsed) {
+            Tooltip.install(button, new Tooltip(text));
+            button.getStyleClass().add("nav-button-collapsed");
+            button.setAlignment(javafx.geometry.Pos.CENTER);
+        }
 
         if (isSettings) {
             button.getStyleClass().add(active ? "nav-button-settings-active" : "nav-button-settings");

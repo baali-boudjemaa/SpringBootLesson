@@ -435,6 +435,8 @@ public class TeachersView {
     private void showFormPanel() {
         if (floatingForm == null) {
             floatingForm = new FloatingPanel("Détails de l'employé", form, this::closeForm);
+            floatingForm.setPrefWidth(450);
+
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {

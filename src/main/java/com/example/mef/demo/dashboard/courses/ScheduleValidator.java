@@ -225,6 +225,22 @@ public final class ScheduleValidator {
         return set;
     }
 
+    /**
+     * True only when the teacher has some declared availability AND this slot isn't
+     * covered by it. Teachers with no availability configured are never flagged here
+     * (the caller may still want to flag booking conflicts separately).
+     */
+    public static boolean isOutsideAvailability(Employee teacher, Slot slot) {
+        if (teacher == null) {
+            return false;
+        }
+        List<Slot> availability = availabilityOf(teacher);
+        if (availability.isEmpty()) {
+            return false;
+        }
+        return !isCoveredByAvailability(slot, availability);
+    }
+
     /** Returns true only when the complete course slot is covered by the teacher's selected cells. */
     private static boolean isCoveredByAvailability(Slot slot, List<Slot> availability) {
         int coveredUntil = slot.startMinutes();
@@ -273,7 +289,7 @@ public final class ScheduleValidator {
     }
 
     /** Reads normalized course slots when present, with text schedules retained for existing records. */
-    private static List<Slot> slotsOf(Course course) {
+    public static List<Slot> slotsOf(Course course) {
         if (course.getScheduleSlots() != null && !course.getScheduleSlots().isEmpty()) {
             return course.getScheduleSlots().stream()
                     .map(slot -> new Slot(slot.getDayOfWeek(), TimeSlots.toMinutes(slot.getStartTime()),

@@ -1,9 +1,11 @@
 package com.example.mef.demo.dashboard.enrollments;
 
 import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
+import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
@@ -20,21 +22,26 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Typed CRUD screen for the "enrollments" module (Inscription entity), styled to match StudentsView. */
@@ -46,6 +53,7 @@ public class EnrollmentsView {
     private final EnrollmentService enrollmentService;
     private final StudentService studentService;
     private final ClassroomService classroomService;
+    private final CourseService courseService;
 
     private final ObservableList<Inscription> allRows = FXCollections.observableArrayList();
     private final ObservableList<Inscription> rows = FXCollections.observableArrayList();
@@ -63,23 +71,57 @@ public class EnrollmentsView {
     private final ComboBox<SessionName> sessionField = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
     private final ComboBox<EnrollmentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(EnrollmentStatus.values()));
 
+    /** One checkable chip per Course; a student can attend any number of them at once. */
+    private final FlowPane coursesBox = new FlowPane(8, 8);
+    private final List<CheckBox> courseChecks = new ArrayList<>();
+    private final Label totalCostValue = new Label("—");
+
     private BorderPane layout;
     private VBox form;
     private Inscription selected;
     private Runnable onNewEnrollmentWizard;
 
-    public EnrollmentsView(EnrollmentService enrollmentService, StudentService studentService, ClassroomService classroomService) {
+    public EnrollmentsView(EnrollmentService enrollmentService, StudentService studentService,
+                           ClassroomService classroomService, CourseService courseService) {
         this.enrollmentService = enrollmentService;
         this.studentService = studentService;
         this.classroomService = classroomService;
+        this.courseService = courseService;
         studentField.setMaxWidth(Double.MAX_VALUE);
         classroomField.setMaxWidth(Double.MAX_VALUE);
         sessionField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
         studentField.setCellFactory(cb -> studentCell());
         studentField.setButtonCell(studentCell());
+        // Explicit converter: without this, the button cell can fall back to
+        // Student#toString() (e.g. "com.example...@1a2b3c") instead of the
+        // name, particularly when the selected value isn't reference-equal
+        // to an item already loaded into the combo's items list.
+        studentField.setConverter(new javafx.util.StringConverter<Student>() {
+            @Override
+            public String toString(Student s) {
+                return s == null ? "" : s.getFirstName() + " " + s.getLastName();
+            }
+
+            @Override
+            public Student fromString(String s) {
+                return studentField.getValue();
+            }
+        });
+
         classroomField.setCellFactory(cb -> classroomCell());
         classroomField.setButtonCell(classroomCell());
+        classroomField.setConverter(new javafx.util.StringConverter<Classroom>() {
+            @Override
+            public String toString(Classroom c) {
+                return c == null ? "" : c.getName();
+            }
+
+            @Override
+            public Classroom fromString(String s) {
+                return classroomField.getValue();
+            }
+        });
     }
 
     private ListCell<Student> studentCell() {
@@ -136,7 +178,7 @@ public class EnrollmentsView {
         VBox listPane = new VBox(14, headerBlock, searchField, table);
         VBox.setVgrow(table, Priority.ALWAYS);
         listPane.setPadding(new Insets(24));
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> selectRow(val));
+        wireRowDoubleClick();
 
         form = buildForm();
 
@@ -147,6 +189,19 @@ public class EnrollmentsView {
         contentPane.setPadding(new Insets(20));
         loadPickers();
         reload();
+    }
+
+    /** Opens the details panel for a row only when the user double-clicks it. */
+    private void wireRowDoubleClick() {
+        table.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<Inscription> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    selectRow(row.getItem());
+                }
+            });
+            return row;
+        });
     }
 
     private void buildColumns() {
@@ -255,6 +310,55 @@ public class EnrollmentsView {
         AsyncTasks.run(classroomService::findAll,
                 list -> classroomField.setItems(FXCollections.observableArrayList(list)),
                 err -> DialogUtil.error("Erreur", "Échec du chargement des classes : " + err.getMessage()));
+        AsyncTasks.run(courseService::findAll,
+                this::buildCourseChips,
+                err -> DialogUtil.error("Erreur", "Échec du chargement des cours : " + err.getMessage()));
+    }
+
+    /** (Re)builds the course chips; called once courses are loaded, keeping any prior selection selected by id. */
+    private void buildCourseChips(List<Course> courses) {
+        List<String> previouslyChecked = courseChecks.stream()
+                .filter(CheckBox::isSelected)
+                .map(cb -> ((Course) cb.getUserData()).getId())
+                .toList();
+
+        coursesBox.getChildren().clear();
+        courseChecks.clear();
+
+        if (courses.isEmpty()) {
+            Label none = new Label("Aucun cours disponible.");
+            none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 12px;");
+            coursesBox.getChildren().add(none);
+            return;
+        }
+
+        for (Course course : courses) {
+            CheckBox cb = new CheckBox(course.getName() + " (" + formatFee(course.getMonthlyFee()) + ")");
+            cb.setUserData(course);
+            cb.getStyleClass().add("room-chip");
+            cb.setMinWidth(Region.USE_PREF_SIZE);
+            cb.setSelected(previouslyChecked.contains(course.getId()));
+            cb.selectedProperty().addListener((obs, was, isNow) -> updateTotalCost());
+            courseChecks.add(cb);
+            coursesBox.getChildren().add(cb);
+        }
+        updateTotalCost();
+    }
+
+    private void updateTotalCost() {
+        double total = courseChecks.stream()
+                .filter(CheckBox::isSelected)
+                .mapToDouble(cb -> {
+                    Double fee = ((Course) cb.getUserData()).getMonthlyFee();
+                    return fee == null ? 0 : fee;
+                })
+                .sum();
+        totalCostValue.setText(formatFee(total));
+    }
+
+    private static String formatFee(Double fee) {
+        if (fee == null) return "—";
+        return String.format(java.util.Locale.FRENCH, "%,.2f DA", fee);
     }
 
     private VBox buildForm() {
@@ -263,6 +367,15 @@ public class EnrollmentsView {
         FormFactory.addRow(grid, 1, "Classe", classroomField);
         FormFactory.addRow(grid, 2, "Session", sessionField);
         FormFactory.addRow(grid, 3, "Statut", statusField);
+
+        ScrollPane coursesScroll = new ScrollPane(coursesBox);
+        coursesScroll.setFitToWidth(true);
+        coursesScroll.setPrefHeight(90);
+        coursesScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        FormFactory.addRow(grid, 4, "Cours", coursesScroll);
+
+        totalCostValue.getStyleClass().add("field-label");
+        FormFactory.addRow(grid, 5, "Coût mensuel (cours)", totalCostValue);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -307,6 +420,14 @@ public class EnrollmentsView {
         classroomField.setValue(inscription.getClassroom());
         sessionField.setValue(inscription.getSession());
         statusField.setValue(inscription.getStatus());
+
+        List<String> existingCourseIds = inscription.getCourses() == null ? List.of()
+                : inscription.getCourses().stream().map(Course::getId).toList();
+        for (CheckBox cb : courseChecks) {
+            cb.setSelected(existingCourseIds.contains(((Course) cb.getUserData()).getId()));
+        }
+        updateTotalCost();
+
         showFormPanel();
     }
 
@@ -316,6 +437,8 @@ public class EnrollmentsView {
         classroomField.setValue(null);
         sessionField.setValue(null);
         statusField.setValue(null);
+        courseChecks.forEach(cb -> cb.setSelected(false));
+        updateTotalCost();
         table.getSelectionModel().clearSelection();
     }
 
@@ -329,9 +452,13 @@ public class EnrollmentsView {
         inscription.setStatus(statusField.getValue() == null ? EnrollmentStatus.ACTIVE : statusField.getValue());
         String studentId = studentField.getValue().getId();
         String classroomId = classroomField.getValue().getId();
+        List<String> courseIds = courseChecks.stream()
+                .filter(CheckBox::isSelected)
+                .map(cb -> ((Course) cb.getUserData()).getId())
+                .toList();
 
         AsyncTasks.run(
-                () -> enrollmentService.save(inscription, studentId, classroomId),
+                () -> enrollmentService.save(inscription, studentId, classroomId, null, courseIds),
                 saved -> { closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
         );

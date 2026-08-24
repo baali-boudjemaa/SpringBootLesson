@@ -35,6 +35,11 @@ public class FloatingPanel extends VBox {
     private boolean isResizing = false;
 
     public FloatingPanel(String title, Node content, Runnable onClose) {
+        this(title, content, onClose, 380);
+    }
+
+    /** @param prefWidth initial panel width; still draggable/resizable afterward within min/max bounds. */
+    public FloatingPanel(String title, Node content, Runnable onClose, double prefWidth) {
         getStyleClass().add("floating-panel");
 
         Label titleLabel = new Label(title);
@@ -82,7 +87,7 @@ public class FloatingPanel extends VBox {
 
         getChildren().addAll(header, bodyWithGrip);
 
-        setPrefWidth(380);
+        setPrefWidth(prefWidth);
         setPrefHeight(600);
         setMinWidth(300);
         setMinHeight(320);

@@ -1,11 +1,15 @@
 package com.example.mef.demo.dashboard.courses;
 
+import com.example.mef.demo.Model.Course;
+import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.util.DialogUtil;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -61,7 +65,21 @@ public final class SchedulePickerDialog {
 
     /** Opens the same individual-cell picker with caller-provided teacher/course wording. */
     public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText) {
+        return show(owner, currentSchedule, title, subtitleText, null, List.of());
+    }
+
+    /**
+     * Same picker, additionally highlighting the hours unavailable for {@code teacher}: red for
+     * hours outside their declared availability, yellow for hours already booked on another of
+     * their courses ({@code otherCourses}, which the caller should exclude the course being
+     * edited from). Purely a visual aid — cells stay clickable; {@link ScheduleValidator#validate}
+     * on save is still the authoritative check.
+     */
+    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText,
+                                        Employee teacher, List<Course> otherCourses) {
         Map<String, Set<Integer>> selected = initialSelection(currentSchedule);
+        Map<String, Set<Integer>> unavailable = computeUnavailableBlocks(teacher);
+        Map<String, Set<Integer>> occupied = computeOccupiedBlocks(teacher, otherCourses, unavailable);
 
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
@@ -75,7 +93,7 @@ public final class SchedulePickerDialog {
         subtitle.getStyleClass().add("timetable-subtitle");
         subtitle.setWrapText(true);
 
-        GridPane grid = buildGrid(selected);
+        GridPane grid = buildGrid(selected, unavailable, occupied);
         VBox card = new VBox(grid);
         card.getStyleClass().add("timetable-card");
 
@@ -117,6 +135,69 @@ public final class SchedulePickerDialog {
         return Optional.ofNullable(result[0]);
     }
 
+    /** Red cells: outside the teacher's declared availability. */
+    private static Map<String, Set<Integer>> computeUnavailableBlocks(Employee teacher) {
+        Map<String, Set<Integer>> unavailable = new LinkedHashMap<>();
+        for (String day : DAYS) {
+            unavailable.put(day, new LinkedHashSet<>());
+        }
+        if (teacher == null) {
+            return unavailable;
+        }
+
+        for (String day : DAYS) {
+            for (int b = 0; b < HOUR_BLOCKS.length; b++) {
+                int blockStart = HOUR_BLOCKS[b][0] * 60;
+                int blockEnd = HOUR_BLOCKS[b][1] * 60;
+                ScheduleValidator.Slot blockSlot = new ScheduleValidator.Slot(day, blockStart, blockEnd);
+                if (ScheduleValidator.isOutsideAvailability(teacher, blockSlot)) {
+                    unavailable.get(day).add(b);
+                }
+            }
+        }
+        return unavailable;
+    }
+
+    /**
+     * Yellow cells: already booked on another of the teacher's courses. Skips any block already
+     * flagged red by {@code unavailable}, so a cell only ever shows one color.
+     */
+    private static Map<String, Set<Integer>> computeOccupiedBlocks(Employee teacher, List<Course> otherCourses,
+                                                                   Map<String, Set<Integer>> unavailable) {
+        Map<String, Set<Integer>> occupied = new LinkedHashMap<>();
+        for (String day : DAYS) {
+            occupied.put(day, new LinkedHashSet<>());
+        }
+        if (teacher == null) {
+            return occupied;
+        }
+
+        for (String day : DAYS) {
+            for (int b = 0; b < HOUR_BLOCKS.length; b++) {
+                if (unavailable.getOrDefault(day, Set.of()).contains(b)) {
+                    continue;
+                }
+                int blockStart = HOUR_BLOCKS[b][0] * 60;
+                int blockEnd = HOUR_BLOCKS[b][1] * 60;
+
+                for (Course other : otherCourses) {
+                    if (other.getTeacher() == null || teacher.getId() == null
+                            || !teacher.getId().equals(other.getTeacher().getId())) {
+                        continue;
+                    }
+                    boolean overlaps = ScheduleValidator.slotsOf(other).stream()
+                            .anyMatch(os -> os.day().equals(day)
+                                    && blockStart < os.endMinutes() && os.startMinutes() < blockEnd);
+                    if (overlaps) {
+                        occupied.get(day).add(b);
+                        break;
+                    }
+                }
+            }
+        }
+        return occupied;
+    }
+
     private static javafx.scene.layout.Region spacer() {
         javafx.scene.layout.Region r = new javafx.scene.layout.Region();
         HBox.setHgrow(r, Priority.ALWAYS);
@@ -124,7 +205,9 @@ public final class SchedulePickerDialog {
     }
 
     /** Builds the day-header + hour-row grid, wiring click handlers that flip {@code selected}. */
-    private static GridPane buildGrid(Map<String, Set<Integer>> selected) {
+    private static GridPane buildGrid(Map<String, Set<Integer>> selected,
+                                      Map<String, Set<Integer>> unavailable,
+                                      Map<String, Set<Integer>> occupied) {
         GridPane grid = new GridPane();
         grid.getStyleClass().add("timetable-grid");
 
@@ -172,17 +255,36 @@ public final class SchedulePickerDialog {
                 if (isSelected) {
                     cell.getStyleClass().add("timetable-cell-selected");
                 }
+                if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
+                    cell.getStyleClass().add("timetable-cell-unavailable");
+                    Tooltip.install(cell, new Tooltip("Indisponible pour cet enseignant"));
+                } else if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
+                    cell.getStyleClass().add("timetable-cell-occupied");
+                    Tooltip.install(cell, new Tooltip("Cet enseignant a déjà un cours à cette heure"));
+                }
                 cell.setOnMouseClicked(ev -> {
                     Set<Integer> daySelection = selected.get(day);
                     if (daySelection.contains(blockIndex)) {
                         daySelection.remove(blockIndex);
                         cell.getStyleClass().remove("timetable-cell-selected");
                         check.setVisible(false);
-                    } else {
-                        daySelection.add(blockIndex);
-                        cell.getStyleClass().add("timetable-cell-selected");
-                        check.setVisible(true);
+                        return;
                     }
+                    if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
+                        DialogUtil.error("Indisponible",
+                                "Cet enseignant n'est pas disponible " + day + " de "
+                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " à " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        return;
+                    }
+                    if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
+                        DialogUtil.error("Conflit d'horaire",
+                                "Cet enseignant a déjà un cours " + day + " de "
+                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " à " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        return;
+                    }
+                    daySelection.add(blockIndex);
+                    cell.getStyleClass().add("timetable-cell-selected");
+                    check.setVisible(true);
                 });
                 grid.add(cell, c + 1, row);
             }

@@ -112,7 +112,7 @@ public class CoursesView {
         teacherField.setConverter(new StringConverter<Employee>() {
             @Override
             public String toString(Employee e) {
-                return e == null ? "" : e.getFirstName() + " " + e.getLastName();
+                return e == null ? "" : teacherLabel(e);
             }
 
             @Override
@@ -204,6 +204,7 @@ public class CoursesView {
         StackPane root = new StackPane(center, overlay);
         ScrollPane scrollPane = new ScrollPane(root);
         scrollPane.getStyleClass().add("details-scroll");
+        scrollPane.setFitToWidth(true);
         contentPane.setCenter(scrollPane);
 
         wireFilters();
@@ -238,8 +239,7 @@ public class CoursesView {
 
         TableColumn<Course, String> teacher = new TableColumn<>("ENSEIGNANT");
         teacher.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getTeacher() == null ? "—" :
-                        d.getValue().getTeacher().getFirstName() + " " + d.getValue().getTeacher().getLastName()));
+                d.getValue().getTeacher() == null ? "—" : teacherLabel(d.getValue().getTeacher())));
         teacher.setPrefWidth(150);
 
         TableColumn<Course, String> classroom = new TableColumn<>("CLASSE");
@@ -320,9 +320,24 @@ public class CoursesView {
     }
 
     private void openSchedulePicker() {
-        SchedulePickerDialog.show(scheduleButton.getScene() == null ? null : scheduleButton.getScene().getWindow(),
-                        scheduleField.getText())
-                .ifPresent(scheduleField::setText);
+        Employee teacher = teacherField.getValue();
+        AsyncTasks.run(
+                courseService::findAll,
+                allCourses -> {
+                    List<Course> others = allCourses.stream()
+                            .filter(c -> selected == null || selected.getId() == null
+                                    || !selected.getId().equals(c.getId()))
+                            .toList();
+                    SchedulePickerDialog.show(
+                                    scheduleButton.getScene() == null ? null : scheduleButton.getScene().getWindow(),
+                                    scheduleField.getText(),
+                                    "Horaire du cours",
+                                    "Cliquez sur les créneaux pour composer l'horaire du cours.",
+                                    teacher, others)
+                            .ifPresent(scheduleField::setText);
+                },
+                err -> DialogUtil.error("Erreur", "Échec du chargement des cours : " + err.getMessage())
+        );
     }
 
     private ListCell<Employee> teacherCell() {
@@ -330,9 +345,33 @@ public class CoursesView {
             @Override
             protected void updateItem(Employee item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? "" : item.getFirstName() + " " + item.getLastName());
+                setText(empty || item == null ? "" : teacherLabel(item));
             }
         };
+    }
+
+    /**
+     * "Prénom Nom", plus the employee number when another teacher in the list shares the
+     * same name — otherwise two different Employee records with identical names are
+     * indistinguishable in the dropdown, which can lead to picking the wrong one (e.g. when
+     * checking whether a course is really being double-booked on the same teacher).
+     */
+    private String teacherLabel(Employee e) {
+        if (e == null) return "";
+        String name = safeTeacherName(e);
+        boolean hasDuplicate = teacherField.getItems().stream()
+                .filter(other -> other != e)
+                .anyMatch(other -> safeTeacherName(other).equalsIgnoreCase(name));
+        if (hasDuplicate && e.getEmployeeNumber() != null && !e.getEmployeeNumber().isBlank()) {
+            return name + "  ·  N° " + e.getEmployeeNumber();
+        }
+        return name;
+    }
+
+    private static String safeTeacherName(Employee e) {
+        String first = e.getFirstName() == null ? "" : e.getFirstName();
+        String last = e.getLastName() == null ? "" : e.getLastName();
+        return (first + " " + last).trim();
     }
 
     private ListCell<Classroom> classroomCell() {

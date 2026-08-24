@@ -220,6 +220,22 @@
     -fx-min-width: 224;
     -fx-effect: dropshadow(gaussian, rgba(8,15,35,0.22), 18, 0, 2, 0);
 }
+.sidebar-collapsed {
+    -fx-pref-width: 68;
+    -fx-min-width: 68;
+}
+.sidebar-toggle-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-padding: 6;
+    -fx-cursor: hand;
+}
+.sidebar-toggle-button:hover { -fx-background-color: rgba(255,255,255,0.08); }
+.nav-button-collapsed {
+    -fx-alignment: CENTER;
+    -fx-padding: 11 0 11 0;
+}
 .sidebar-scroll, .sidebar-scroll > .viewport {
     -fx-background-color: transparent;
     -fx-background: transparent;
@@ -448,6 +464,11 @@
     -fx-cursor: hand;
 }
 .timetable-cell:hover { -fx-background-color: -accent-soft; -fx-border-color: #BFDBFE; }
+.timetable-cell-unavailable {
+    -fx-background-color: #FEE2E2;
+    -fx-border-color: #FCA5A5;
+}
+.timetable-cell-unavailable:hover { -fx-background-color: #FECACA; -fx-border-color: #FCA5A5; }
 .timetable-cell-selected, .timetable-cell-selected:hover {
     -fx-background-color: linear-gradient(to bottom right, #3B82F6, -accent);
     -fx-border-color: -accent-hover;
