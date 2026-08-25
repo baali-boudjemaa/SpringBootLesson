@@ -1,11 +1,10 @@
 package com.example.mef.demo.Services;
 
-import com.example.mef.demo.Model.Classroom;
-import com.example.mef.demo.Model.Course;
-import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.*;
 import com.example.mef.demo.Repository.ClassroomRepository;
 import com.example.mef.demo.Repository.CourseRepository;
 import com.example.mef.demo.Repository.EmployeeRepository;
+import com.example.mef.demo.Repository.StudentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +18,19 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final EmployeeRepository employeeRepository;
     private final ClassroomRepository classroomRepository;
+    private final StudentRepository studentRepository;
+    private final StudentCourseService studentCourseService;
 
     public CourseService(CourseRepository courseRepository,
                          EmployeeRepository employeeRepository,
-                         ClassroomRepository classroomRepository) {
+                         ClassroomRepository classroomRepository,
+                         StudentRepository studentRepository,
+                         StudentCourseService studentCourseService) {
         this.courseRepository = courseRepository;
         this.employeeRepository = employeeRepository;
         this.classroomRepository = classroomRepository;
+        this.studentRepository = studentRepository;
+        this.studentCourseService = studentCourseService;
     }
 
     @Transactional(readOnly = true)
@@ -65,5 +70,39 @@ public class CourseService {
             return findAll();
         }
         return courseRepository.findByNameContainingIgnoreCase(needle);
+    }
+
+    @Transactional
+    public void addStudentToCourse(String courseId, String studentId, String semester) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        studentCourseService.enrollStudentInCourse(student, course, semester);
+    }
+
+    @Transactional
+    public void removeStudentFromCourse(String courseId, String studentId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        studentCourseService.dropStudentFromCourse(student, course);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentCourse> getCourseStudents(String courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        return studentCourseService.getCourseActiveStudents(course);
+    }
+
+    @Transactional(readOnly = true)
+    public int getCourseCapacity(String courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        return course.getStudentCount();
     }
 }

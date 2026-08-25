@@ -1,8 +1,10 @@
 package com.example.mef.demo.Services;
 
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Repository.StudentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,5 +44,31 @@ public class StudentService {
         byFirst.forEach(s -> merged.put(s.getId(), s));
         byLast.forEach(s -> merged.put(s.getId(), s));
         return List.copyOf(merged.values());
+    }
+    @Transactional
+    public List<Course> getStudentCourses(String studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        return student.getActiveCourses();
+    }
+
+    @Transactional
+    public void enrollStudentInCourse(String studentId, String courseId, String semester) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        studentCourseService.enrollStudentInCourse(student, course, semester);
+    }
+
+    @Transactional
+    public void dropStudentFromCourse(String studentId, String courseId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        studentCourseService.dropStudentFromCourse(student, course);
     }
 }

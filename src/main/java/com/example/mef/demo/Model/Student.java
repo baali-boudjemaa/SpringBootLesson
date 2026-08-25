@@ -1,10 +1,12 @@
 package com.example.mef.demo.Model;
 
+import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.enums.BloodType;
 import com.example.mef.demo.enums.Sexe;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
-public class Student  {
+public class Student {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false)
@@ -27,9 +29,7 @@ public class Student  {
     private String studentNumber;
 
     private String firstName;
-
     private String lastName;
-
     private LocalDateTime dateOfBirth;
 
     @Enumerated(EnumType.STRING)
@@ -46,14 +46,83 @@ public class Student  {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
-    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
+    // ===== UPDATED RELATIONSHIPS =====
+
+    /** Student's enrollment in specific courses */
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<StudentCourse> courseEnrollments = new ArrayList<>();
+
+    /** Attendance records (now tracks course-specific attendance) */
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Attendance> attendanceRecords = new ArrayList<>();
 
-    // Example 2: Deletes all registrations/enrollments when this student is deleted
-    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
+    /** Administrative enrollments (for billing, registration, etc.) */
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Enrollment> enrollments = new ArrayList<>();
+
+    // ===== HELPER METHODS =====
+
+    /**
+     * Get all active courses for this student
+     */
+    public List<Course> getActiveCourses() {
+        return courseEnrollments.stream()
+                .filter(sc -> sc.isActive() && "ACTIVE".equals(sc.getEnrollmentStatus()))
+                .map(StudentCourse::getCourse)
+                .toList();
+    }
+
+    /**
+     * Get all courses for this student (including inactive)
+     */
+    public List<Course> getAllCourses() {
+        return courseEnrollments.stream()
+                .map(StudentCourse::getCourse)
+                .toList();
+    }
+
+    /**
+     * Check if student is enrolled in a specific course
+     */
+    public boolean isEnrolledInCourse(Course course) {
+        return courseEnrollments.stream()
+                .anyMatch(sc -> sc.getCourse().getId().equals(course.getId()) && sc.isActive());
+    }
+
+    /**
+     * Enroll student in a course
+     */
+    public void enrollInCourse(Course course, String semester) {
+        if (isEnrolledInCourse(course)) {
+            return; // Already enrolled
+        }
+
+        StudentCourse enrollment = StudentCourse.builder()
+                .student(this)
+                .course(course)
+                .semester(semester)
+                .enrollmentStatus("ACTIVE")
+                .active(true)
+                .build();
+
+        courseEnrollments.add(enrollment);
+    }
+
+    /**
+     * Drop student from a course
+     */
+    public void dropFromCourse(Course course) {
+        courseEnrollments.stream()
+                .filter(sc -> sc.getCourse().getId().equals(course.getId()))
+                .findFirst()
+                .ifPresent(sc -> {
+                    sc.setActive(false);
+                    sc.setEnrollmentStatus("DROPPED");
+                });
+    }
 
     @PrePersist
     void prePersist() {

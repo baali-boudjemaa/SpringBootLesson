@@ -35,13 +35,6 @@ public class Inscription  {
     @JoinColumn(name = "anneeScolaireId", nullable = false)
     private AnneeScolaire anneeScolaire;
 
-    /** Optional now: a student's real attendance is driven by their courses (each course
-     *  already has its own classroom), so an inscription no longer requires a single fixed
-     *  classroom — a student can follow courses held in different classrooms. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classId")
-    private Classroom classroom;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "varchar(255) default 'JOURNEE_COMPLETE'")
     @Builder.Default
@@ -77,7 +70,15 @@ public class Inscription  {
     @Builder.Default
     private List<Payment> payments = new ArrayList<>();
 
-    /** Support subjects (Course entities) the student follows, when enrolled in a SOUTIEN classroom. */
+    /**
+     * The courses this student follows under this enrollment. This is now the primary
+     * link driving which classroom(s) the student attends: each {@link Course} carries
+     * its own {@link Classroom}, its own schedule ({@link CourseScheduleSlot}s), and its
+     * own teacher — so a student can be "present" in several different classrooms/classes
+     * at once simply by following courses taught in each of them, according to whatever
+     * timetable suits them. There is deliberately no single fixed classroom on the
+     * enrollment anymore.
+     */
     @ManyToMany
     @JoinTable(
             name = "inscription_course",
@@ -86,4 +87,49 @@ public class Inscription  {
     )
     @Builder.Default
     private List<Course> courses = new ArrayList<>();
+
+    /** Distinct classrooms attended, derived from the classroom of each followed course. */
+    @Transient
+    public List<Classroom> getClassrooms() {
+        if (courses == null) {
+            return new ArrayList<>();
+        }
+        List<Classroom> result = new ArrayList<>();
+        for (Course course : courses) {
+            Classroom classroom = course.getClassroom();
+            if (classroom != null && result.stream().noneMatch(c -> c.getId().equals(classroom.getId()))) {
+                result.add(classroom);
+            }
+        }
+        return result;
+    }
+
+    /** Comma-separated names of the classrooms attended (derived from courses), or "—" if none. */
+    @Transient
+    public String classroomsLabel() {
+        List<Classroom> classrooms = getClassrooms();
+        if (classrooms.isEmpty()) {
+            return "—";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < classrooms.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(classrooms.get(i).getName());
+        }
+        return sb.toString();
+    }
+
+    /** Comma-separated names of the followed courses, or "—" if none. */
+    @Transient
+    public String coursesLabel() {
+        if (courses == null || courses.isEmpty()) {
+            return "—";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < courses.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(courses.get(i).getName());
+        }
+        return sb.toString();
+    }
 }

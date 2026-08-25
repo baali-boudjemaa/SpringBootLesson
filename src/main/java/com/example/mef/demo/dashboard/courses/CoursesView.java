@@ -1,9 +1,6 @@
 package com.example.mef.demo.dashboard.courses;
 
-import com.example.mef.demo.Model.Classroom;
-import com.example.mef.demo.Model.Course;
-import com.example.mef.demo.Model.CourseScheduleSlot;
-import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.*;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
@@ -725,5 +722,19 @@ public class CoursesView {
             case "ARCHIVED" -> "-fx-background-color: #FEE2E2; -fx-text-fill: #991B1B;";
             default -> "-fx-background-color: #EEF2FF; -fx-text-fill: #4338CA;";
         };
+    }
+    // Display enrolled students
+    private void displayCourseStudents(Course course) {
+        List<StudentCourse> enrollments = this.studentCourseService.getCourseActiveStudents(course);
+
+        studentTableView.setItems(FXCollections.observableArrayList(enrollments));
+        studentTableView.getColumns().setAll(
+                createColumn("Student Number", sc -> sc.getStudent().getStudentNumber()),
+                createColumn("Name", sc -> sc.getStudent().getFirstName() + " " +
+                        sc.getStudent().getLastName()),
+                createColumn("Enrollment Status", sc -> sc.getEnrollmentStatus()),
+                createColumn("Semester", sc -> sc.getSemester()),
+                createColumn("Enrolled Date", sc -> sc.getEnrollmentDate().toString())
+        );
     }
 }

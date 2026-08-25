@@ -1,10 +1,6 @@
 package com.example.mef.demo.Services;
 
-import com.example.mef.demo.Model.AnneeScolaire;
-import com.example.mef.demo.Model.Classroom;
-import com.example.mef.demo.Model.Course;
-import com.example.mef.demo.Model.Inscription;
-import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Model.*;
 import com.example.mef.demo.Repository.AnneeScolaireRepository;
 import com.example.mef.demo.Repository.ClassroomRepository;
 import com.example.mef.demo.Repository.CourseRepository;
@@ -136,5 +132,36 @@ public class EnrollmentService {
         LocalDate today = LocalDate.now();
         int startYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
         return startYear + "-" + (startYear + 1);
+    }
+
+    /**
+     * Enroll a student in academic year with multiple courses
+     */
+    @Transactional
+    public Enrollment createEnrollment(Student student, String academicYear,
+                                       Course primaryCourse, double registrationFee) {
+
+        // Create administrative enrollment record
+        Enrollment enrollment = Enrollment.builder()
+                .student(student)
+                .course(primaryCourse)
+                .academicYear(academicYear)
+                .registrationFee(registrationFee)
+                .status("ACTIVE")
+                .build();
+
+        // Enroll in primary course
+        if (primaryCourse != null) {
+            studentCourseService.enrollStudentInCourse(student, primaryCourse, "FULL_YEAR");
+        }
+
+        return enrollmentRepository.save(enrollment);
+    }
+
+    /**
+     * Add additional course to student's enrollment
+     */
+    public void addCourseToStudent(Student student, Course course, String semester) {
+        studentCourseService.enrollStudentInCourse(student, course, semester);
     }
 }

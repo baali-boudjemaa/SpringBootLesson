@@ -6,7 +6,6 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "Enrollment")
 @Getter
@@ -21,21 +20,24 @@ public class Enrollment {
     @Column(nullable = false, updatable = false)
     private String id;
 
-    // Links to Student with database-level cascade configuration
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Student student;
 
-    // Tracks which classroom division the enrollment belongs to
-    private String classSection; // e.g., "Section A", "Maternelle-1"
+    /** Primary course for administrative purposes (can enroll in more via StudentCourse) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
+    private Course course;
 
-    private String academicYear; // e.g., "2026-2027"
+    /** Academic year (e.g., "2026-2027") */
+    private String academicYear;
 
+    /** Registration/enrollment fee */
     private double registrationFee;
 
     @Column(nullable = false)
-    private String status; // e.g., "ACTIVE", "PENDING", "COMPLETED"
+    private String status; // ACTIVE, PENDING, COMPLETED
 
     private LocalDateTime enrollmentDate;
 
