@@ -6,6 +6,7 @@ import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
 import com.example.mef.demo.Services.ScheduleSettingsKeys;
 import com.example.mef.demo.Services.SettingService;
+import com.example.mef.demo.Services.StudentCourseService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
@@ -45,6 +46,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Typed CRUD screen for the "courses" module (Course entity), restyled to match the
@@ -58,6 +60,7 @@ public class CoursesView {
     private final EmployeeService employeeService;
     private final ClassroomService classroomService;
     private final SettingService settingService;
+    private final StudentCourseService studentCourseService;
 
     private final ObservableList<Course> rows = FXCollections.observableArrayList();
     private final TableView<Course> table = new TableView<>(rows);
@@ -65,6 +68,9 @@ public class CoursesView {
         TableStyleKit.applyTheme(table, "courses");
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
+
+    /** Table showing the enrolled students for a course selected via {@link #displayCourseStudents}. */
+    private final TableView<StudentCourse> studentTableView = new TableView<>();
 
     private final TextField searchField = FormFactory.textField("Rechercher un cours...");
     private final ComboBox<String> statusFilter = new ComboBox<>();
@@ -90,11 +96,13 @@ public class CoursesView {
     private FloatingPanel floatingForm;
 
     public CoursesView(CourseService courseService, EmployeeService employeeService,
-                       ClassroomService classroomService, SettingService settingService) {
+                       ClassroomService classroomService, SettingService settingService,
+                       StudentCourseService studentCourseService) {
         this.courseService = courseService;
         this.employeeService = employeeService;
         this.classroomService = classroomService;
         this.settingService = settingService;
+        this.studentCourseService = studentCourseService;
 
         teacherField.setMaxWidth(Double.MAX_VALUE);
         classroomField.setMaxWidth(Double.MAX_VALUE);
@@ -295,7 +303,7 @@ public class CoursesView {
                 Button del = iconBtn("fth-trash-2", "Supprimer");
                 del.getStyleClass().add("icon-action-danger");
 
-                view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); displayCourseStudents(item); });
                 edit.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
                 del.setOnAction(e -> { selected = item; delete(); });
 
@@ -732,9 +740,16 @@ public class CoursesView {
                 createColumn("Student Number", sc -> sc.getStudent().getStudentNumber()),
                 createColumn("Name", sc -> sc.getStudent().getFirstName() + " " +
                         sc.getStudent().getLastName()),
-                createColumn("Enrollment Status", sc -> sc.getEnrollmentStatus()),
-                createColumn("Semester", sc -> sc.getSemester()),
-                createColumn("Enrolled Date", sc -> sc.getEnrollmentDate().toString())
+                createColumn("Enrollment Status", StudentCourse::getEnrollmentStatus),
+                createColumn("Semester", StudentCourse::getSemester),
+                createColumn("Enrolled Date", sc -> sc.getEnrollmentDate() == null ? "" : sc.getEnrollmentDate().toString())
         );
+    }
+
+    /** Builds a read-only string column for {@link #studentTableView} using the given extractor. */
+    private TableColumn<StudentCourse, String> createColumn(String title, Function<StudentCourse, String> extractor) {
+        TableColumn<StudentCourse, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(d -> new ReadOnlyStringWrapper(extractor.apply(d.getValue())));
+        return column;
     }
 }

@@ -325,7 +325,7 @@ public class PaymentsView {
     private String inscriptionLabel(Inscription item) {
         String student = item.getStudent() == null ? "?"
                 : item.getStudent().getFirstName() + " " + item.getStudent().getLastName();
-        String cls = item.getClassroom() == null ? "?" : item.getClassroom().getName();
+        String cls = item.classroomsLabel() == null ? "?" : item.classroomsLabel();
         return student + " · " + cls;
     }
 

@@ -218,8 +218,7 @@ public class EnrollmentsView {
         student.setPrefWidth(220);
 
         TableColumn<Inscription, String> classroom = new TableColumn<>("CLASSE");
-        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
+        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().classroomsLabel()));
         classroom.setCellFactory(col -> dashIfBlankCell());
         classroom.setPrefWidth(130);
 
@@ -252,7 +251,7 @@ public class EnrollmentsView {
                 String color = TableStyleKit.colorFor(s.getGender() == null ? "" : s.getGender().name());
                 String fullName = (s.getFirstName() == null ? "" : s.getFirstName()) + " " +
                         (s.getLastName() == null ? "" : s.getLastName());
-                String subtitle = i.getClassroom() == null ? "—" : i.getClassroom().getName();
+                String subtitle = i.classroomsLabel();
                 setGraphic(TableStyleKit.avatarNameCell(initials, color, fullName.trim(), subtitle));
             }
         };
@@ -417,7 +416,8 @@ public class EnrollmentsView {
             return;
         }
         studentField.setValue(inscription.getStudent());
-        classroomField.setValue(inscription.getClassroom());
+        List<Classroom> classrooms = inscription.getClassrooms();
+        classroomField.setValue(classrooms.isEmpty() ? null : classrooms.get(0));
         sessionField.setValue(inscription.getSession());
         statusField.setValue(inscription.getStatus());
 

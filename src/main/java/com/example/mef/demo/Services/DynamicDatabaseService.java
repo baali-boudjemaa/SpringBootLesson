@@ -379,9 +379,16 @@ public class DynamicDatabaseService {
 
         Inscription inscription = new Inscription();
         inscription.setStudent(savedStudent);
-        inscription.setClassroom(classroom);
         inscription.setAnneeScolaire(schoolYear);
         inscription.setDateInscription(LocalDateTime.now());
+        // Inscription no longer stores a classroom directly — it's derived from the
+        // courses the student follows, so enroll in every course taught in that classroom.
+        List<com.example.mef.demo.Model.Course> classroomCourses = entityManager.createQuery(
+                        "select c from Course c where c.classroom = :classroom",
+                        com.example.mef.demo.Model.Course.class)
+                .setParameter("classroom", classroom)
+                .getResultList();
+        inscription.setCourses(classroomCourses);
         entityManager.persist(inscription);
 
         if (payment != null && payment.containsKey("amount")) {
@@ -462,9 +469,9 @@ public class DynamicDatabaseService {
                 row.put("student_name", fullName(inscription.getStudent()));
                 row.put("student_id", inscription.getStudent().getId());
             }
-            if (inscription.getClassroom() != null) {
-                row.put("course_name", inscription.getClassroom().getName());
-                row.put("class_id", inscription.getClassroom().getId());
+            if (!inscription.getClassrooms().isEmpty()) {
+                row.put("course_name", inscription.classroomsLabel());
+                row.put("class_id", inscription.getClassrooms().get(0).getId());
             }
         } else if (entity instanceof Payment payment && payment.getInscription() != null) {
             row.put("inscription_id", payment.getInscription().getId());

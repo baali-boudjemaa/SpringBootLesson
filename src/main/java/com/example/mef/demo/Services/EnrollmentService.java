@@ -4,6 +4,7 @@ import com.example.mef.demo.Model.*;
 import com.example.mef.demo.Repository.AnneeScolaireRepository;
 import com.example.mef.demo.Repository.ClassroomRepository;
 import com.example.mef.demo.Repository.CourseRepository;
+import com.example.mef.demo.Repository.EnrollmentRepository;
 import com.example.mef.demo.Repository.InscriptionRepository;
 import com.example.mef.demo.Repository.StudentRepository;
 import com.example.mef.demo.enums.EnrollmentStatus;
@@ -26,17 +27,23 @@ public class EnrollmentService {
     private final ClassroomRepository classroomRepository;
     private final AnneeScolaireRepository anneeScolaireRepository;
     private final CourseRepository courseRepository;
+    private final StudentCourseService studentCourseService;
+    private final EnrollmentRepository enrollmentRepository;
 
     public EnrollmentService(InscriptionRepository inscriptionRepository,
                              StudentRepository studentRepository,
                              ClassroomRepository classroomRepository,
                              AnneeScolaireRepository anneeScolaireRepository,
-                             CourseRepository courseRepository) {
+                             CourseRepository courseRepository,
+                             StudentCourseService studentCourseService,
+                             EnrollmentRepository enrollmentRepository) {
         this.inscriptionRepository = inscriptionRepository;
         this.studentRepository = studentRepository;
         this.classroomRepository = classroomRepository;
         this.anneeScolaireRepository = anneeScolaireRepository;
         this.courseRepository = courseRepository;
+        this.studentCourseService = studentCourseService;
+        this.enrollmentRepository = enrollmentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +92,6 @@ public class EnrollmentService {
                 .orElseThrow(() -> new IllegalArgumentException("No school year found with id " + anneeScolaireId));
 
         inscription.setStudent(student);
-        inscription.setClassroom(classroom);
         inscription.setAnneeScolaire(schoolYear);
         if (inscription.getDateInscription() == null) {
             inscription.setDateInscription(LocalDateTime.now());
@@ -93,8 +99,11 @@ public class EnrollmentService {
         if (inscription.getStatus() == null) {
             inscription.setStatus(EnrollmentStatus.ACTIVE);
         }
+        // Inscription no longer stores a classroom directly — it's derived from the
+        // courses the student follows. If no explicit courses were picked, default to
+        // every course taught in the requested classroom so the enrollment isn't empty.
         inscription.setCourses((courseIds == null || courseIds.isEmpty())
-                ? new ArrayList<>()
+                ? courseRepository.findByClassroomId(classroom.getId())
                 : courseRepository.findAllById(courseIds));
         return inscriptionRepository.save(inscription);
     }

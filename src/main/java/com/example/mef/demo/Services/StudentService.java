@@ -2,6 +2,7 @@ package com.example.mef.demo.Services;
 
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Repository.CourseRepository;
 import com.example.mef.demo.Repository.StudentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,9 +14,12 @@ import java.util.Optional;
 public class StudentService {
 
     private final StudentRepository studentRepository;
-
-    public StudentService(StudentRepository studentRepository) {
+    private final StudentCourseService studentCourseService;
+    private final CourseRepository courseRepository;
+    public StudentService(StudentRepository studentRepository, StudentCourseService studentCourseService, CourseRepository courseRepository) {
         this.studentRepository = studentRepository;
+        this.studentCourseService = studentCourseService;
+        this.courseRepository = courseRepository;
     }
 
     public List<Student> findAll() {
