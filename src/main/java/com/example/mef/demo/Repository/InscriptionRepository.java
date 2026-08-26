@@ -20,7 +20,7 @@ public interface InscriptionRepository extends JpaRepository<Inscription, String
      */
     @Query("SELECT DISTINCT i FROM Inscription i " +
             "JOIN FETCH i.student " +
-            "JOIN FETCH i.classroom " +
+            "LEFT JOIN FETCH i.classroom " +
             "LEFT JOIN FETCH i.anneeScolaire " +
             "LEFT JOIN FETCH i.courses")
     List<Inscription> findAllWithDetails();

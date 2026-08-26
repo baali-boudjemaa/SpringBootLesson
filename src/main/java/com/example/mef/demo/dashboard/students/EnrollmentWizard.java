@@ -64,10 +64,15 @@ import java.util.Map;
  * <ol>
  *   <li>Student — search an existing student, or fill in a new student form.</li>
  *   <li>Guardian — search an existing guardian, or fill in a new guardian form.</li>
- *   <li>Enrollment — Academic Year, Classroom, Session, Registration Fee.</li>
+ *   <li>Enrollment — Category-driven: Crèche/Préparatoire (Classe + Session + Plan), or Soutien (Courses).</li>
  *   <li>Payment — record an initial payment: Amount, Payment Method, Receipt preview.</li>
  *   <li>Summary — review everything, then Finish.</li>
  * </ol>
+ *
+ * CATEGORY-DRIVEN LOGIC:
+ * - Crèche/Préparatoire: Student enrolls in a Classe with Session + Attendance Plan
+ * - Soutien: Student selects support courses directly (each course has its own teacher/classroom/fees)
+ *
  * Backed by {@link Inscription} (the entity that actually powers the
  * "enrollments" module / {@code EnrollmentsView}), plus {@link Guardian}
  * and {@link Payment}, via {@link StudentService}, {@link GuardianService},
@@ -96,6 +101,7 @@ public class EnrollmentWizard {
     private final PaymentService paymentService;
     private final SettingService settingService;
     private final CourseService courseService;
+
     Label summaryStudent  = new Label();
     Label summaryGuardian = new Label();
     Label summaryClass    = new Label();
@@ -106,6 +112,7 @@ public class EnrollmentWizard {
     Label summaryStartDate = new Label();
     Label summaryAttendance = new Label();
     Label summaryCourses = new Label();
+
     public EnrollmentWizard(StudentService studentService, GuardianService guardianService,
                             ClassroomService classroomService, EnrollmentService enrollmentService,
                             PaymentService paymentService, SettingService settingService,
@@ -191,7 +198,7 @@ public class EnrollmentWizard {
                 list -> {
                     existingStudentCombo.setItems(FXCollections.observableArrayList(list));
                     if (val != null && !val.isBlank() && !list.isEmpty()) {
-                        existingStudentCombo.show();   // auto-open with the matches
+                        existingStudentCombo.show();
                     } else {
                         existingStudentCombo.hide();
                     }
@@ -245,13 +252,14 @@ public class EnrollmentWizard {
                 list -> {
                     existingGuardianCombo.setItems(FXCollections.observableArrayList(list));
                     if (val != null && !val.isBlank() && !list.isEmpty()) {
-                        existingGuardianCombo.show();   // auto-open with the matches
+                        existingGuardianCombo.show();
                     } else {
                         existingGuardianCombo.hide();
                     }
                 },
                 err -> {}
         ));
+
         newGuardianForm.setVisible(true);
         newGuardianForm.setManaged(true);
         existingGuardianBox.setVisible(false);
@@ -265,30 +273,28 @@ public class EnrollmentWizard {
 
         VBox guardianStep = new VBox(14, existingGuardianCheck, newGuardianForm, existingGuardianBox);
 
-        /* ── Step 3 — Enrollment (year / classroom / session / fee) ─ */
+        /* ── Step 3 — Enrollment (category-driven) ───────────────────────────────────── */
         ComboBox<String> academicYear = FormFactory.comboBox(data.academicYears());
         academicYear.setMaxWidth(Double.MAX_VALUE);
-
         academicYear.setValue(EnrollmentRecordService.currentSchoolYearLabel());
+
+        /* Category drives the whole step: Crèche/Préparatoire enroll into a Classe,
+         * while Soutien enrolls the student directly into the Cours suivis they follow. */
+        ComboBox<Category> classroomCategory = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
+        classroomCategory.setMaxWidth(Double.MAX_VALUE);
+        classroomCategory.setCellFactory(cb -> categoryCell());
+        classroomCategory.setButtonCell(categoryCell());
+
         ComboBox<Classroom> classroom = new ComboBox<>(FXCollections.observableArrayList(data.classrooms()));
         classroom.setMaxWidth(Double.MAX_VALUE);
         classroom.setCellFactory(cb -> classroomCell(data.remainingSeats()));
         classroom.setButtonCell(classroomCell(data.remainingSeats()));
 
-        /* Read-only indicator: shows the selected classroom's category (Creche/Preparatoire/Soutien). */
-        ComboBox<Category> classroomCategory = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
-
-        classroomCategory.setMaxWidth(Double.MAX_VALUE);
-        //classroomCategory.setDisable(true);
-        classroomCategory.setCellFactory(cb -> categoryCell());
-
-        classroomCategory.setButtonCell(categoryCell());
-
         ComboBox<SessionName> session = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
         session.setMaxWidth(Double.MAX_VALUE);
-
         session.setCellFactory(cb -> sessionCell());
         session.setButtonCell(sessionCell());
+
         TextField registrationFee = FormFactory.textField(I18n.t("ewizard.registration_fee"));
 
         /* ── Attendance: start date + attendance plan (+ custom days) ── */
@@ -323,58 +329,87 @@ public class EnrollmentWizard {
 
         GridPane enrollmentForm = FormFactory.sectionGrid();
         FormFactory.addRow(enrollmentForm, 0, I18n.t("ewizard.academic_year"), academicYear);
-        FormFactory.addRow(enrollmentForm, 1, I18n.t("field.classroom"), classroom);
-        FormFactory.addRow(enrollmentForm, 2, I18n.t("classroom.category"), classroomCategory);
+        FormFactory.addRow(enrollmentForm, 1, I18n.t("classroom.category"), classroomCategory);
+        FormFactory.addRow(enrollmentForm, 2, I18n.t("field.classroom"), classroom);
         FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.session"), session);
         FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.registration_fee"), registrationFee);
         FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.start_date"), startDate);
         FormFactory.addRow(enrollmentForm, 6, I18n.t("ewizard.attendance_plan"), attendancePlan);
 
-        // Session and Plan de fréquentation are only relevant for Crèche / Préparatoire —
-        // hidden automatically when the selected classroom's category is Soutien.
-        Runnable[] refreshSessionFieldsVisibility = new Runnable[1];
-        refreshSessionFieldsVisibility[0] = () -> {
-            boolean visible = classroomCategory.getValue() != Category.SOUTIEN;
-            setFormRowVisible(enrollmentForm, 3, visible); // Session
-            setFormRowVisible(enrollmentForm, 6, visible); // Plan de fréquentation
-            summarySession.setVisible(visible);
-        };
-        classroomCategory.valueProperty().addListener((obs, old, val) -> refreshSessionFieldsVisibility[0].run());
-        refreshSessionFieldsVisibility[0].run();
-
-        /* ── Support courses: only shown when the chosen classroom is a SOUTIEN section ── */
+        /* ── Support courses: shown instead of Classe/Session/Plan when Catégorie = Soutien ── */
         Map<CheckBox, Course> courseCheckboxes = new LinkedHashMap<>();
         FlowPane coursesBox = new FlowPane(12, 8);
         Label coursesLabel = new Label(I18n.t("ewizard.support_courses"));
-        VBox coursesWrap = new VBox(6, coursesLabel, coursesBox);
+        Label coursesTotalLabel = new Label();
+        coursesTotalLabel.getStyleClass().add("field-label");
+        VBox coursesWrap = new VBox(6, coursesLabel, coursesBox, coursesTotalLabel);
         coursesWrap.setVisible(false);
         coursesWrap.setManaged(false);
 
-        Runnable[] refreshCourseOptions = new Runnable[1];
-        refreshCourseOptions[0] = () -> {
-            Classroom selectedClassroom = classroom.getValue();
-            classroomCategory.setValue(selectedClassroom == null ? null : selectedClassroom.getCategory());
-            boolean isSoutien = selectedClassroom != null && selectedClassroom.getCategory() == Category.SOUTIEN;
-            coursesWrap.setVisible(isSoutien);
-            coursesWrap.setManaged(isSoutien);
+        // Callback to update total monthly fee for Soutien courses
+        Runnable[] refreshCoursesTotal = new Runnable[1];
+        refreshCoursesTotal[0] = () -> {
+            double total = courseCheckboxes.entrySet().stream()
+                    .filter(e -> e.getKey().isSelected())
+                    .mapToDouble(e -> e.getValue().getMonthlyFee() == null ? 0.0 : e.getValue().getMonthlyFee())
+                    .sum();
+            coursesTotalLabel.setText(I18n.t("ewizard.total_monthly") + " : " + formatFee(total));
+        };
+
+        // Callback to refresh category-dependent fields
+        Runnable[] refreshCategoryFieldsVisibility = new Runnable[1];
+        refreshCategoryFieldsVisibility[0] = () -> {
+            Category selectedCategory = classroomCategory.getValue();
+            boolean isSoutien = selectedCategory == Category.SOUTIEN;
+
+            // Hide Classe/Session/Plan de fréquentation for Soutien
+            setFormRowVisible(enrollmentForm, 2, !isSoutien); // Classe
+            setFormRowVisible(enrollmentForm, 3, !isSoutien); // Session
+            setFormRowVisible(enrollmentForm, 6, !isSoutien); // Plan de fréquentation
+            summarySession.setVisible(!isSoutien);
+            customDaysWrap.setVisible(!isSoutien && customDaysWrap.isVisible());
+            customDaysWrap.setManaged(!isSoutien && customDaysWrap.isManaged());
+
+            // Filter classrooms by selected category
+            List<Classroom> matching = selectedCategory == null
+                    ? data.classrooms()
+                    : data.classrooms().stream().filter(c -> c.getCategory() == selectedCategory).toList();
+            classroom.setItems(FXCollections.observableArrayList(matching));
+            if (isSoutien) {
+                classroom.setValue(null);
+            }
+
+            // Show support courses picker only for Soutien
             coursesBox.getChildren().clear();
             courseCheckboxes.clear();
+            coursesWrap.setVisible(isSoutien);
+            coursesWrap.setManaged(isSoutien);
+
             if (isSoutien) {
+                // Get all active courses (Soutien courses are not tied to a specific classroom)
                 List<Course> available = data.courses().stream()
-                        .filter(c -> c.getClassroom() != null && c.getClassroom().getId().equals(selectedClassroom.getId()))
+                        .filter(c -> c.getStatus() == com.example.mef.demo.enums.CourseStatus.ACTIVE)
                         .toList();
+
                 if (available.isEmpty()) {
                     coursesBox.getChildren().add(new Label(I18n.t("ewizard.no_courses_for_classroom")));
                 } else {
                     for (Course course : available) {
-                        CheckBox cb = new CheckBox(course.getName());
+                        String teacher = course.getTeacher() == null ? "" :
+                                " — " + course.getTeacher().getFirstName() + " " + course.getTeacher().getLastName();
+                        double monthlyFee = course.getMonthlyFee() == null ? 0.0 : course.getMonthlyFee();
+                        CheckBox cb = new CheckBox(course.getName() + teacher + "  (" + formatFee(monthlyFee) + ")");
+                        cb.selectedProperty().addListener((obs, old, sel) -> refreshCoursesTotal[0].run());
                         courseCheckboxes.put(cb, course);
                         coursesBox.getChildren().add(cb);
                     }
                 }
             }
+            refreshCoursesTotal[0].run();
         };
-        classroom.valueProperty().addListener((obs, old, val) -> refreshCourseOptions[0].run());
+
+        classroomCategory.valueProperty().addListener((obs, old, val) -> refreshCategoryFieldsVisibility[0].run());
+        refreshCategoryFieldsVisibility[0].run();
 
         VBox enrollmentStep = new VBox(16, enrollmentForm, customDaysWrap, coursesWrap);
 
@@ -413,7 +448,6 @@ public class EnrollmentWizard {
         VBox paymentStep = new VBox(16, recordPayment, paymentForm, receiptBox);
 
         /* ── Step 5 — Summary ─────────────────────────────────────── */
-
         GridPane summaryGrid = FormFactory.sectionGrid();
         FormFactory.addRow(summaryGrid, 0, I18n.t("ewizard.summary.student"),  summaryStudent);
         FormFactory.addRow(summaryGrid, 1, I18n.t("ewizard.summary.guardian"), summaryGuardian);
@@ -468,17 +502,20 @@ public class EnrollmentWizard {
             existingGuardianCombo.setItems(FXCollections.observableArrayList(data.guardians()));
 
             academicYear.setValue(EnrollmentRecordService.currentSchoolYearLabel());
+            classroomCategory.setValue(null);
             classroom.setValue(null);
             session.setValue(null);
             registrationFee.clear();
             startDate.setValue(LocalDate.now());
             attendancePlan.setValue(AttendancePlan.FULL_WEEK);
             dayChecks.forEach(cb -> cb.setSelected(false));
-            refreshCourseOptions[0].run();
 
             recordPayment.setSelected(false);
             paymentAmount.clear();
             paymentMethod.setValue(null);
+
+            // Refresh category-dependent fields (which resets courses too)
+            refreshCategoryFieldsVisibility[0].run();
         });
 
         /* ── Step rendering scaffold ──────────────────────────────── */
@@ -556,7 +593,7 @@ public class EnrollmentWizard {
             try {
                 validateStep(activeStep[0], existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                         existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                        academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
+                        classroomCategory, academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
                         recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 activeStep[0]++;
                 renderStep[0].run();
@@ -571,7 +608,7 @@ public class EnrollmentWizard {
                 for (int s = 0; s < stepTitles.size() - 1; s++) {
                     validateStep(s, existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                             existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
-                            academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
+                            classroomCategory, academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
                             recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
                 }
 
@@ -657,7 +694,8 @@ public class EnrollmentWizard {
                             inscription.setAttendancePlan(attendancePlanValue == null ? AttendancePlan.FULL_WEEK : attendancePlanValue);
                             inscription.setAttendanceDays(attendanceDaysValue);
                             Inscription savedInscription = enrollmentService.save(
-                                    inscription, studentId, classroomValue.getId(), schoolYear.getId(), selectedCourseIds);
+                                    inscription, studentId, classroomValue == null ? null : classroomValue.getId(),
+                                    schoolYear.getId(), selectedCourseIds);
 
                             Payment registrationPayment = null;
                             if (feeValue > 0) {
@@ -957,8 +995,8 @@ public class EnrollmentWizard {
                               CheckBox existingStudentCheck, ComboBox<Student> existingStudentCombo, TextField firstName, TextField lastName, DatePicker dateOfBirth,
                               CheckBox existingGuardianCheck, ComboBox<Guardian> existingGuardianCombo, TextField guardianFirstName, TextField guardianLastName,
                               ComboBox<String> relation, TextField guardianPhone, TextField guardianEmail,
-                              ComboBox<String> academicYear, ComboBox<Classroom> classroom, ComboBox<SessionName> session, TextField registrationFee,
-                              ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks, Map<CheckBox, Course> courseCheckboxes,
+                              ComboBox<Category> classroomCategory, ComboBox<String> academicYear, ComboBox<Classroom> classroom, ComboBox<SessionName> session,
+                              TextField registrationFee, ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks, Map<CheckBox, Course> courseCheckboxes,
                               CheckBox recordPayment, TextField paymentAmount, ComboBox<PaymentType> paymentMethod,
                               Map<String, Integer> remainingSeats, int minAge) {
         if (step == 0) {
@@ -1022,25 +1060,37 @@ public class EnrollmentWizard {
             if (FormFactory.value(academicYear).isBlank()) {
                 throw new IllegalArgumentException(I18n.t("ewizard.academic_year") + " est requis.");
             }
-            if (classroom.getValue() == null) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_classroom"));
+            if (classroomCategory.getValue() == null) {
+                throw new IllegalArgumentException(I18n.t("ewizard.select_category"));
             }
-            Integer seats = remainingSeats.get(classroom.getValue().getId());
-            if (seats != null && seats <= 0) {
-                throw new IllegalArgumentException(I18n.t("ewizard.classroom_full"));
+
+            Category selectedCategory = classroomCategory.getValue();
+            boolean isSoutien = selectedCategory == Category.SOUTIEN;
+
+            // Crèche/Préparatoire: must select a classroom and session
+            if (!isSoutien) {
+                if (classroom.getValue() == null) {
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_classroom"));
+                }
+                Integer seats = remainingSeats.get(classroom.getValue().getId());
+                if (seats != null && seats <= 0) {
+                    throw new IllegalArgumentException(I18n.t("ewizard.classroom_full"));
+                }
+                if (session.getValue() == null) {
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_session"));
+                }
+                if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
+                        && dayChecks.stream().noneMatch(CheckBox::isSelected)) {
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days"));
+                }
+            } else {
+                // Soutien: must select at least one course
+                if (!courseCheckboxes.isEmpty()
+                        && courseCheckboxes.keySet().stream().noneMatch(CheckBox::isSelected)) {
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_support_courses"));
+                }
             }
-            if (classroom.getValue().getCategory() != Category.SOUTIEN && session.getValue() == null) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_session"));
-            }
-            if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
-                    && dayChecks.stream().noneMatch(CheckBox::isSelected)) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days"));
-            }
-            if (classroom.getValue().getCategory() == Category.SOUTIEN
-                    && !courseCheckboxes.isEmpty()
-                    && courseCheckboxes.keySet().stream().noneMatch(CheckBox::isSelected)) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_support_courses"));
-            }
+
             parseAmount(registrationFee.getText());
         }
         if (step == 3) {

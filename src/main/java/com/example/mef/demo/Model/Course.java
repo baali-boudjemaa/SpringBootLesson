@@ -29,9 +29,14 @@ public class Course {
     @JoinColumn(name = "teacherId")
     private Employee teacher;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroomId")
-    private Classroom classroom;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "course_classrooms",
+            joinColumns = @JoinColumn(name = "course_id"),
+            inverseJoinColumns = @JoinColumn(name = "classroom_id")
+    )
+    @Builder.Default
+    private List<Classroom> classrooms = new ArrayList<>();
 
     private String schedule;
 

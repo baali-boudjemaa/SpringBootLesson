@@ -74,15 +74,25 @@ public class EnrollmentService {
 
     /**
      * Same as {@link #save(Inscription, String, String, String)}, additionally attaching the
-     * given support-course selections (used when the classroom's category is SOUTIEN, letting
-     * the guardian pick which subjects the child follows).
+     * given support-course selections. For SOUTIEN enrollments the student follows individual
+     * courses instead of a fixed classroom, so {@code classroomId} may be null/blank in that
+     * case — each selected course already carries its own classroom/teacher/schedule.
      */
     public Inscription save(Inscription inscription, String studentId, String classroomId, String anneeScolaireId,
                             List<String> courseIds) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("No student found with id " + studentId));
-        Classroom classroom = classroomRepository.findById(classroomId)
-                .orElseThrow(() -> new IllegalArgumentException("No classroom found with id " + classroomId));
+
+        boolean hasCourses = courseIds != null && !courseIds.isEmpty();
+        Classroom classroom = null;
+        if (classroomId != null && !classroomId.isBlank()) {
+            classroom = classroomRepository.findById(classroomId)
+                    .orElseThrow(() -> new IllegalArgumentException("No classroom found with id " + classroomId));
+        } else if (!hasCourses) {
+            // No classroom AND no courses selected: nothing anchors this enrollment.
+            throw new IllegalArgumentException("A classroom or at least one course is required.");
+        }
+
         AnneeScolaire schoolYear = (anneeScolaireId == null || anneeScolaireId.isBlank())
                 ? findOrCreateCurrentSchoolYear()
                 : anneeScolaireRepository.findById(anneeScolaireId)

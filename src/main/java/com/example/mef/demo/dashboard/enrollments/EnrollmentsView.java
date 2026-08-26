@@ -218,8 +218,7 @@ public class EnrollmentsView {
         student.setPrefWidth(220);
 
         TableColumn<Inscription, String> classroom = new TableColumn<>("CLASSE");
-        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
+        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(classroomOrCoursesLabel(d.getValue())));
         classroom.setCellFactory(col -> dashIfBlankCell());
         classroom.setPrefWidth(130);
 
@@ -252,7 +251,7 @@ public class EnrollmentsView {
                 String color = TableStyleKit.colorFor(s.getGender() == null ? "" : s.getGender().name());
                 String fullName = (s.getFirstName() == null ? "" : s.getFirstName()) + " " +
                         (s.getLastName() == null ? "" : s.getLastName());
-                String subtitle = i.getClassroom() == null ? "—" : i.getClassroom().getName();
+                String subtitle = classroomOrCoursesLabel(i);
                 setGraphic(TableStyleKit.avatarNameCell(initials, color, fullName.trim(), subtitle));
             }
         };
@@ -291,6 +290,21 @@ public class EnrollmentsView {
                 setGraphic(TableStyleKit.pill(item, bg, fg));
             }
         };
+    }
+
+    /**
+     * "CLASSE" display for a row: the classroom name when the student is enrolled in one,
+     * otherwise (SOUTIEN) the names of the courses they follow, or "—" if neither is set.
+     */
+    private String classroomOrCoursesLabel(Inscription inscription) {
+        if (inscription.getClassroom() != null) {
+            return inscription.getClassroom().getName();
+        }
+        if (inscription.getCourses() != null && !inscription.getCourses().isEmpty()) {
+            return inscription.getCourses().stream().map(Course::getName)
+                    .reduce((a, b) -> a + ", " + b).orElse("—");
+        }
+        return "—";
     }
 
     private TableCell<Inscription, String> dashIfBlankCell() {
@@ -443,19 +457,25 @@ public class EnrollmentsView {
     }
 
     private void save() {
-        if (studentField.getValue() == null || classroomField.getValue() == null) {
-            DialogUtil.error("Champs requis", "L'élève et la classe sont obligatoires.");
+        List<String> courseIds = courseChecks.stream()
+                .filter(CheckBox::isSelected)
+                .map(cb -> ((Course) cb.getUserData()).getId())
+                .toList();
+        if (studentField.getValue() == null) {
+            DialogUtil.error("Champs requis", "L'élève est obligatoire.");
+            return;
+        }
+        // A student is either enrolled in a classroom (Crèche/Préparatoire) or follows
+        // individual courses (Soutien) — at least one of the two is required.
+        if (classroomField.getValue() == null && courseIds.isEmpty()) {
+            DialogUtil.error("Champs requis", "La classe ou au moins un cours est obligatoire.");
             return;
         }
         Inscription inscription = selected != null ? selected : new Inscription();
         inscription.setSession(sessionField.getValue() == null ? SessionName.JOURNEE_COMPLETE : sessionField.getValue());
         inscription.setStatus(statusField.getValue() == null ? EnrollmentStatus.ACTIVE : statusField.getValue());
         String studentId = studentField.getValue().getId();
-        String classroomId = classroomField.getValue().getId();
-        List<String> courseIds = courseChecks.stream()
-                .filter(CheckBox::isSelected)
-                .map(cb -> ((Course) cb.getUserData()).getId())
-                .toList();
+        String classroomId = classroomField.getValue() == null ? null : classroomField.getValue().getId();
 
         AsyncTasks.run(
                 () -> enrollmentService.save(inscription, studentId, classroomId, null, courseIds),

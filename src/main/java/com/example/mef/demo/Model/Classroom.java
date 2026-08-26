@@ -86,4 +86,8 @@ public class Classroom  {
     )
     @Builder.Default
     private List<Room> rooms = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "classrooms", fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Course> courses = new ArrayList<>();
 }
