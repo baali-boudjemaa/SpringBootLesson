@@ -896,7 +896,6 @@ public class EnrollmentWizard {
         return switch (session) {
             case MATINEE -> I18n.t("session.matinee");
             case JOURNEE_COMPLETE -> I18n.t("session.journee_complete");
-            case PERISCOLAIRE -> I18n.t("session.periscolaire");
         };
     }
 
