@@ -7,6 +7,7 @@ import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.enums.AttendanceStatus;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -22,7 +23,6 @@ import javafx.scene.layout.VBox;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,8 +31,6 @@ import java.util.Map;
 
 @Component
 public class AttendanceView {
-
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH);
 
     private final ClassroomService classroomService;
 
@@ -45,7 +43,7 @@ public class AttendanceView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText("Présence");
+        pageTitleLabel.setText(I18n.t("attendance.title"));
         contentPane.setCenter(new Label("Chargement..."));
 
         AsyncTasks.run(
@@ -74,10 +72,10 @@ public class AttendanceView {
     private void buildUI(BorderPane contentPane, List<Classroom> classrooms, ClassAttendanceReport report) {
         report.students().forEach(row -> selectedStatuses.put(row.id(), row.status()));
 
-        Label title = new Label("Présence");
+        Label title = new Label(I18n.t("attendance.title"));
         title.setStyle("-fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: #0F172A;");
 
-        Label subtitle = new Label("Suivez la présence quotidienne");
+        Label subtitle = new Label(I18n.t("attendance.subtitle"));
         subtitle.setStyle("-fx-font-size: 15px; -fx-text-fill: #64748B;");
 
         Button previous = new Button("‹");
@@ -103,7 +101,7 @@ public class AttendanceView {
         datePicker.setMaxWidth(360);
         datePicker.setStyle("-fx-background-color: white; -fx-border-color: #E2E8F0; -fx-background-radius: 24; -fx-border-radius: 24; -fx-padding: 6 10;");
 
-        Button save = new Button("💾  Enregistrer");
+        Button save = new Button("💾  " + I18n.t("attendance.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> saveAttendance(contentPane, classrooms));
 
@@ -114,26 +112,26 @@ public class AttendanceView {
         header.setAlignment(Pos.CENTER_LEFT);
 
         HBox stats = new HBox(18,
-                statCard("✓", String.valueOf(report.present()), "PRÉSENT", "#10B981", "#ECFDF5"),
-                statCard("×", String.valueOf(report.absent()), "ABSENT", "#F43F5E", "#FFF1F2"),
-                statCard("✉", String.valueOf(report.excused()), "EXCUSÉ", "#6366F1", "#EEF2FF"),
-                statCard("◌", String.valueOf(report.unmarked()), "NON MARQUÉS", "#64748B", "#F1F5F9")
+                statCard("✓", String.valueOf(report.present()), I18n.t("attendance.present"), "#10B981", "#ECFDF5"),
+                statCard("×", String.valueOf(report.absent()), I18n.t("attendance.absent"), "#F43F5E", "#FFF1F2"),
+                statCard("✉", String.valueOf(report.excused()), I18n.t("attendance.excused"), "#6366F1", "#EEF2FF"),
+                statCard("◌", String.valueOf(report.unmarked()), I18n.t("attendance.unmarked"), "#64748B", "#F1F5F9")
         );
 
         for (Node card : stats.getChildren()) {
             HBox.setHgrow(card, Priority.ALWAYS);
         }
 
-        Label quickLabel = new Label("Remplissage rapide :");
+        Label quickLabel = new Label(I18n.t("attendance.quick_fill"));
         quickLabel.setStyle("-fx-text-fill: #64748B;");
 
-        Button allPresent = outlineButton("✓  Tous présents", "#10B981");
+        Button allPresent = outlineButton("✓  " + I18n.t("attendance.all_present"), "#10B981");
         allPresent.setOnAction(e -> {
             report.students().forEach(row -> selectedStatuses.put(row.id(), AttendanceStatus.PRESENT));
             buildUI(contentPane, classrooms, reportWithSelectedStatuses(report));
         });
 
-        Button allAbsent = outlineButton("×  Tous absents", "#F43F5E");
+        Button allAbsent = outlineButton("×  " + I18n.t("attendance.all_absent"), "#F43F5E");
         allAbsent.setOnAction(e -> {
             report.students().forEach(row -> selectedStatuses.put(row.id(), AttendanceStatus.ABSENT));
             buildUI(contentPane, classrooms, reportWithSelectedStatuses(report));
@@ -143,7 +141,7 @@ public class AttendanceView {
         quickFill.setAlignment(Pos.CENTER_LEFT);
 
         HBox classTabs = new HBox(8);
-        Button allClasses = classTab("Tous (" + report.students().size() + ")", selectedClassroomId == null);
+        Button allClasses = classTab(I18n.t("attendance.all_classes").replace("{0}", String.valueOf(report.students().size())), selectedClassroomId == null);
         allClasses.setOnAction(e -> {
             selectedClassroomId = null;
             loadReport(contentPane, classrooms);
@@ -162,9 +160,9 @@ public class AttendanceView {
         table.setHgap(12);
         table.setVgap(0);
         table.setStyle("-fx-background-color: white; -fx-border-color: #E2E8F0; -fx-background-radius: 12; -fx-border-radius: 12;");
-        table.add(headerLabel("ENFANT"), 0, 0);
-        table.add(headerLabel("STATUT"), 1, 0);
-        table.add(headerLabel("HEURE D'ARRIVÉE"), 2, 0);
+        table.add(headerLabel(I18n.t("attendance.table.child")), 0, 0);
+        table.add(headerLabel(I18n.t("attendance.table.status")), 1, 0);
+        table.add(headerLabel(I18n.t("attendance.table.arrival_time")), 2, 0);
 
         int rowIndex = 1;
         for (ClassStudentAttendance student : report.students()) {
@@ -226,9 +224,9 @@ public class AttendanceView {
         box.setAlignment(Pos.CENTER_LEFT);
         box.setStyle("-fx-padding: 14 20; -fx-border-color: #E2E8F0 transparent transparent transparent;");
         box.getChildren().addAll(
-                statusButton("✓  Présent", student, AttendanceStatus.PRESENT, contentPane, classrooms, report),
-                statusButton("×  Absent", student, AttendanceStatus.ABSENT, contentPane, classrooms, report),
-                statusButton("✉  Excusé", student, AttendanceStatus.EXCUSED, contentPane, classrooms, report)
+                statusButton("✓  " + I18n.t("attendance.present"), student, AttendanceStatus.PRESENT, contentPane, classrooms, report),
+                statusButton("×  " + I18n.t("attendance.absent"), student, AttendanceStatus.ABSENT, contentPane, classrooms, report),
+                statusButton("✉  " + I18n.t("attendance.excused"), student, AttendanceStatus.EXCUSED, contentPane, classrooms, report)
         );
         return box;
     }
@@ -248,7 +246,7 @@ public class AttendanceView {
     }
 
     private Label arrivalCell(ClassStudentAttendance student) {
-        Label label = new Label(selectedStatuses.get(student.id()) == AttendanceStatus.PRESENT ? "Maintenant" : "—");
+        Label label = new Label(selectedStatuses.get(student.id()) == AttendanceStatus.PRESENT ? I18n.t("attendance.now") : "—");
         label.setStyle("-fx-text-fill: #94A3B8; -fx-padding: 14 20; -fx-border-color: #E2E8F0 transparent transparent transparent;");
         return label;
     }
@@ -288,7 +286,7 @@ public class AttendanceView {
         AsyncTasks.run(
                 () -> classroomService.saveAttendance(selectedDate, selectedStatuses),
                 () -> {
-                    DialogUtil.info("Présence", "Présence enregistrée.");
+                    DialogUtil.info(I18n.t("attendance.title"), I18n.t("attendance.saved"));
                     loadReport(contentPane, classrooms);
                 },
                 err -> DialogUtil.error("Présence", err.getMessage())
@@ -296,21 +294,22 @@ public class AttendanceView {
     }
 
     private String formatDate(LocalDate date) {
-        String day = date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.FRENCH);
-        return capitalize(day) + " " + date.format(DATE_FORMAT);
+        Locale locale = I18n.getLocale();
+        String day = date.getDayOfWeek().getDisplayName(TextStyle.FULL, locale);
+        return capitalize(day) + " " + date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", locale));
     }
 
     private String capitalize(String text) {
         if (text == null || text.isBlank()) {
             return "";
         }
-        return text.substring(0, 1).toUpperCase(Locale.FRENCH) + text.substring(1);
+        return text.substring(0, 1).toUpperCase(I18n.getLocale()) + text.substring(1);
     }
 
     private String initials(ClassStudentAttendance student) {
         String first = student.firstName() == null || student.firstName().isBlank() ? "" : student.firstName().substring(0, 1);
         String last = student.lastName() == null || student.lastName().isBlank() ? "" : student.lastName().substring(0, 1);
         String initials = first + last;
-        return initials.isBlank() ? "?" : initials.toLowerCase(Locale.FRENCH);
+        return initials.isBlank() ? "?" : initials.toLowerCase(I18n.getLocale());
     }
 }

@@ -31,6 +31,8 @@ import java.util.*;
  *       (❌ الحصة خارج أيام الحضور)</li>
  *   <li>the session's day must not be a configured weekly closure day
  *       (❌ الحصة في يوم عطلة)</li>
+ *   <li>the session must not overlap the school's configured daily rest
+ *       period, if one is set (❌ الحصة تتعارض مع وقت الراحة)</li>
  * </ul>
  */
 public final class ScheduleValidator {
@@ -55,9 +57,14 @@ public final class ScheduleValidator {
      *
      * @param enrolledInClassroom number of students currently enrolled in the
      *                            candidate's classroom (0 if no classroom set)
+     * @param restStartMinutes start of the school's daily rest/break period,
+     *                         in minutes since midnight, or -1 if not configured
+     * @param restEndMinutes   end of the daily rest/break period, in minutes
+     *                         since midnight, or -1 if not configured
      */
     public static List<String> validate(Course candidate, List<Course> allCourses,
-                                        Set<String> closedDays, int enrolledInClassroom) {
+                                        Set<String> closedDays, int enrolledInClassroom,
+                                        int restStartMinutes, int restEndMinutes) {
         List<String> errors = new ArrayList<>();
         List<Slot> slots = slotsOf(candidate);
         if (slots.isEmpty()) {
@@ -79,6 +86,12 @@ public final class ScheduleValidator {
         for (Slot slot : slots) {
             if (closedDays.contains(slot.day())) {
                 errors.add("❌ " + slot.day() + " " + slot.range() + " : ce jour est un jour de fermeture (voir Paramètres).");
+            }
+
+            if (restStartMinutes >= 0 && restEndMinutes >= 0
+                    && slot.startMinutes() < restEndMinutes && slot.endMinutes() > restStartMinutes) {
+                errors.add("❌ " + slot.day() + " " + slot.range() + " : chevauche le temps de repos ("
+                        + format(restStartMinutes) + RANGE_SEPARATOR + format(restEndMinutes) + ") (voir Paramètres).");
             }
 
             if (teacher != null) {

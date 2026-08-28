@@ -3,6 +3,7 @@ package com.example.mef.demo.dashboard.courses;
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -97,7 +98,7 @@ public final class SchedulePickerDialog {
         VBox card = new VBox(grid);
         card.getStyleClass().add("timetable-card");
 
-        Button clearAll = new Button("Tout effacer");
+        Button clearAll = new Button(I18n.t("action.clear"));
         clearAll.getStyleClass().add("secondary-button");
         clearAll.setOnAction(e -> {
             selected.values().forEach(Set::clear);
@@ -108,7 +109,7 @@ public final class SchedulePickerDialog {
         Button cancel = new Button("Annuler");
         cancel.getStyleClass().add("secondary-button");
 
-        Button ok = new Button("Valider");
+        Button ok = new Button(I18n.t("action.save"));
         ok.getStyleClass().add("primary-button");
 
         final String[] result = new String[1];
@@ -295,7 +296,7 @@ public final class SchedulePickerDialog {
     }
 
     private static void addLunchBreakRow(GridPane grid, int row) {
-        Label label = new Label("Pause déjeuner");
+        Label label = new Label(I18n.t("schedule.lunch_break"));
         label.getStyleClass().add("timetable-break-label");
         StackPane band = new StackPane(label);
         band.getStyleClass().add("timetable-break-row");

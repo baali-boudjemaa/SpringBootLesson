@@ -11,6 +11,7 @@ import com.example.mef.demo.enums.OutcomingFrequency;
 import com.example.mef.demo.enums.PaymentStatus;
 import com.example.mef.demo.enums.PaymentType;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -62,24 +63,24 @@ public class OutcomingsView {
         recurringTable.setPrefHeight(180);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher par libellé ou bénéficiaire...");
+    private final TextField searchField = FormFactory.textField(I18n.t("outcoming.search"));
     private final ComboBox<String> statusFilter = new ComboBox<>(
-            FXCollections.observableArrayList("Tous", "PAYÉ", "EN ATTENTE", "EN RETARD"));
+            FXCollections.observableArrayList(I18n.t("outcoming.all"), I18n.t("status.paid"), I18n.t("status.pending"), I18n.t("status.overdue")));
     private final ComboBox<String> categoryFilter = new ComboBox<>();
     private final DatePicker dateFrom = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 1, 1));
     private final DatePicker dateTo = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 12, 31));
 
-    private final TextField labelField = FormFactory.textField("Libellé (ex: Salaire Août, Facture Sonelgaz)");
-    private final TextField amountField = FormFactory.textField("Montant");
-    private final TextField beneficiaryField = FormFactory.textField("Bénéficiaire (fournisseur, employé, ...)");
+    private final TextField labelField = FormFactory.textField(I18n.t("outcoming.label_hint"));
+    private final TextField amountField = FormFactory.textField(I18n.t("field.amount"));
+    private final TextField beneficiaryField = FormFactory.textField(I18n.t("outcoming.beneficiary_hint"));
     private final ComboBox<OutcomingCategory> categoryField = new ComboBox<>(FXCollections.observableArrayList(OutcomingCategory.values()));
     private final ComboBox<PaymentType> methodField = new ComboBox<>(FXCollections.observableArrayList(PaymentType.values()));
     private final ComboBox<PaymentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(PaymentStatus.values()));
     private final DatePicker outcomingDateField = new DatePicker();
 
-    private final CheckBox recurringCheck = new CheckBox("Dépense récurrente");
+    private final CheckBox recurringCheck = new CheckBox(I18n.t("outcoming.recurring_expense"));
     private final ComboBox<OutcomingFrequency> frequencyField = new ComboBox<>(FXCollections.observableArrayList(OutcomingFrequency.values()));
-    private final Label startDateLabel = new Label("Date de début");
+    private final Label startDateLabel = new Label(I18n.t("outcoming.start_date"));
 
     private final Label footerCountLabel = new Label();
     private final Label footerTotalLabel = new Label();
@@ -95,10 +96,10 @@ public class OutcomingsView {
 
     public OutcomingsView(OutcomingService outcomingService) {
         this.outcomingService = outcomingService;
-        statusFilter.setValue("Tous");
+        statusFilter.setValue(I18n.t("outcoming.all"));
         categoryFilter.setItems(FXCollections.observableArrayList(
-                "Toutes", "Salaires", "Loyer", "Fournitures", "Électricité", "Eau", "Maintenance", "Nourriture", "Transport", "Autre"));
-        categoryFilter.setValue("Toutes");
+                I18n.t("outcoming.all"), I18n.t("outcoming.category.salaries"), I18n.t("outcoming.category.rent"), I18n.t("outcoming.category.supplies"), I18n.t("outcoming.category.electricity"), I18n.t("outcoming.category.water"), I18n.t("outcoming.category.maintenance"), I18n.t("outcoming.category.food"), I18n.t("outcoming.category.transport"), I18n.t("outcoming.category.other")));
+        categoryFilter.setValue(I18n.t("outcoming.all"));
         categoryField.setMaxWidth(Double.MAX_VALUE);
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
@@ -124,12 +125,12 @@ public class OutcomingsView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText("Sorties");
+        pageTitleLabel.setText(I18n.t("outcoming.title"));
 
         buildColumns();
         buildRecurringColumns();
         wireRowDoubleClick();
-        Label subtitle = new Label("Gérer les dépenses et sorties d'argent");
+        Label subtitle = new Label(I18n.t("outcoming.subtitle"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
@@ -138,13 +139,13 @@ public class OutcomingsView {
         categoryFilter.getStyleClass().add("filter-field");
         categoryFilter.setPrefWidth(150);
 
-        Button addBtn = new Button("+  Nouvelle Sortie");
+        Button addBtn = new Button("+  " + I18n.t("outcoming.new"));
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> startCreate());
 
         HBox filters = new HBox(10,
-                labeledFilter("Du", dateFrom),
-                labeledFilter("Au", dateTo),
+                labeledFilter(I18n.t("filter.from"), dateFrom),
+                labeledFilter(I18n.t("filter.to"), dateTo),
                 categoryFilter,
                 statusFilter,
                 searchField
@@ -168,7 +169,7 @@ public class OutcomingsView {
         VBox tableBlock = new VBox(0, table, footer);
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        Label recurringTitle = new Label("Dépenses récurrentes");
+        Label recurringTitle = new Label(I18n.t("outcoming.recurring"));
         recurringTitle.getStyleClass().add("section-title");
         VBox recurringBlock = new VBox(8, recurringTitle, recurringTable);
         recurringBlock.setMinHeight(250);
@@ -216,36 +217,36 @@ public class OutcomingsView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Outcoming, String> date = new TableColumn<>("DATE");
+        TableColumn<Outcoming, String> date = new TableColumn<>(I18n.t("field.date").toUpperCase());
         date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getDateOutcome() == null ? "—" : d.getValue().getDateOutcome().format(DATE_FORMAT)));
 
-        TableColumn<Outcoming, String> label = new TableColumn<>("LIBELLÉ");
+        TableColumn<Outcoming, String> label = new TableColumn<>(I18n.t("outcoming.label").toUpperCase());
         label.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getLabel()));
         label.setPrefWidth(170);
         label.setCellFactory(col -> recurringAwareLabelCell());
 
-        TableColumn<Outcoming, String> beneficiary = new TableColumn<>("BÉNÉFICIAIRE");
+        TableColumn<Outcoming, String> beneficiary = new TableColumn<>(I18n.t("outcoming.beneficiary").toUpperCase());
         beneficiary.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getBeneficiary() == null || d.getValue().getBeneficiary().isBlank()
                         ? "—" : d.getValue().getBeneficiary()));
         beneficiary.setPrefWidth(150);
 
-        TableColumn<Outcoming, String> category = new TableColumn<>("CATÉGORIE");
+        TableColumn<Outcoming, String> category = new TableColumn<>(I18n.t("field.category").toUpperCase());
         category.setCellValueFactory(d -> new ReadOnlyStringWrapper(categoryLabel(d.getValue().getCategory())));
         category.setCellFactory(col -> categoryPillCell());
 
-        TableColumn<Outcoming, String> amount = new TableColumn<>("MONTANT");
+        TableColumn<Outcoming, String> amount = new TableColumn<>(I18n.t("field.amount").toUpperCase());
         amount.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatAmount(d.getValue().getAmount())));
 
-        TableColumn<Outcoming, String> method = new TableColumn<>("MÉTHODE");
+        TableColumn<Outcoming, String> method = new TableColumn<>(I18n.t("field.method").toUpperCase());
         method.setCellValueFactory(d -> new ReadOnlyStringWrapper(methodLabel(d.getValue().getPaymentMethod())));
 
-        TableColumn<Outcoming, PaymentStatus> status = new TableColumn<>("STATUT");
+        TableColumn<Outcoming, PaymentStatus> status = new TableColumn<>(I18n.t("field.status").toUpperCase());
         status.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue().getStatus()));
         status.setCellFactory(col -> statusCell());
 
-        TableColumn<Outcoming, Outcoming> actions = new TableColumn<>("ACTION");
+        TableColumn<Outcoming, Outcoming> actions = new TableColumn<>(I18n.t("students.table.actions").toUpperCase());
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
         actions.setPrefWidth(110);
@@ -285,22 +286,22 @@ public class OutcomingsView {
     private void buildRecurringColumns() {
         recurringTable.getColumns().clear();
 
-        TableColumn<Outcoming, String> label = new TableColumn<>("LIBELLÉ");
+        TableColumn<Outcoming, String> label = new TableColumn<>(I18n.t("outcoming.label").toUpperCase());
         label.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getLabel()));
         label.setPrefWidth(180);
 
-        TableColumn<Outcoming, String> amount = new TableColumn<>("MONTANT");
+        TableColumn<Outcoming, String> amount = new TableColumn<>(I18n.t("field.amount").toUpperCase());
         amount.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatAmount(d.getValue().getAmount())));
 
-        TableColumn<Outcoming, String> frequency = new TableColumn<>("FRÉQUENCE");
+        TableColumn<Outcoming, String> frequency = new TableColumn<>(I18n.t("outcoming.frequency").toUpperCase());
         frequency.setCellValueFactory(d -> new ReadOnlyStringWrapper(frequencyLabel(d.getValue().getFrequency())));
         frequency.setCellFactory(col -> categoryPillCell());
 
-        TableColumn<Outcoming, String> next = new TableColumn<>("PROCHAINE ÉCHÉANCE");
+        TableColumn<Outcoming, String> next = new TableColumn<>(I18n.t("outcoming.next_due").toUpperCase());
         next.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getNextOccurrenceDate() == null ? "—" : d.getValue().getNextOccurrenceDate().format(DATE_FORMAT)));
 
-        TableColumn<Outcoming, Outcoming> actions = new TableColumn<>("ACTION");
+        TableColumn<Outcoming, Outcoming> actions = new TableColumn<>(I18n.t("students.table.actions").toUpperCase());
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> recurringActionCell());
         actions.setPrefWidth(90);
@@ -318,18 +319,17 @@ public class OutcomingsView {
                     setGraphic(null);
                     return;
                 }
-                Button del = iconBtn("fth-trash-2", "Arrêter cette récurrence");
+                Button del = iconBtn("fth-trash-2", I18n.t("outcoming.stop_recurring"));
                 del.getStyleClass().add("icon-action-danger");
                 del.setOnAction(e -> {
-                    if (!DialogUtil.confirm("Confirmer",
-                            "Arrêter cette dépense récurrente ? Les sorties déjà générées ne seront pas supprimées.")) {
+                    if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("outcoming.stop_recurring_confirm"))) {
                         return;
                     }
                     String id = item.getId();
                     AsyncTasks.run(
                             () -> outcomingService.delete(id),
                             () -> reload(),
-                            err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
+                            err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.delete_failed").replace("{0}", err.getMessage()))
                     );
                 });
                 HBox box = new HBox(4, del);
@@ -380,9 +380,9 @@ public class OutcomingsView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", "Voir");
-                Button edit = iconBtn("fth-edit-2", "Modifier");
-                Button del  = iconBtn("fth-trash-2", "Supprimer");
+                Button view = iconBtn("fth-eye", I18n.t("action.view"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit"));
+                Button del  = iconBtn("fth-trash-2", I18n.t("action.delete"));
                 del.getStyleClass().add("icon-action-danger");
 
                 view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
@@ -429,43 +429,43 @@ public class OutcomingsView {
     private static String categoryLabel(OutcomingCategory category) {
         if (category == null) return "—";
         return switch (category) {
-            case SALAIRES -> "Salaires";
-            case LOYER -> "Loyer";
-            case FOURNITURES -> "Fournitures";
-            case ELECTRICITE -> "Électricité";
-            case EAU -> "Eau";
-            case MAINTENANCE -> "Maintenance";
-            case NOURRITURE -> "Nourriture";
-            case TRANSPORT -> "Transport";
-            case AUTRE -> "Autre";
+            case SALAIRES -> I18n.t("outcoming.category.salaries");
+            case LOYER -> I18n.t("outcoming.category.rent");
+            case FOURNITURES -> I18n.t("outcoming.category.supplies");
+            case ELECTRICITE -> I18n.t("outcoming.category.electricity");
+            case EAU -> I18n.t("outcoming.category.water");
+            case MAINTENANCE -> I18n.t("outcoming.category.maintenance");
+            case NOURRITURE -> I18n.t("outcoming.category.food");
+            case TRANSPORT -> I18n.t("outcoming.category.transport");
+            case AUTRE -> I18n.t("outcoming.category.other");
         };
     }
 
     private static String frequencyLabel(OutcomingFrequency frequency) {
         if (frequency == null) return "—";
         return switch (frequency) {
-            case DAILY -> "Chaque jour";
-            case WEEKLY -> "Chaque semaine";
-            case MONTHLY -> "Chaque mois";
-            case QUARTERLY -> "Tous les 3 mois";
+            case DAILY -> I18n.t("outcoming.frequency.daily");
+            case WEEKLY -> I18n.t("outcoming.frequency.weekly");
+            case MONTHLY -> I18n.t("outcoming.frequency.monthly");
+            case QUARTERLY -> I18n.t("outcoming.frequency.quarterly");
         };
     }
 
     private static String methodLabel(PaymentType type) {
         if (type == null) return "—";
         return switch (type) {
-            case CASH -> "Espèces";
-            case CARD -> "Carte";
-            case TRANSFER -> "Virement";
+            case CASH -> I18n.t("payment_method.cash");
+            case CARD -> I18n.t("payment_method.card");
+            case TRANSFER -> I18n.t("payment_method.transfer");
         };
     }
 
     private static String statusLabel(PaymentStatus status) {
         if (status == null) return "—";
         return switch (status) {
-            case PAID -> "PAYÉ";
-            case PENDING -> "EN ATTENTE";
-            case OVERDUE -> "EN RETARD";
+            case PAID -> I18n.t("status.paid");
+            case PENDING -> I18n.t("status.pending");
+            case OVERDUE -> I18n.t("status.overdue");
         };
     }
 
@@ -485,23 +485,23 @@ public class OutcomingsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Libellé *", labelField);
-        FormFactory.addRow(grid, 1, "Montant *", amountField);
-        FormFactory.addRow(grid, 2, "Catégorie", categoryField);
-        FormFactory.addRow(grid, 3, "Bénéficiaire", beneficiaryField);
-        FormFactory.addRow(grid, 4, "Méthode", methodField);
-        FormFactory.addRow(grid, 5, "Statut", statusField);
+        FormFactory.addRow(grid, 0, I18n.t("outcoming.label") + " *", labelField);
+        FormFactory.addRow(grid, 1, I18n.t("field.amount") + " *", amountField);
+        FormFactory.addRow(grid, 2, I18n.t("field.category"), categoryField);
+        FormFactory.addRow(grid, 3, I18n.t("outcoming.beneficiary"), beneficiaryField);
+        FormFactory.addRow(grid, 4, I18n.t("field.method"), methodField);
+        FormFactory.addRow(grid, 5, I18n.t("field.status"), statusField);
         FormFactory.addRow(grid, 6, startDateLabel.getText(), outcomingDateField);
         grid.add(recurringCheck, 0, 7, 2, 1);
-        FormFactory.addRow(grid, 8, "Fréquence", frequencyField);
+        FormFactory.addRow(grid, 8, I18n.t("outcoming.frequency"), frequencyField);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button("+ Nouveau");
+        Button clear = new Button("+ " + I18n.t("action.new"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -522,7 +522,7 @@ public class OutcomingsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails de la sortie", form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("outcoming.details"), form, this::closeForm);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {
@@ -582,18 +582,18 @@ public class OutcomingsView {
 
     private void save() {
         if (labelField.getText().isBlank() || amountField.getText().isBlank()) {
-            DialogUtil.error("Champs requis", "Le libellé et le montant sont obligatoires.");
+            DialogUtil.error(I18n.t("dialog.required_fields"), I18n.t("outcoming.label_amount_required"));
             return;
         }
         double amount;
         try {
             amount = Double.parseDouble(amountField.getText().trim().replace(",", "."));
         } catch (NumberFormatException ex) {
-            DialogUtil.error("Valeur invalide", "Le montant doit être un nombre.");
+            DialogUtil.error(I18n.t("dialog.error"), I18n.t("outcoming.invalid_amount"));
             return;
         }
         if (recurringCheck.isSelected() && frequencyField.getValue() == null) {
-            DialogUtil.error("Champs requis", "Choisissez une fréquence pour une dépense récurrente.");
+            DialogUtil.error(I18n.t("dialog.required_fields"), I18n.t("outcoming.frequency_required"));
             return;
         }
 
@@ -616,18 +616,18 @@ public class OutcomingsView {
         AsyncTasks.run(
                 () -> outcomingService.save(outcoming),
                 saved -> { clearForm(); closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.save_failed").replace("{0}", err.getMessage()))
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm("Confirmer", "Supprimer cette sortie ?")) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("outcoming.delete_confirm"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> outcomingService.delete(id),
                 () -> { clearForm(); closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.delete_failed").replace("{0}", err.getMessage()))
         );
     }
 
@@ -635,7 +635,7 @@ public class OutcomingsView {
         AsyncTasks.run(
                 () -> outcomingService.generateDueOccurrences(),
                 this::loadLists,
-                err -> DialogUtil.error("Erreur", "Échec de la génération des sorties récurrentes : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("outcoming.generate_failed").replace("{0}", err.getMessage()))
         );
     }
 
@@ -646,12 +646,12 @@ public class OutcomingsView {
                     allOutcomings = list;
                     applyFilters();
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.load_failed").replace("{0}", err.getMessage()))
         );
         AsyncTasks.run(
                 () -> outcomingService.findRecurringTemplates(),
                 list -> recurringRows.setAll(list),
-                err -> DialogUtil.error("Erreur", "Échec du chargement des récurrences : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("outcoming.load_recurring_failed").replace("{0}", err.getMessage()))
         );
     }
 
@@ -669,10 +669,10 @@ public class OutcomingsView {
                         String beneficiary = o.getBeneficiary() == null ? "" : o.getBeneficiary().toLowerCase();
                         if (!label.contains(needle) && !beneficiary.contains(needle)) return false;
                     }
-                    if (statusVal != null && !"Tous".equals(statusVal)) {
+                    if (statusVal != null && !I18n.t("outcoming.all").equals(statusVal)) {
                         if (!statusLabel(o.getStatus()).equals(statusVal)) return false;
                     }
-                    if (categoryVal != null && !"Toutes".equals(categoryVal)) {
+                    if (categoryVal != null && !I18n.t("outcoming.all").equals(categoryVal)) {
                         if (!categoryLabel(o.getCategory()).equals(categoryVal)) return false;
                     }
                     if (from != null && o.getDateOutcome() != null && o.getDateOutcome().toLocalDate().isBefore(from)) {
@@ -692,8 +692,8 @@ public class OutcomingsView {
 
     private void updateFooter(List<Outcoming> data) {
         double total = data.stream().mapToDouble(o -> o.getAmount() == null ? 0 : o.getAmount()).sum();
-        footerCountLabel.setText("Total des sorties : " + data.size());
-        footerTotalLabel.setText("Total Montant : " + formatAmount(total));
+        footerCountLabel.setText(I18n.t("outcoming.total_count").replace("{0}", String.valueOf(data.size())));
+        footerTotalLabel.setText(I18n.t("outcoming.total_amount").replace("{0}", formatAmount(total)));
     }
 
     private void updateSummaryCards(List<Outcoming> data) {
@@ -707,10 +707,10 @@ public class OutcomingsView {
         double overdueAmount = overdue.stream().mapToDouble(o -> o.getAmount() == null ? 0 : o.getAmount()).sum();
 
         summaryCards.getChildren().addAll(
-                summaryCard("fth-trending-down", String.valueOf(data.size()), "Total Sorties", "#DC2626", "#FEE2E2"),
-                summaryCard("fth-dollar-sign", formatAmount(totalAmount), "Montant Total", "#DC2626", "#FEE2E2"),
-                summaryCard("fth-clock", pending.size() + " · " + formatAmount(pendingAmount), "En Attente", "#D97706", "#FEF3C7"),
-                summaryCard("fth-alert-circle", overdue.size() + " · " + formatAmount(overdueAmount), "En Retard", "#B91C1C", "#FECACA")
+                summaryCard("fth-trending-down", String.valueOf(data.size()), I18n.t("outcoming.total"), "#DC2626", "#FEE2E2"),
+                summaryCard("fth-dollar-sign", formatAmount(totalAmount), I18n.t("field.amount"), "#DC2626", "#FEE2E2"),
+                summaryCard("fth-clock", pending.size() + " · " + formatAmount(pendingAmount), I18n.t("outcoming.pending"), "#D97706", "#FEF3C7"),
+                summaryCard("fth-alert-circle", overdue.size() + " · " + formatAmount(overdueAmount), I18n.t("status.overdue"), "#B91C1C", "#FECACA")
         );
         for (var n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
     }

@@ -1,5 +1,7 @@
 package com.example.mef.demo.dashboard.common;
 
+import com.example.mef.demo.util.I18n;
+
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -99,10 +101,10 @@ public class WeeklyOccupancyGrid {
             new ComboBox<>();
 
     private final Button addSlotButton =
-            new Button("＋ Ajouter");
+            new Button("＋ " + I18n.t("classroom.occupancy.add"));
 
     private final Button clearDayButton =
-            new Button("Effacer le jour");
+            new Button(I18n.t("classroom.occupancy.clear_day"));
 
     private final VBox editor =
             new VBox(8);
@@ -153,7 +155,7 @@ public class WeeklyOccupancyGrid {
         root.getStyleClass().add("weekly-occupancy");
 
         Label title =
-                new Label("Occupation hebdomadaire");
+                new Label(I18n.t("classroom.occupancy.title"));
 
         title.setStyle(
                 "-fx-font-size: 14px;" +
@@ -239,10 +241,10 @@ public class WeeklyOccupancyGrid {
         endTimeBox.setPrefWidth(100);
 
         Label fromLabel =
-                new Label("De");
+                new Label(I18n.t("classroom.occupancy.from"));
 
         Label toLabel =
-                new Label("à");
+                new Label(I18n.t("classroom.occupancy.to"));
 
         addSlotButton.getStyleClass()
                 .add("primary-button");
@@ -308,7 +310,7 @@ public class WeeklyOccupancyGrid {
                 new VBox(5);
 
         Label slotsTitle =
-                new Label("Créneaux du jour");
+                new Label(I18n.t("classroom.occupancy.slots"));
 
         slotsTitle.setStyle(
                 "-fx-font-weight: bold;" +
@@ -414,7 +416,7 @@ public class WeeklyOccupancyGrid {
         }
 
         selectedDayLabel.setText(
-                "Occupation — " + dayName(day)
+                I18n.t("classroom.occupancy.for_day").replace("{0}", dayName(day))
         );
 
         TimeSlot first =
@@ -535,7 +537,7 @@ public class WeeklyOccupancyGrid {
 
                 Label empty =
                         new Label(
-                                "Aucun créneau défini pour ce jour."
+                                I18n.t("classroom.occupancy.none")
                         );
 
                 empty.setStyle(
@@ -998,33 +1000,15 @@ public class WeeklyOccupancyGrid {
         };
     }
 
-    /**
-     * French day names.
-     */
     private String dayName(DayOfWeek day) {
-
         return switch (day) {
-
-            case MONDAY ->
-                    "Lundi";
-
-            case TUESDAY ->
-                    "Mardi";
-
-            case WEDNESDAY ->
-                    "Mercredi";
-
-            case THURSDAY ->
-                    "Jeudi";
-
-            case FRIDAY ->
-                    "Vendredi";
-
-            case SATURDAY ->
-                    "Samedi";
-
-            case SUNDAY ->
-                    "Dimanche";
+            case MONDAY -> I18n.t("day.mon");
+            case TUESDAY -> I18n.t("day.tue");
+            case WEDNESDAY -> I18n.t("day.wed");
+            case THURSDAY -> I18n.t("day.thu");
+            case FRIDAY -> I18n.t("day.fri");
+            case SATURDAY -> I18n.t("day.sat");
+            case SUNDAY -> I18n.t("day.sun");
         };
     }
 
@@ -1057,7 +1041,7 @@ public class WeeklyOccupancyGrid {
                 );
 
         alert.setTitle(
-                "Occupation hebdomadaire"
+                I18n.t("classroom.occupancy.title")
         );
 
         alert.setHeaderText(null);

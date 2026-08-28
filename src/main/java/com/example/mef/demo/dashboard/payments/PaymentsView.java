@@ -11,6 +11,7 @@ import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.PaymentStatus;
 import com.example.mef.demo.enums.PaymentType;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -67,15 +68,15 @@ public class PaymentsView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher par élève...");
+    private final TextField searchField = FormFactory.textField("");
     private final ComboBox<String> statusFilter = new ComboBox<>(
             FXCollections.observableArrayList("Tous", "PAYÉ", "EN ATTENTE", "EN RETARD"));
     private final DatePicker dateFrom = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 1, 1));
     private final DatePicker dateTo = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 12, 31));
 
     private final ComboBox<Inscription> inscriptionField = new ComboBox<>();
-    private final TextField amountField = FormFactory.textField("Montant");
-    private final TextField categoryField = FormFactory.textField("Catégorie (Scolarité, Transport, ...)");
+    private final TextField amountField = FormFactory.textField("");
+    private final TextField categoryField = FormFactory.textField("");
     private final ComboBox<PaymentType> methodField = new ComboBox<>(FXCollections.observableArrayList(PaymentType.values()));
     private final ComboBox<PaymentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(PaymentStatus.values()));
     private final DatePicker paymentDateField = new DatePicker();
@@ -121,25 +122,28 @@ public class PaymentsView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText("Paiements");
+        searchField.setPromptText(I18n.t("payment.search"));
+        amountField.setPromptText(I18n.t("field.amount"));
+        categoryField.setPromptText(I18n.t("field.category"));
+        pageTitleLabel.setText(I18n.t("payment.title"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label("Gérer les paiements des élèves");
+        Label subtitle = new Label(I18n.t("payment.subtitle"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
         statusFilter.getStyleClass().add("filter-field");
         statusFilter.setPrefWidth(140);
 
-        Button addBtn = new Button("+  Nouveau Paiement");
+        Button addBtn = new Button("+  " + I18n.t("payment.add"));
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> startCreate());
 
         HBox filters = new HBox(10,
-                labeledFilter("Du", dateFrom),
-                labeledFilter("Au", dateTo),
+                labeledFilter(I18n.t("payment.from"), dateFrom),
+                labeledFilter(I18n.t("payment.to"), dateTo),
                 statusFilter,
                 searchField
         );
@@ -166,9 +170,8 @@ public class PaymentsView {
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        if (form == null) {
-            form = buildForm();
-        }
+        form = buildForm();
+        floatingForm = null;
 
         // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
         // to the table/buttons underneath wherever the overlay itself has no floating panel.
@@ -369,22 +372,22 @@ public class PaymentsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Inscription *", inscriptionField);
-        FormFactory.addRow(grid, 1, "Montant *", amountField);
-        FormFactory.addRow(grid, 2, "Catégorie", categoryField);
-        FormFactory.addRow(grid, 3, "Méthode", methodField);
-        FormFactory.addRow(grid, 4, "Statut", statusField);
-        FormFactory.addRow(grid, 5, "Date de paiement", paymentDateField);
+        FormFactory.addRow(grid, 0, I18n.t("nav.enrollments") + " *", inscriptionField);
+        FormFactory.addRow(grid, 1, I18n.t("field.amount") + " *", amountField);
+        FormFactory.addRow(grid, 2, I18n.t("field.category"), categoryField);
+        FormFactory.addRow(grid, 3, I18n.t("field.method"), methodField);
+        FormFactory.addRow(grid, 4, I18n.t("field.status"), statusField);
+        FormFactory.addRow(grid, 5, I18n.t("payment.date"), paymentDateField);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button clear = new Button("+ Nouveau");
+        Button clear = new Button("+ " + I18n.t("action.new"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
 
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -402,7 +405,7 @@ public class PaymentsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails du paiement", form, this::closeForm, 480);
+            floatingForm = new FloatingPanel(I18n.t("payment.details"), form, this::closeForm, 480);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {

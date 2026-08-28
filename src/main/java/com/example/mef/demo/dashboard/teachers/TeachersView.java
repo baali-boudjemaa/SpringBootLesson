@@ -13,6 +13,7 @@ import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
@@ -100,7 +101,7 @@ public class TeachersView {
     // =========================================================
 
     private final TextField searchField =
-            FormFactory.textField("Rechercher un employé...");
+            FormFactory.textField("");
 
     private final ComboBox<String> roleFilter = new ComboBox<>();
 
@@ -112,16 +113,16 @@ public class TeachersView {
     // =========================================================
 
     private final TextField firstNameField =
-            FormFactory.textField("Prénom");
+            FormFactory.textField("");
 
     private final TextField lastNameField =
-            FormFactory.textField("Nom");
+            FormFactory.textField("");
 
     private final TextField emailField =
-            FormFactory.textField("Email");
+            FormFactory.textField("");
 
     private final TextField phoneField =
-            FormFactory.textField("Téléphone");
+            FormFactory.textField("");
 
     private final ComboBox<EmployeeRole> roleField =
             new ComboBox<>(
@@ -134,13 +135,13 @@ public class TeachersView {
             new TextArea();
 
     private final TextField availabilityField =
-            FormFactory.textField("Aucune disponibilité");
+            FormFactory.textField("");
 
     private final Button availabilityButton =
-            new Button("Choisir…");
+            new Button();
 
     private final Button timetableButton =
-            new Button("📅 Emploi du temps");
+            new Button();
 
     // =========================================================
     // AVAILABILITY STATE
@@ -175,9 +176,11 @@ public class TeachersView {
         roleField.setMaxWidth(
                 Double.MAX_VALUE
         );
+        roleField.setCellFactory(cb -> roleListCell());
+        roleField.setButtonCell(roleListCell());
 
         certificationsField.setPromptText(
-                "Certifications"
+                I18n.t("teachers.form.certifications")
         );
 
         certificationsField.setPrefRowCount(3);
@@ -309,7 +312,7 @@ public class TeachersView {
         if (currentWorkingDays == null
                 || currentWorkingDays.isBlank()) {
 
-            availabilityField.setText("Aucune disponibilité");
+            availabilityField.setText(I18n.t("teachers.form.no_availability"));
 
             return;
         }
@@ -330,6 +333,28 @@ public class TeachersView {
         availabilityField.setText(days + hours);
     }
 
+    private void refreshTranslations() {
+        searchField.setPromptText(I18n.t("teachers.search"));
+        firstNameField.setPromptText(I18n.t("field.first_name"));
+        lastNameField.setPromptText(I18n.t("field.last_name"));
+        emailField.setPromptText(I18n.t("field.email"));
+        phoneField.setPromptText(I18n.t("field.phone"));
+        certificationsField.setPromptText(I18n.t("teachers.form.certifications"));
+        availabilityButton.setText(I18n.t("teachers.form.choose"));
+        timetableButton.setText("📅 " + I18n.t("teachers.form.timetable"));
+        updateAvailabilitySummary();
+    }
+
+    private javafx.scene.control.ListCell<EmployeeRole> roleListCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(EmployeeRole item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : employeeRoleLabel(item));
+            }
+        };
+    }
+
     // =========================================================
     // RENDER
     // =========================================================
@@ -339,16 +364,14 @@ public class TeachersView {
             Label pageTitleLabel
     ) {
 
-        pageTitleLabel.setText("Personnel");
+        refreshTranslations();
+        pageTitleLabel.setText(I18n.t("teachers.title"));
 
-        if (!tableInitialized) {
+        // Recreate the columns on each render so they immediately follow a language change.
+        initializeTeacherTable();
+        tableInitialized = true;
 
-            initializeTeacherTable();
-
-            tableInitialized = true;
-        }
-
-        Label subtitle = new Label("Gérer les enseignants et le personnel");
+        Label subtitle = new Label(I18n.t("teachers.subtitle"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
@@ -356,7 +379,7 @@ public class TeachersView {
         roleFilter.setPrefWidth(150);
 
         Button add =
-                new Button("+  Ajouter un employé");
+                new Button("+  " + I18n.t("teachers.add"));
 
         add.getStyleClass().add("primary-button");
 
@@ -399,9 +422,8 @@ public class TeachersView {
         // FORM (built once, panel shown/hidden on demand)
         // -----------------------------------------------------
 
-        if (form == null) {
-            form = buildForm();
-        }
+        form = buildForm();
+        floatingForm = null;
         // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
         // to the table/buttons underneath wherever the overlay itself has no floating panel.
         overlay = new Pane();
@@ -434,7 +456,7 @@ public class TeachersView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails de l'employé", form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("teachers.form.details"), form, this::closeForm);
             floatingForm.setPrefWidth(450);
 
         }
@@ -473,12 +495,12 @@ public class TeachersView {
         GridPane grid =
                 FormFactory.sectionGrid();
 
-        FormFactory.addRow(grid, 0, "Prénom", firstNameField);
-        FormFactory.addRow(grid, 1, "Nom", lastNameField);
-        FormFactory.addRow(grid, 2, "Email", emailField);
-        FormFactory.addRow(grid, 3, "Téléphone", phoneField);
-        FormFactory.addRow(grid, 4, "Rôle", roleField);
-        FormFactory.addRow(grid, 5, "Certifications", certificationsField);
+        FormFactory.addRow(grid, 0, I18n.t("field.first_name"), firstNameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.last_name"), lastNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.email"), emailField);
+        FormFactory.addRow(grid, 3, I18n.t("field.phone"), phoneField);
+        FormFactory.addRow(grid, 4, I18n.t("teachers.form.role"), roleField);
+        FormFactory.addRow(grid, 5, I18n.t("teachers.form.certifications"), certificationsField);
 
         HBox availabilityRow =
                 new HBox(6, availabilityField, availabilityButton);
@@ -487,28 +509,28 @@ public class TeachersView {
 
         HBox.setHgrow(availabilityField, Priority.ALWAYS);
 
-        FormFactory.addRow(grid, 6, "Disponibilité", availabilityRow);
+        FormFactory.addRow(grid, 6, I18n.t("teachers.form.availability"), availabilityRow);
 
         // -----------------------------------------------------
         // BUTTONS
         // -----------------------------------------------------
 
         Button save =
-                new Button("Enregistrer");
+                new Button(I18n.t("action.save"));
 
         save.getStyleClass().add("primary-button");
 
         save.setOnAction(e -> save());
 
         Button clear =
-                new Button("+ Nouveau");
+                new Button("+ " + I18n.t("action.new"));
 
         clear.getStyleClass().add("secondary-button");
 
         clear.setOnAction(e -> startCreate());
 
         Button delete =
-                new Button("Supprimer");
+                new Button(I18n.t("action.delete"));
 
         delete.getStyleClass().add("danger-button");
 
@@ -672,7 +694,7 @@ public class TeachersView {
     private void initializeTeacherTable() {
 
         TableColumn<Employee, String> number =
-                new TableColumn<>("N°");
+                new TableColumn<>(I18n.t("teachers.table.number"));
 
         number.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -683,7 +705,7 @@ public class TeachersView {
         number.setPrefWidth(80);
 
         TableColumn<Employee, String> name =
-                new TableColumn<>("NOM");
+                new TableColumn<>(I18n.t("teachers.table.name"));
 
         name.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -696,13 +718,13 @@ public class TeachersView {
         name.setPrefWidth(160);
 
         TableColumn<Employee, String> role =
-                new TableColumn<>("RÔLE");
+                new TableColumn<>(I18n.t("teachers.table.role"));
 
         role.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
                         d.getValue().getRole() == null
                                 ? ""
-                                : d.getValue().getRole().name()
+                                : employeeRoleLabel(d.getValue().getRole())
                 )
         );
 
@@ -711,7 +733,7 @@ public class TeachersView {
         role.setPrefWidth(120);
 
         TableColumn<Employee, String> email =
-                new TableColumn<>("EMAIL");
+                new TableColumn<>(I18n.t("teachers.table.email"));
 
         email.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -722,7 +744,7 @@ public class TeachersView {
         email.setPrefWidth(180);
 
         TableColumn<Employee, Employee> availability =
-                new TableColumn<>("DISPONIBILITÉ");
+                new TableColumn<>(I18n.t("teachers.table.availability"));
 
         availability.setCellValueFactory(
                 d -> new ReadOnlyObjectWrapper<>(d.getValue())
@@ -733,7 +755,7 @@ public class TeachersView {
         availability.setPrefWidth(230);
 
         TableColumn<Employee, Employee> actions =
-                new TableColumn<>("ACTION");
+                new TableColumn<>(I18n.t("teachers.table.actions"));
 
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
@@ -961,7 +983,8 @@ public class TeachersView {
     }
 
     private void updateFooter(List<Employee> data) {
-        footerCountLabel.setText(data.size() + (data.size() > 1 ? " employés" : " employé"));
+        footerCountLabel.setText(data.size() + " " + I18n.t(
+                data.size() > 1 ? "teachers.table.count_plural" : "teachers.table.count_singular"));
     }
 
     private void updateSummaryCards(List<Employee> data) {
@@ -1525,14 +1548,24 @@ public class TeachersView {
 
         return switch (day) {
 
-            case "Lundi" -> "Lun";
-            case "Mardi" -> "Mar";
-            case "Mercredi" -> "Mer";
-            case "Jeudi" -> "Jeu";
-            case "Vendredi" -> "Ven";
-            case "Samedi" -> "Sam";
-            case "Dimanche" -> "Dim";
+            case "Lundi" -> I18n.t("day.mon");
+            case "Mardi" -> I18n.t("day.tue");
+            case "Mercredi" -> I18n.t("day.wed");
+            case "Jeudi" -> I18n.t("day.thu");
+            case "Vendredi" -> I18n.t("day.fri");
+            case "Samedi" -> I18n.t("day.sat");
+            case "Dimanche" -> I18n.t("day.sun");
             default -> day;
+        };
+    }
+
+    private static String employeeRoleLabel(EmployeeRole role) {
+        return switch (role) {
+            case TEACHER -> I18n.t("employee_role.teacher");
+            case ASSISTANT -> I18n.t("employee_role.assistant");
+            case KITCHEN -> I18n.t("employee_role.kitchen");
+            case CLEANER -> I18n.t("employee_role.cleaner");
+            case ADMIN -> I18n.t("employee_role.admin");
         };
     }
 

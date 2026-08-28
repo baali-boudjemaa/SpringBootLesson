@@ -18,4 +18,13 @@ public class DateUtil {
     public static String frShort(LocalDateTime date) {
         return date == null ? "—" : frShort(date.toLocalDate());
     }
+
+    /** Formats dates in the application's active language. */
+    public static String localizedShort(LocalDate date) {
+        return date == null ? "—" : DateTimeFormatter.ofPattern("d MMM yyyy", I18n.getLocale()).format(date);
+    }
+
+    public static String localizedShort(LocalDateTime date) {
+        return date == null ? "—" : localizedShort(date.toLocalDate());
+    }
 }

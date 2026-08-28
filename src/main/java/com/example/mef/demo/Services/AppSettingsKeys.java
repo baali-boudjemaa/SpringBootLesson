@@ -13,4 +13,8 @@ public final class AppSettingsKeys {
     /** Display language for the whole app. Stored as a language tag ("fr" or "ar"). */
     public static final String LOCALE = "app.locale";
     public static final String LOCALE_DEFAULT = "fr";
+
+    /** Name displayed for the school/centre throughout the desktop application. */
+    public static final String SCHOOL_NAME = "app.school_name";
+    public static final String SCHOOL_NAME_DEFAULT = "Rawdati";
 }

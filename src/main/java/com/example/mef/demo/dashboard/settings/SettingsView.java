@@ -17,6 +17,10 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -44,18 +48,48 @@ public class SettingsView {
      * controller for {@code showModule(activeModule)} as the original code did.
      */
     public void render(BorderPane contentPane) {
+        VBox schoolIdentityCard = buildSchoolIdentityCard();
         VBox languageCard = buildLanguageCard();
         VBox licenseCard = licenseCardBuilder.build(() -> render(contentPane));
         VBox enrollmentRulesCard = buildEnrollmentRulesCard();
         VBox scheduleRulesCard = buildScheduleRulesCard();
 
-        VBox root = new VBox(20, languageCard, enrollmentRulesCard, scheduleRulesCard, licenseCard);
+        VBox root = new VBox(20, schoolIdentityCard, languageCard, enrollmentRulesCard, scheduleRulesCard, licenseCard);
         root.setPadding(new Insets(24));
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         contentPane.setCenter(scroll);
+    }
+
+    /** Lets an administrator choose the name displayed for their school/centre. */
+    private VBox buildSchoolIdentityCard() {
+        Label title = new Label(I18n.t("settings.school_identity"));
+        title.getStyleClass().add("workflow-title");
+        Label hint = new Label(I18n.t("settings.school_identity_hint"));
+        hint.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+
+        TextField schoolName = new TextField(settingService.get(
+                AppSettingsKeys.SCHOOL_NAME, AppSettingsKeys.SCHOOL_NAME_DEFAULT));
+        schoolName.setPromptText(I18n.t("settings.school_name"));
+        schoolName.setPrefWidth(360);
+
+        Button save = new Button(I18n.t("action.save"));
+        save.getStyleClass().add("primary-button");
+        save.setOnAction(event -> {
+            String value = schoolName.getText() == null ? "" : schoolName.getText().trim();
+            if (value.isBlank()) {
+                DialogUtil.error(I18n.t("settings.school_identity"), I18n.t("settings.school_name_required"));
+                return;
+            }
+            settingService.set(AppSettingsKeys.SCHOOL_NAME, value, I18n.t("settings.school_name"));
+            DialogUtil.info(I18n.t("settings.school_identity"), I18n.t("settings.school_name_saved"));
+        });
+
+        VBox card = new VBox(12, title, hint, schoolName, save);
+        card.getStyleClass().add("workflow-card");
+        return card;
     }
 
     /** "Language" card: switch the app between French and Arabic. */
@@ -154,28 +188,87 @@ public class SettingsView {
      * "jours de congé/fermeture" — there is no dated holiday calendar.
      */
     private VBox buildScheduleRulesCard() {
-        Label title = new Label("Règles d'emploi du temps");
+        Label title = new Label(I18n.t("settings.schedule.title"));
         title.getStyleClass().add("workflow-title");
 
-        Label hint = new Label("Jours de fermeture hebdomadaire de l'établissement : aucun cours ne pourra être "
-                + "planifié ces jours-là.");
+        Label hint = new Label(I18n.t("settings.schedule.hint"));
         hint.setWrapText(true);
+        hint.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         DaysPicker closedDaysField = new DaysPicker();
         closedDaysField.setValue(settingService.get(ScheduleSettingsKeys.CLOSED_DAYS, ScheduleSettingsKeys.CLOSED_DAYS_DEFAULT));
 
+        TextField dayStartField = new TextField(settingService.get(
+                ScheduleSettingsKeys.DAY_START, ScheduleSettingsKeys.DAY_START_DEFAULT));
+        TextField breakStartField = new TextField(settingService.get(
+                ScheduleSettingsKeys.BREAK_START, ScheduleSettingsKeys.BREAK_START_DEFAULT));
+        TextField breakEndField = new TextField(settingService.get(
+                ScheduleSettingsKeys.BREAK_END, ScheduleSettingsKeys.BREAK_END_DEFAULT));
+        TextField dayEndField = new TextField(settingService.get(
+                ScheduleSettingsKeys.DAY_END, ScheduleSettingsKeys.DAY_END_DEFAULT));
+        for (TextField field : List.of(dayStartField, breakStartField, breakEndField, dayEndField)) {
+            field.setPromptText("08:00");
+            field.setPrefColumnCount(8);
+            field.setStyle("-fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #CBD5E1; "
+                    + "-fx-padding: 8 10; -fx-font-weight: bold; -fx-text-fill: #0F172A;");
+        }
+
+        GridPane hoursGrid = new GridPane();
+        hoursGrid.setHgap(12);
+        hoursGrid.setVgap(10);
+        hoursGrid.setStyle("-fx-background-color: #F8FAFC; -fx-background-radius: 10; -fx-padding: 14;");
+        Label hoursTitle = new Label(I18n.t("settings.schedule.hours"));
+        hoursTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;");
+        hoursGrid.add(hoursTitle, 0, 0, 2, 1);
+        hoursGrid.addRow(1, scheduleLabel(I18n.t("settings.schedule.opening")), dayStartField);
+        hoursGrid.addRow(2, scheduleLabel(I18n.t("settings.schedule.break_start")), breakStartField);
+        hoursGrid.addRow(3, scheduleLabel(I18n.t("settings.schedule.break_end")), breakEndField);
+        hoursGrid.addRow(4, scheduleLabel(I18n.t("settings.schedule.closing")), dayEndField);
+
         Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(event -> {
-            settingService.set(ScheduleSettingsKeys.CLOSED_DAYS, closedDaysField.getValue(), "Jours de fermeture hebdomadaire");
-            DialogUtil.info("Règles d'emploi du temps", I18n.t("settings.saved"));
+            try {
+                LocalTime dayStart = parseScheduleTime(dayStartField.getText());
+                LocalTime breakStart = parseScheduleTime(breakStartField.getText());
+                LocalTime breakEnd = parseScheduleTime(breakEndField.getText());
+                LocalTime dayEnd = parseScheduleTime(dayEndField.getText());
+                if (!dayStart.isBefore(breakStart) || !breakStart.isBefore(breakEnd) || !breakEnd.isBefore(dayEnd)) {
+                    throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_order"));
+                }
+            } catch (IllegalArgumentException exception) {
+                DialogUtil.error(I18n.t("settings.schedule.title"), exception.getMessage());
+                return;
+            }
+            settingService.set(ScheduleSettingsKeys.CLOSED_DAYS, closedDaysField.getValue(), I18n.t("settings.schedule.closed_days"));
+            settingService.set(ScheduleSettingsKeys.DAY_START, dayStartField.getText().trim(), I18n.t("settings.schedule.opening"));
+            settingService.set(ScheduleSettingsKeys.BREAK_START, breakStartField.getText().trim(), I18n.t("settings.schedule.break_start"));
+            settingService.set(ScheduleSettingsKeys.BREAK_END, breakEndField.getText().trim(), I18n.t("settings.schedule.break_end"));
+            settingService.set(ScheduleSettingsKeys.DAY_END, dayEndField.getText().trim(), I18n.t("settings.schedule.closing"));
+            DialogUtil.info(I18n.t("settings.schedule.title"), I18n.t("settings.saved"));
         });
 
         HBox actions = new HBox(10, save);
         actions.setPadding(new Insets(4, 0, 0, 0));
 
-        VBox card = new VBox(14, title, hint, closedDaysField.getNode(), actions);
+        Label closedDaysTitle = new Label(I18n.t("settings.schedule.closed_days"));
+        closedDaysTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;");
+        VBox card = new VBox(14, title, hint, hoursGrid, closedDaysTitle, closedDaysField.getNode(), actions);
         card.getStyleClass().add("workflow-card");
         return card;
+    }
+
+    private LocalTime parseScheduleTime(String value) {
+        try {
+            return LocalTime.parse(value == null ? "" : value.trim(), DateTimeFormatter.ofPattern("HH:mm"));
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_time"));
+        }
+    }
+
+    private Label scheduleLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-text-fill: #334155; -fx-font-size: 12px;");
+        return label;
     }
 }

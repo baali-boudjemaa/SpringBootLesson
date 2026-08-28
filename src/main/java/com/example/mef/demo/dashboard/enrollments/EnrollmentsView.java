@@ -63,7 +63,7 @@ public class EnrollmentsView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher par élève...");
+    private final TextField searchField = FormFactory.textField("");
     private final Label countLabel = new Label();
 
     private final ComboBox<Student> studentField = new ComboBox<>();
@@ -126,6 +126,11 @@ public class EnrollmentsView {
             }
         });
 
+        sessionField.setCellFactory(cb -> sessionListCell());
+        sessionField.setButtonCell(sessionListCell());
+        statusField.setCellFactory(cb -> enrollmentStatusListCell());
+        statusField.setButtonCell(enrollmentStatusListCell());
+
         // Whenever the selected classroom changes, rebuild the course chips
         // to show only the courses that belong to that classroom.
         classroomField.valueProperty().addListener((obs, oldClass, newClass) ->
@@ -152,20 +157,41 @@ public class EnrollmentsView {
         };
     }
 
+    private ListCell<SessionName> sessionListCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(SessionName item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : sessionLabel(item));
+            }
+        };
+    }
+
+    private ListCell<EnrollmentStatus> enrollmentStatusListCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(EnrollmentStatus item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : enrollmentStatusLabel(item));
+            }
+        };
+    }
+
     /** @param onNewEnrollmentWizard invoked when the user wants to run the step-by-step enrollment wizard. */
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onNewEnrollmentWizard) {
         this.onNewEnrollmentWizard = onNewEnrollmentWizard;
-        pageTitleLabel.setText("Inscriptions");
+        searchField.setPromptText(I18n.t("enrollment.search"));
+        pageTitleLabel.setText(I18n.t("enrollment.title"));
         table.setColumnResizePolicy(
                 TableView.UNCONSTRAINED_RESIZE_POLICY
         );
         buildColumns();
 
-        Label title = new Label("Inscriptions");
+        Label title = new Label(I18n.t("enrollment.title"));
         title.getStyleClass().add("page-title");
         countLabel.getStyleClass().add("stat-caption");
 
-        Button add = new Button("+  Ajouter une Inscription");
+        Button add = new Button("+  " + I18n.t("enrollment.add"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
@@ -215,42 +241,60 @@ public class EnrollmentsView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Inscription, String> date = new TableColumn<>("DATE");
+        TableColumn<Inscription, String> date = new TableColumn<>(I18n.t("enrollment.table.date"));
         date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getDateInscription() == null ? "—" : d.getValue().getDateInscription().format(DATE_FORMAT)));
         date.setPrefWidth(100);
 
-        TableColumn<Inscription, Inscription> student = new TableColumn<>("ÉLÈVE");
+        TableColumn<Inscription, Inscription> student = new TableColumn<>(I18n.t("enrollment.table.student"));
         student.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         student.setCellFactory(col -> studentAvatarCell());
         student.setPrefWidth(220);
 
-        TableColumn<Inscription, String> classroom = new TableColumn<>("CLASSE");
+        TableColumn<Inscription, String> classroom = new TableColumn<>(I18n.t("enrollment.table.classroom"));
         classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
         classroom.setCellFactory(col -> dashIfBlankCell());
         classroom.setPrefWidth(130);
 
-        TableColumn<Inscription, String> session = new TableColumn<>("SESSION");
+        TableColumn<Inscription, String> session = new TableColumn<>(I18n.t("enrollment.table.session"));
         session.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getSession() == null ? "—" : d.getValue().getSession().name()));
+                d.getValue().getSession() == null ? "—" : sessionLabel(d.getValue().getSession())));
         session.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         session.setPrefWidth(130);
 
-        TableColumn<Inscription, String> status = new TableColumn<>("STATUT");
+        TableColumn<Inscription, String> status = new TableColumn<>(I18n.t("enrollment.table.status"));
         status.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getStatus() == null ? "—" : d.getValue().getStatus().name()));
+                d.getValue().getStatus() == null ? "—" : enrollmentStatusLabel(d.getValue().getStatus())));
         status.setCellFactory(col -> statusCell());
         status.setPrefWidth(110);
 
         // NEW: one pill per enrolled course
-        TableColumn<Inscription, Inscription> courses = new TableColumn<>("COURS");
+        TableColumn<Inscription, Inscription> courses = new TableColumn<>(I18n.t("enrollment.table.courses"));
         courses.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         courses.setCellFactory(col -> coursesSummaryCell());
         courses.setPrefWidth(240);
 
         table.getColumns().addAll(List.of(date, student, classroom, session, status, courses));
     }
+
+    private String sessionLabel(SessionName session) {
+        return switch (session.name()) {
+            case "MATINEE" -> I18n.t("session.matinee");
+            case "JOURNEE_COMPLETE" -> I18n.t("session.journee_complete");
+            case "PERISCOLAIRE" -> I18n.t("session.periscolaire");
+            default -> session.name();
+        };
+    }
+
+    private String enrollmentStatusLabel(EnrollmentStatus status) {
+        return switch (status.name()) {
+            case "ACTIVE" -> I18n.t("status.active");
+            case "INACTIVE" -> I18n.t("status.inactive");
+            default -> status.name();
+        };
+    }
+
     /** Shows one pill per course the student is enrolled in for this inscription. */
     private TableCell<Inscription, Inscription> coursesSummaryCell() {
         return new TableCell<>() {
@@ -414,13 +458,13 @@ public class EnrollmentsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Élève", studentField);
-        FormFactory.addRow(grid, 1, "Classe", classroomField);
-        FormFactory.addRow(grid, 2, "Session", sessionField);
-        FormFactory.addRow(grid, 3, "Statut", statusField);
+        FormFactory.addRow(grid, 0, I18n.t("field.student"), studentField);
+        FormFactory.addRow(grid, 1, I18n.t("field.classroom"), classroomField);
+        FormFactory.addRow(grid, 2, I18n.t("field.session"), sessionField);
+        FormFactory.addRow(grid, 3, I18n.t("field.status"), statusField);
 
         // --- Cours: built as its own block, not through the 2-col grid row ---
-        Label coursesLabel = new Label("Cours");
+        Label coursesLabel = new Label(I18n.t("enrollment.table.courses"));
         coursesLabel.getStyleClass().add("field-label"); // match your other field labels' style
 
         ScrollPane coursesScroll = new ScrollPane(coursesBox);
@@ -431,23 +475,23 @@ public class EnrollmentsView {
         VBox coursesBlock = new VBox(6, coursesLabel, coursesScroll);
         // -----------------------------------------------------------------
 
-        HBox totalCostRow = new HBox(8, new Label("Coût mensuel (cours)"), totalCostValue);
+        HBox totalCostRow = new HBox(8, new Label(I18n.t("enrollment.cost")), totalCostValue);
         totalCostRow.setAlignment(Pos.CENTER_LEFT);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button cancel = new Button("Annuler");
+        Button cancel = new Button(I18n.t("wizard.cancel"));
         cancel.getStyleClass().add("secondary-button");
         cancel.setOnAction(e -> closeForm());
 
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label("Détails de l'inscription"), grid, coursesBlock, totalCostRow, actions);
+        VBox panel = new VBox(12, new Label(I18n.t("enrollment.details")), grid, coursesBlock, totalCostRow, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
@@ -558,6 +602,7 @@ public class EnrollmentsView {
                 return full.contains(lower);
             }));
         }
-        countLabel.setText(rows.size() + (rows.size() > 1 ? " inscriptions" : " inscription"));
+        countLabel.setText(rows.size() + " " + I18n.t(
+                rows.size() == 1 ? "enrollment.count_singular" : "enrollment.count_plural"));
     }
 }

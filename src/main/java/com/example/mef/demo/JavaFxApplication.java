@@ -4,6 +4,8 @@ import com.example.mef.demo.controller.ActivationController;
 import com.example.mef.demo.config.Session;
 import com.example.mef.demo.license.LicenseActivationDialog;
 import com.example.mef.demo.service.AuthService;
+import com.example.mef.demo.Services.AppSettingsKeys;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.util.SceneManager;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -42,7 +44,7 @@ public class JavaFxApplication extends Application {
     @Override
     public void start(Stage primaryStage) {
         SceneManager.init(primaryStage);
-        primaryStage.setTitle("School Admin");
+        primaryStage.setTitle(schoolName() + " - تفعيل البرنامج");
 
         var iconStream = getClass().getResourceAsStream("/icons/school-admin.png");
         if (iconStream != null) {
@@ -63,7 +65,7 @@ public class JavaFxApplication extends Application {
     }
     private void proceedToApp(Stage primaryStage) {
         SceneManager.init(primaryStage);
-        primaryStage.setTitle("School Admin");
+        primaryStage.setTitle(schoolName());
         primaryStage.setMaximized(true);
         var iconStream = getClass().getResourceAsStream("/icons/school-admin.png");
         if (iconStream != null) {
@@ -87,5 +89,10 @@ public class JavaFxApplication extends Application {
     public void stop() {
         this.applicationContext.close();
         Platform.exit();
+    }
+
+    private String schoolName() {
+        return applicationContext.getBean(SettingService.class).get(
+                AppSettingsKeys.SCHOOL_NAME, AppSettingsKeys.SCHOOL_NAME_DEFAULT);
     }
 }

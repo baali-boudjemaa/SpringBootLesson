@@ -62,6 +62,9 @@ public class DashboardController {
     @FXML private Button frButton;
     @FXML private Button arButton;
     @FXML private Button logoutButton;
+    @FXML private Button backupButton;
+    @FXML private Button restoreButton;
+    @FXML private Button searchBarBtn;
     @FXML private Button trialStatusButton;
     @FXML private VBox navigationBox;
     @FXML private ScrollPane sidebarScroll;
@@ -257,6 +260,9 @@ public class DashboardController {
         if (brandLabel != null) brandLabel.setText(I18n.t("brand"));
         if (brandSubtitleLabel != null) brandSubtitleLabel.setText(I18n.t("brand.subtitle"));
         if (logoutButton != null) logoutButton.setText(I18n.t("action.logout"));
+        if (backupButton != null) backupButton.setText(I18n.t("action.backup"));
+        if (restoreButton != null) restoreButton.setText(I18n.t("action.restore"));
+        if (searchBarBtn != null) searchBarBtn.setText(I18n.t("search.quick"));
 
         if (frButton != null && arButton != null) {
             frButton.getStyleClass().setAll(rtl ? "lang-button" : "lang-button-active");

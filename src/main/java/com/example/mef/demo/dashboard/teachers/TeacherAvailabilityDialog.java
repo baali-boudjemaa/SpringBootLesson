@@ -1,6 +1,7 @@
 package com.example.mef.demo.dashboard.teachers;
 
 import com.example.mef.demo.dashboard.courses.SchedulePickerDialog;
+import com.example.mef.demo.util.I18n;
 import javafx.stage.Window;
 
 import java.util.Optional;
@@ -18,8 +19,8 @@ public final class TeacherAvailabilityDialog {
         return SchedulePickerDialog.show(
                 owner,
                 currentSchedule,
-                "Disponibilité de l'enseignant",
-                "Cliquez sur un créneau pour le sélectionner ou le désélectionner. Chaque jour peut avoir ses propres heures."
+                I18n.t("availability.teacher_title"),
+                I18n.t("availability.hint")
         ).map(Result::new);
     }
 }

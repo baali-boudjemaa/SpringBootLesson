@@ -15,6 +15,7 @@ import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.Sexe;
 import com.example.mef.demo.util.DateUtil;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -72,20 +73,20 @@ public class StudentsView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher par nom ...");
+    private final TextField searchField = FormFactory.textField("");
     private final ComboBox<String> genderFilter = new ComboBox<>(
             FXCollections.observableArrayList("Tous", "Garçon", "Fille"));
     private final ComboBox<String> classFilter = new ComboBox<>(
             FXCollections.observableArrayList("Toutes"));
 
-    private final TextField firstNameField = FormFactory.textField("Prénom");
-    private final TextField lastNameField = FormFactory.textField("Nom");
+    private final TextField firstNameField = FormFactory.textField("");
+    private final TextField lastNameField = FormFactory.textField("");
     private final ComboBox<Sexe> genderField = new ComboBox<>(FXCollections.observableArrayList(Sexe.values()));
     private final DatePicker dobField = new DatePicker();
 
     private final ComboBox<String> bloodTypeField = FormFactory.comboBox(BLOOD_TYPES);
-    private final TextField medicalInfoField = FormFactory.textField("Informations médicales");
-    private final TextField notesField = FormFactory.textField("Notes générales");
+    private final TextField medicalInfoField = FormFactory.textField("");
+    private final TextField notesField = FormFactory.textField("");
 
     private final Label studentNumberValue = new Label("—");
     private final Label enrollmentDateValue = new Label("—");
@@ -121,12 +122,13 @@ public class StudentsView {
     /** @param onEnrollNew invoked when the user wants to run the full enrollment wizard instead of a bare add. */
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onEnrollNew) {
         this.onEnrollNew = onEnrollNew;
-        pageTitleLabel.setText("Enfants");
+        refreshTranslations();
+        pageTitleLabel.setText(I18n.t("students.title"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label("Gérer les enfants inscrits");
+        Label subtitle = new Label(I18n.t("students.subtitle"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
@@ -135,11 +137,11 @@ public class StudentsView {
         classFilter.getStyleClass().add("filter-field");
         classFilter.setPrefWidth(170);
         dobField.getStyleClass().add("filter-field");
-        Button add = new Button("+  Ajouter un Enfant");
+        Button add = new Button("+  " + I18n.t("students.add"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
-        Button wizard = new Button("Assistant d'inscription");
+        Button wizard = new Button(I18n.t("students.enrollment_assistant"));
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onEnrollNew.run());
 
@@ -166,9 +168,8 @@ public class StudentsView {
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        if (form == null) {
-            form = buildForm();
-        }
+        form = buildForm();
+        floatingForm = null;
 
         // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
         // to the table/buttons underneath wherever the overlay itself has no floating panel.
@@ -208,39 +209,39 @@ public class StudentsView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Student, Student> child = new TableColumn<>("ENFANT");
+        TableColumn<Student, Student> child = new TableColumn<>(I18n.t("students.table.child"));
         child.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         child.setCellFactory(col -> childCell());
         child.setPrefWidth(240);
 
-        TableColumn<Student, String> age = new TableColumn<>("ÂGE");
+        TableColumn<Student, String> age = new TableColumn<>(I18n.t("students.table.age"));
         age.setCellValueFactory(d -> new ReadOnlyStringWrapper(ageLabel(d.getValue())));
         age.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         age.setPrefWidth(90);
 
-        TableColumn<Student, String> section = new TableColumn<>("SECTION");
+        TableColumn<Student, String> section = new TableColumn<>(I18n.t("students.table.section"));
         section.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 classroomNameByStudentId.get(d.getValue().getId())));
         section.setCellFactory(col -> dashIfBlankCell());
         section.setPrefWidth(120);
 
-        TableColumn<Student, String> groupage = new TableColumn<>("GROUPAGE");
+        TableColumn<Student, String> groupage = new TableColumn<>(I18n.t("students.table.blood_group"));
         groupage.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getBloodType() == null ? "" : d.getValue().getBloodType().getLabel()));
         groupage.setCellFactory(col -> bloodCell());
         groupage.setPrefWidth(100);
 
-        TableColumn<Student, String> inscription = new TableColumn<>("INSCRIPTION");
+        TableColumn<Student, String> inscription = new TableColumn<>(I18n.t("students.table.enrollment"));
         inscription.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                DateUtil.frShort(d.getValue().getEnrollmentDate())));
+                DateUtil.localizedShort(d.getValue().getEnrollmentDate())));
         inscription.setPrefWidth(110);
 
-        TableColumn<Student, String> notes = new TableColumn<>("INFORMATIONS MÉDICALES");
+        TableColumn<Student, String> notes = new TableColumn<>(I18n.t("students.table.medical_information"));
         notes.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getNotes()));
         notes.setCellFactory(col -> dashIfBlankCell());
         notes.setPrefWidth(160);
 
-        TableColumn<Student, Student> actions = new TableColumn<>("ACTION");
+        TableColumn<Student, Student> actions = new TableColumn<>(I18n.t("students.table.actions"));
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
         actions.setPrefWidth(110);
@@ -263,7 +264,7 @@ public class StudentsView {
                 String fullName = (s.getFirstName() == null ? "" : s.getFirstName()) + " " +
                         (s.getLastName() == null ? "" : s.getLastName());
                 String genderLabel = genderLabel(s.getGender());
-                String subtitle = genderLabel + " · " + DateUtil.frShort(s.getDateOfBirth());
+                String subtitle = genderLabel + " · " + DateUtil.localizedShort(s.getDateOfBirth());
                 setGraphic(TableStyleKit.avatarNameCell(initials, color, fullName.trim(), subtitle));
             }
         };
@@ -318,9 +319,9 @@ public class StudentsView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", "Voir");
-                Button edit = iconBtn("fth-edit-2", "Modifier");
-                Button del = iconBtn("fth-trash-2", "Supprimer");
+                Button view = iconBtn("fth-eye", I18n.t("action.view"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit"));
+                Button del = iconBtn("fth-trash-2", I18n.t("action.delete"));
                 del.getStyleClass().add("icon-action-danger");
 
                 view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
@@ -345,7 +346,7 @@ public class StudentsView {
     }
 
     private static String genderLabel(Sexe gender) {
-        return gender == Sexe.FEMALE ? "Fille" : gender == Sexe.MALE ? "Garçon" : "—";
+        return gender == Sexe.FEMALE ? I18n.t("gender.female") : gender == Sexe.MALE ? I18n.t("gender.male") : "—";
     }
 
     private javafx.scene.control.ListCell<Sexe> genderListCell() {
@@ -361,9 +362,9 @@ public class StudentsView {
     private String ageLabel(Student s) {
         if (s.getDateOfBirth() == null) return "—";
         Period p = Period.between(s.getDateOfBirth().toLocalDate(), LocalDate.now());
-        if (p.getYears() > 0) return p.getYears() + " ans";
-        if (p.getMonths() > 0) return p.getMonths() + " mois";
-        return p.getDays() + " j";
+        if (p.getYears() > 0) return p.getYears() + " " + I18n.t("students.table.years");
+        if (p.getMonths() > 0) return p.getMonths() + " " + I18n.t("students.table.months");
+        return p.getDays() + " " + I18n.t("students.table.days");
     }
 
     private VBox buildForm() {
@@ -371,25 +372,25 @@ public class StudentsView {
         enrollmentDateValue.getStyleClass().add("field-label");
 
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "N° Élève", studentNumberValue);
-        FormFactory.addRow(grid, 1, "Prénom", firstNameField);
-        FormFactory.addRow(grid, 2, "Nom", lastNameField);
-        FormFactory.addRow(grid, 3, "Genre", genderField);
-        FormFactory.addRow(grid, 4, "Naissance", dobField);
-        FormFactory.addRow(grid, 5, "Date d'inscription", enrollmentDateValue);
-        FormFactory.addRow(grid, 6, "Groupage", bloodTypeField);
-        FormFactory.addRow(grid, 7, "Médical", medicalInfoField);
-        FormFactory.addRow(grid, 8, "Notes", notesField);
+        FormFactory.addRow(grid, 0, I18n.t("students.form.number"), studentNumberValue);
+        FormFactory.addRow(grid, 1, I18n.t("field.first_name"), firstNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.last_name"), lastNameField);
+        FormFactory.addRow(grid, 3, I18n.t("field.gender"), genderField);
+        FormFactory.addRow(grid, 4, I18n.t("field.date_of_birth"), dobField);
+        FormFactory.addRow(grid, 5, I18n.t("students.form.enrollment_date"), enrollmentDateValue);
+        FormFactory.addRow(grid, 6, I18n.t("field.blood_group"), bloodTypeField);
+        FormFactory.addRow(grid, 7, I18n.t("field.medical_info"), medicalInfoField);
+        FormFactory.addRow(grid, 8, I18n.t("students.form.notes"), notesField);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button clear = new Button("+ Nouveau");
+        Button clear = new Button("+ " + I18n.t("action.new"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
 
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -408,7 +409,7 @@ public class StudentsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails de l'élève", form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("students.form.details"), form, this::closeForm);
             floatingForm.setPrefWidth(450);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
@@ -443,7 +444,7 @@ public class StudentsView {
             return;
         }
         studentNumberValue.setText(student.getStudentNumber() == null ? "—" : student.getStudentNumber());
-        enrollmentDateValue.setText(DateUtil.frShort(student.getEnrollmentDate()));
+        enrollmentDateValue.setText(DateUtil.localizedShort(student.getEnrollmentDate()));
         firstNameField.setText(student.getFirstName());
         lastNameField.setText(student.getLastName());
         genderField.setValue(student.getGender());
@@ -624,7 +625,8 @@ public class StudentsView {
     }
 
     private void updateFooter(List<Student> data) {
-        footerCountLabel.setText(data.size() + (data.size() > 1 ? " enfants inscrits" : " enfant inscrit"));
+        footerCountLabel.setText(data.size() + " " + I18n.t(
+                data.size() > 1 ? "students.table.count_plural" : "students.table.count_singular"));
     }
 
     private void updateSummaryCards(List<Student> data) {
@@ -642,6 +644,14 @@ public class StudentsView {
                 summaryCard("fth-heart", String.valueOf(withMedicalInfo), "Infos Médicales", "#B91C1C", "#FEE2E2")
         );
         for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
+    }
+
+    private void refreshTranslations() {
+        searchField.setPromptText(I18n.t("students.search"));
+        firstNameField.setPromptText(I18n.t("field.first_name"));
+        lastNameField.setPromptText(I18n.t("field.last_name"));
+        medicalInfoField.setPromptText(I18n.t("field.medical_info"));
+        notesField.setPromptText(I18n.t("students.form.notes"));
     }
 
     private HBox summaryCard(String icon, String value, String label, String accent, String bg) {

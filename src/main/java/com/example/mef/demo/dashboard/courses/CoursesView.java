@@ -16,8 +16,10 @@ import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
+import com.example.mef.demo.dashboard.common.TimeSlots;
 import com.example.mef.demo.enums.CourseStatus;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -77,13 +79,13 @@ public class CoursesView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher un cours...");
+    private final TextField searchField = FormFactory.textField("");
     private final ComboBox<String> statusFilter = new ComboBox<>();
 
-    private final TextField nameField = FormFactory.textField("Nom du cours");
-    private final TextField scheduleField = FormFactory.textField("Aucun horaire choisi");
-    private final Button scheduleButton = new Button("Choisir…");
-    private final TextField feeField = FormFactory.textField("Frais mensuels");
+    private final TextField nameField = FormFactory.textField("");
+    private final TextField scheduleField = FormFactory.textField("");
+    private final Button scheduleButton = new Button();
+    private final TextField feeField = FormFactory.textField("");
     private final ComboBox<Employee> teacherField = new ComboBox<>();
     private final ComboBox<Classroom> classroomField = new ComboBox<>();
     private final ComboBox<CourseStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(CourseStatus.values()));
@@ -153,28 +155,40 @@ public class CoursesView {
         scheduleButton.getStyleClass().add("secondary-button");
         scheduleButton.setOnAction(e -> openSchedulePicker());
 
-        ObservableList<String> statusOptions = FXCollections.observableArrayList("Tous");
-        for (CourseStatus s : CourseStatus.values()) {
-            statusOptions.add(statusLabel(s));
+        refreshLocalizedControls();
+    }
+
+    private void refreshLocalizedControls() {
+        searchField.setPromptText(I18n.t("course.search"));
+        nameField.setPromptText(I18n.t("course.name_hint"));
+        scheduleField.setPromptText(I18n.t("course.schedule_none"));
+        scheduleButton.setText(I18n.t("course.choose_schedule"));
+        feeField.setPromptText(I18n.t("course.fee_hint"));
+
+        String selectedStatus = statusFilter.getValue();
+        ObservableList<String> statusOptions = FXCollections.observableArrayList(I18n.t("course.filter_all"));
+        for (CourseStatus status : CourseStatus.values()) {
+            statusOptions.add(statusLabel(status));
         }
         statusFilter.setItems(statusOptions);
-        statusFilter.setValue("Tous");
+        statusFilter.setValue(statusOptions.contains(selectedStatus) ? selectedStatus : I18n.t("course.filter_all"));
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText("Cours");
+        refreshLocalizedControls();
+        pageTitleLabel.setText(I18n.t("course.title"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label("Gérer les cours, enseignants et horaires");
+        Label subtitle = new Label(I18n.t("course.subtitle"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
         statusFilter.getStyleClass().add("filter-field");
         statusFilter.setPrefWidth(150);
 
-        Button addBtn = new Button("+  Nouveau Cours");
+        Button addBtn = new Button("+  " + I18n.t("course.add"));
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> startCreate());
 
@@ -202,9 +216,9 @@ public class CoursesView {
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
-        if (form == null) {
-            form = buildForm();
-        }
+        // Rebuild the panel so its labels and buttons follow the selected language.
+        form = buildForm();
+        floatingForm = null;
 
         // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
         // to the table/buttons underneath wherever the overlay itself has no floating panel.
@@ -243,32 +257,32 @@ public class CoursesView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Course, String> name = new TableColumn<>("NOM");
+        TableColumn<Course, String> name = new TableColumn<>(I18n.t("course.table.name"));
         name.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getName()));
         name.setPrefWidth(170);
 
-        TableColumn<Course, String> teacher = new TableColumn<>("ENSEIGNANT");
+        TableColumn<Course, String> teacher = new TableColumn<>(I18n.t("course.table.teacher"));
         teacher.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getTeacher() == null ? "—" : teacherLabel(d.getValue().getTeacher())));
         teacher.setPrefWidth(150);
 
-        TableColumn<Course, String> classroom = new TableColumn<>("CLASSE");
+        TableColumn<Course, String> classroom = new TableColumn<>(I18n.t("course.table.classroom"));
         classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
 
-        TableColumn<Course, String> fee = new TableColumn<>("FRAIS/MOIS");
+        TableColumn<Course, String> fee = new TableColumn<>(I18n.t("course.table.fee"));
         fee.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatFee(d.getValue().getMonthlyFee())));
 
-        TableColumn<Course, CourseStatus> status = new TableColumn<>("STATUT");
+        TableColumn<Course, CourseStatus> status = new TableColumn<>(I18n.t("course.table.status"));
         status.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue().getStatus()));
         status.setCellFactory(col -> statusTableCell());
 
-        TableColumn<Course, Course> schedule = new TableColumn<>("HORAIRE");
+        TableColumn<Course, Course> schedule = new TableColumn<>(I18n.t("course.table.schedule"));
         schedule.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         schedule.setCellFactory(col -> scheduleCell());
         schedule.setPrefWidth(240);
 
-        TableColumn<Course, Course> actions = new TableColumn<>("ACTION");
+        TableColumn<Course, Course> actions = new TableColumn<>(I18n.t("course.table.actions"));
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
         actions.setPrefWidth(110);
@@ -303,9 +317,9 @@ public class CoursesView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", "Voir les élèves inscrits");
-                Button edit = iconBtn("fth-edit-2", "Modifier");
-                Button del = iconBtn("fth-trash-2", "Supprimer");
+                Button view = iconBtn("fth-eye", I18n.t("course.view_students"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit"));
+                Button del = iconBtn("fth-trash-2", I18n.t("action.delete"));
                 del.getStyleClass().add("icon-action-danger");
 
                 // "Voir" now opens the enrolled-students dialog instead of the edit form —
@@ -519,22 +533,22 @@ public class CoursesView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Nom", nameField);
-        FormFactory.addRow(grid, 1, "Enseignant", teacherField);
-        FormFactory.addRow(grid, 2, "Classe", classroomField);
+        FormFactory.addRow(grid, 0, I18n.t("field.name"), nameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.teacher"), teacherField);
+        FormFactory.addRow(grid, 2, I18n.t("field.classroom"), classroomField);
         HBox scheduleRow = new HBox(8, scheduleField, scheduleButton);
         HBox.setHgrow(scheduleField, Priority.ALWAYS);
-        FormFactory.addRow(grid, 3, "Horaire", scheduleRow);
-        FormFactory.addRow(grid, 4, "Frais/mois", feeField);
-        FormFactory.addRow(grid, 5, "Statut", statusField);
+        FormFactory.addRow(grid, 3, I18n.t("field.schedule"), scheduleRow);
+        FormFactory.addRow(grid, 4, I18n.t("course.table.fee"), feeField);
+        FormFactory.addRow(grid, 5, I18n.t("field.status"), statusField);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button("+ Nouveau");
+        Button clear = new Button("+ " + I18n.t("action.new"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -553,7 +567,7 @@ public class CoursesView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel("Détails du cours", form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("course.details"), form, this::closeForm);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {
@@ -685,7 +699,11 @@ public class CoursesView {
                     Set<String> closedDays = ScheduleValidator.daysOf(
                             settingService.get(ScheduleSettingsKeys.CLOSED_DAYS, ScheduleSettingsKeys.CLOSED_DAYS_DEFAULT));
                     int enrolled = classroomId == null ? 0 : classroomService.countStudentsInClassroom(classroomId);
-                    return ScheduleValidator.validate(course, others, closedDays, enrolled);
+                    int restStart = TimeSlots.toMinutes(
+                            settingService.get(ScheduleSettingsKeys.REST_START, ScheduleSettingsKeys.REST_START_DEFAULT));
+                    int restEnd = TimeSlots.toMinutes(
+                            settingService.get(ScheduleSettingsKeys.REST_END, ScheduleSettingsKeys.REST_END_DEFAULT));
+                    return ScheduleValidator.validate(course, others, closedDays, enrolled, restStart, restEnd);
                 },
                 violations -> {
                     if (!violations.isEmpty()) {
@@ -740,7 +758,7 @@ public class CoursesView {
                             return false;
                         }
                     }
-                    if (statusVal != null && !"Tous".equals(statusVal)) {
+                    if (statusVal != null && !I18n.t("course.filter_all").equals(statusVal)) {
                         if (!statusLabel(c.getStatus()).equals(statusVal)) return false;
                     }
                     return true;
@@ -754,8 +772,8 @@ public class CoursesView {
 
     private void updateFooter(List<Course> data) {
         double total = data.stream().mapToDouble(c -> c.getMonthlyFee() == null ? 0 : c.getMonthlyFee()).sum();
-        footerCountLabel.setText("Total des cours : " + data.size());
-        footerTotalLabel.setText("Revenu mensuel : " + formatFee(total));
+        footerCountLabel.setText(I18n.t("course.total").replace("{0}", String.valueOf(data.size())));
+        footerTotalLabel.setText(I18n.t("course.monthly_income").replace("{0}", formatFee(total)));
     }
 
     private void updateSummaryCards(List<Course> data) {
@@ -769,11 +787,11 @@ public class CoursesView {
         List<Course> withoutTeacher = data.stream().filter(c -> c.getTeacher() == null).toList();
 
         summaryCards.getChildren().addAll(
-                summaryCard("fth-book-open", String.valueOf(data.size()), "Total Cours", "#0E7490", "#CFFAFE"),
-                summaryCard("fth-check-circle", String.valueOf(active.size()), "Cours Actifs", "#15803D", "#DCFCE7"),
-                summaryCard("fth-dollar-sign", formatFee(totalFees), "Revenu Mensuel", "#4338CA", "#EEF2FF"),
+                summaryCard("fth-book-open", String.valueOf(data.size()), I18n.t("course.total_summary"), "#0E7490", "#CFFAFE"),
+                summaryCard("fth-check-circle", String.valueOf(active.size()), I18n.t("course.active_summary"), "#15803D", "#DCFCE7"),
+                summaryCard("fth-dollar-sign", formatFee(totalFees), I18n.t("course.income_summary"), "#4338CA", "#EEF2FF"),
                 summaryCard("fth-alert-circle", withoutSchedule.size() + " · " + withoutTeacher.size(),
-                        "Sans horaire · Sans enseignant", "#D97706", "#FEF3C7")
+                        I18n.t("course.missing_summary"), "#D97706", "#FEF3C7")
         );
         for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
     }
@@ -830,13 +848,13 @@ public class CoursesView {
     }
 
     /** Human-readable label for a CourseStatus value, independent of its exact enum spelling. */
-    private static String statusLabel(CourseStatus status) {
+    private String statusLabel(CourseStatus status) {
         if (status == null) return "—";
         return switch (status.name()) {
-            case "ACTIVE" -> "Actif";
-            case "INACTIVE" -> "Inactif";
-            case "SUSPENDED" -> "Suspendu";
-            case "ARCHIVED" -> "Archivé";
+            case "ACTIVE" -> I18n.t("course.status.active");
+            case "INACTIVE" -> I18n.t("course.status.inactive");
+            case "SUSPENDED" -> I18n.t("course.status.suspended");
+            case "ARCHIVED" -> I18n.t("course.status.archived");
             default -> status.name();
         };
     }

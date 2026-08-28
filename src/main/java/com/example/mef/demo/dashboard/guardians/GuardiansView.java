@@ -8,6 +8,7 @@ import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.util.DialogUtil;
+import com.example.mef.demo.util.I18n;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -52,15 +53,15 @@ public class GuardiansView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField("Rechercher un tuteur...");
+    private final TextField searchField = FormFactory.textField(I18n.t("guardian.search"));
     private final Label countLabel = new Label();
 
-    private final TextField firstNameField = FormFactory.textField("Prénom");
-    private final TextField lastNameField = FormFactory.textField("Nom");
-    private final TextField phoneField = FormFactory.textField("Téléphone");
-    private final TextField emailField = FormFactory.textField("Email");
-    private final TextField relationField = FormFactory.textField("Relation (père, mère, ...)");
-    private final TextField addressField = FormFactory.textField("Adresse");
+    private final TextField firstNameField = FormFactory.textField(I18n.t("field.first_name"));
+    private final TextField lastNameField = FormFactory.textField(I18n.t("field.last_name"));
+    private final TextField phoneField = FormFactory.textField(I18n.t("field.phone"));
+    private final TextField emailField = FormFactory.textField(I18n.t("field.email"));
+    private final TextField relationField = FormFactory.textField(I18n.t("guardian.relation_hint"));
+    private final TextField addressField = FormFactory.textField(I18n.t("field.address"));
     private final ComboBox<Student> studentField = new ComboBox<>();
 
     private BorderPane layout;
@@ -101,17 +102,17 @@ public class GuardiansView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText("Tuteurs");
+        pageTitleLabel.setText(I18n.t("guardian.title"));
         table.setColumnResizePolicy(
                 TableView.UNCONSTRAINED_RESIZE_POLICY
         );
         buildColumns();
 
-        Label title = new Label("Tuteurs");
+        Label title = new Label(I18n.t("guardian.title"));
         title.getStyleClass().add("page-title");
         countLabel.getStyleClass().add("stat-caption");
 
-        Button add = new Button("+  Ajouter un Tuteur");
+        Button add = new Button("+  " + I18n.t("guardian.add"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
@@ -144,29 +145,29 @@ public class GuardiansView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Guardian, Guardian> guardian = new TableColumn<>("TUTEUR");
+        TableColumn<Guardian, Guardian> guardian = new TableColumn<>(I18n.t("guardian.title").toUpperCase());
         guardian.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         guardian.setCellFactory(col -> guardianCell());
         guardian.setPrefWidth(240);
 
-        TableColumn<Guardian, String> relation = new TableColumn<>("RELATION");
-        relation.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getRelation()));
+        TableColumn<Guardian, String> relation = new TableColumn<>(I18n.t("field.relationship").toUpperCase());
+        relation.setCellValueFactory(d -> new ReadOnlyStringWrapper(translateRelation(d.getValue().getRelation())));
         relation.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         relation.setPrefWidth(110);
 
-        TableColumn<Guardian, String> student = new TableColumn<>("ÉLÈVE");
+        TableColumn<Guardian, String> student = new TableColumn<>(I18n.t("field.student").toUpperCase());
         student.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getStudent() == null ? "—" :
                         d.getValue().getStudent().getFirstName() + " " + d.getValue().getStudent().getLastName()));
         student.setCellFactory(col -> dashIfBlankCell());
         student.setPrefWidth(160);
 
-        TableColumn<Guardian, String> phone = new TableColumn<>("TÉLÉPHONE");
+        TableColumn<Guardian, String> phone = new TableColumn<>(I18n.t("field.phone").toUpperCase());
         phone.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getPhoneNumber()));
         phone.setCellFactory(col -> dashIfBlankCell());
         phone.setPrefWidth(130);
 
-        TableColumn<Guardian, String> email = new TableColumn<>("EMAIL");
+        TableColumn<Guardian, String> email = new TableColumn<>(I18n.t("field.email").toUpperCase());
         email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
         email.setCellFactory(col -> dashIfBlankCell());
         email.setPrefWidth(160);
@@ -217,37 +218,49 @@ public class GuardiansView {
         };
     }
 
+    private String translateRelation(String relation) {
+        if (relation == null || relation.isBlank()) {
+            return "—";
+        }
+        return switch (relation.trim().toLowerCase(Locale.ROOT)) {
+            case "mère", "mere", "mother", "الأم" -> I18n.t("guardian.relation.mother");
+            case "père", "pere", "father", "الأب" -> I18n.t("guardian.relation.father");
+            case "tuteur", "tutrice", "guardian", "ولي الأمر" -> I18n.t("guardian.relation.guardian");
+            default -> relation;
+        };
+    }
+
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, "Prénom", firstNameField);
-        FormFactory.addRow(grid, 1, "Nom", lastNameField);
-        FormFactory.addRow(grid, 2, "Relation", relationField);
-        FormFactory.addRow(grid, 3, "Téléphone", phoneField);
-        FormFactory.addRow(grid, 4, "Email", emailField);
-        FormFactory.addRow(grid, 5, "Adresse", addressField);
-        FormFactory.addRow(grid, 6, "Élève", studentField);
+        FormFactory.addRow(grid, 0, I18n.t("field.first_name"), firstNameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.last_name"), lastNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.relationship"), relationField);
+        FormFactory.addRow(grid, 3, I18n.t("field.phone"), phoneField);
+        FormFactory.addRow(grid, 4, I18n.t("field.email"), emailField);
+        FormFactory.addRow(grid, 5, I18n.t("field.address"), addressField);
+        FormFactory.addRow(grid, 6, I18n.t("field.student"), studentField);
 
-        Button save = new Button("Enregistrer");
+        Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button cancel = new Button("Annuler");
+        Button cancel = new Button(I18n.t("wizard.cancel"));
         cancel.getStyleClass().add("secondary-button");
         cancel.setOnAction(e -> closeForm());
 
-        Button delete = new Button("Supprimer");
+        Button delete = new Button(I18n.t("action.delete"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
         // Shows every child linked to this same tuteur (there's one Guardian row per
         // child, so a tuteur with several kids appears as several rows sharing the
         // same identity — this groups them back together).
-        Button viewChildren = new Button("👨‍👩‍👧  Voir tous les enfants");
+        Button viewChildren = new Button("👨‍👩‍👧  " + I18n.t("guardian.view_children"));
         viewChildren.getStyleClass().add("link-button");
         viewChildren.setOnAction(e -> showChildrenDialog());
 
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label("Détails du tuteur"), grid, viewChildren, actions);
+        VBox panel = new VBox(12, new Label(I18n.t("guardian.details")), grid, viewChildren, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
@@ -272,7 +285,7 @@ public class GuardiansView {
         AsyncTasks.run(
                 studentService::findAll,
                 list -> studentField.setItems(FXCollections.observableArrayList(list)),
-                err -> DialogUtil.error("Erreur", "Échec du chargement des élèves : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_students_failed") + err.getMessage())
         );
     }
 
@@ -305,7 +318,7 @@ public class GuardiansView {
 
     private void save() {
         if (firstNameField.getText().isBlank() || lastNameField.getText().isBlank() || relationField.getText().isBlank()) {
-            DialogUtil.error("Champs requis", "Le prénom, le nom et la relation sont obligatoires.");
+            DialogUtil.error(I18n.t("guardian.required_title"), I18n.t("guardian.required_message"));
             return;
         }
         Guardian guardian = selected != null ? selected : new Guardian();
@@ -320,18 +333,18 @@ public class GuardiansView {
         AsyncTasks.run(
                 () -> guardianService.save(guardian, studentId),
                 saved -> { closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.save_failed") + err.getMessage())
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm("Confirmer", "Supprimer ce tuteur ?")) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("guardian.delete_confirm"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> guardianService.delete(id),
                 () -> { closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.delete_failed") + err.getMessage())
         );
     }
 
@@ -342,7 +355,7 @@ public class GuardiansView {
      */
     private void showChildrenDialog() {
         if (selected == null) {
-            DialogUtil.info("Enfants", "Sélectionnez d'abord un tuteur.");
+            DialogUtil.info(I18n.t("guardian.children_dialog_title"), I18n.t("guardian.select_first"));
             return;
         }
         String tutorFirstName = normalize(selected.getFirstName());
@@ -363,7 +376,7 @@ public class GuardiansView {
                             .toList();
                     openChildrenDialog(selected, sameTutor);
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement des tuteurs : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_failed") + err.getMessage())
         );
     }
 
@@ -380,10 +393,11 @@ public class GuardiansView {
         String tutorName = ((tutor.getFirstName() == null ? "" : tutor.getFirstName()) + " "
                 + (tutor.getLastName() == null ? "" : tutor.getLastName())).trim();
 
-        Label title = new Label("Enfants de " + tutorName);
+        Label title = new Label(I18n.t("guardian.children_of").replace("{0}", tutorName));
         title.getStyleClass().add("workflow-title");
 
-        Label count = new Label(sameTutorRows.size() + (sameTutorRows.size() > 1 ? " enfants" : " enfant"));
+        Label count = new Label(sameTutorRows.size() + " " + I18n.t(
+                sameTutorRows.size() == 1 ? "guardian.child_singular" : "guardian.child_plural"));
         count.getStyleClass().add("stat-caption");
 
         VBox listBox = new VBox(8);
@@ -393,7 +407,7 @@ public class GuardiansView {
                 .toList();
 
         if (children.isEmpty()) {
-            Label none = new Label("Aucun élève lié à ce tuteur.");
+            Label none = new Label(I18n.t("guardian.no_children"));
             none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
             listBox.getChildren().add(none);
         } else {
@@ -407,7 +421,7 @@ public class GuardiansView {
         scroll.setPrefViewportHeight(320);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-        Button close = new Button("Fermer");
+        Button close = new Button(I18n.t("action.close"));
         close.getStyleClass().add("secondary-button");
 
         VBox root = new VBox(14, title, count, scroll, close);
@@ -421,7 +435,7 @@ public class GuardiansView {
         if (owner != null) {
             dialog.initOwner(owner);
         }
-        dialog.setTitle("Enfants du tuteur");
+        dialog.setTitle(I18n.t("guardian.children_dialog_title"));
         dialog.setScene(new Scene(root));
         close.setOnAction(e -> dialog.close());
         dialog.showAndWait();
@@ -463,9 +477,10 @@ public class GuardiansView {
                 () -> guardianService.search(needle),
                 list -> {
                     rows.setAll(list);
-                    countLabel.setText(list.size() + (list.size() > 1 ? " tuteurs enregistrés" : " tuteur enregistré"));
+                    countLabel.setText(list.size() + " " + I18n.t(
+                            list.size() == 1 ? "guardian.count_singular" : "guardian.count_plural"));
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_failed") + err.getMessage())
         );
     }
 }

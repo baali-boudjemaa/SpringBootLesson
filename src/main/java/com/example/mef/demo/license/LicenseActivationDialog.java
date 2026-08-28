@@ -18,6 +18,7 @@ public class LicenseActivationDialog {
 
     private static final String LICENSE_KEY_SETTING = "license_key";
     private static final String TRIAL_START_SETTING  = "trial_start_date";
+    private static final String LAST_SEEN_DATE_SETTING = "license_last_seen_date";
     private static final int    TRIAL_DAYS            = 7;
 
     private final Preferences preferences = Preferences.userNodeForPackage(LicenseActivationDialog.class);
@@ -31,6 +32,7 @@ public class LicenseActivationDialog {
     }
 
     public boolean isAlreadyActivated() {
+        if (hasClockRollback()) return false;
         String machineId = machineIdentifier.getOrCreateMachineId();
         String storedKey = settingsRepository.get(LICENSE_KEY_SETTING);
         if (storedKey != null && licenseValidator.validate(machineId, storedKey).isPresent()) {
@@ -48,6 +50,7 @@ public class LicenseActivationDialog {
 
     /** Returns the valid subscription details, including plan and expiry date. */
     public Optional<LicensePayload> getActiveLicense() {
+        if (hasClockRollback()) return Optional.empty();
         String machineId = machineIdentifier.getOrCreateMachineId();
         String storedKey = settingsRepository.get(LICENSE_KEY_SETTING);
         Optional<LicensePayload> storedLicense = storedKey == null
@@ -61,6 +64,7 @@ public class LicenseActivationDialog {
 
     /** Days left in the trial. Starts the trial clock on first call if not already started. */
     public long getTrialDaysLeft() {
+        if (hasClockRollback()) return 0;
         LocalDate start = earliestValidDate(
                 settingsRepository.get(TRIAL_START_SETTING),
                 preferences.get(TRIAL_START_SETTING, null)
@@ -106,5 +110,38 @@ public class LicenseActivationDialog {
             }
         }
         return dates.stream().min(LocalDate::compareTo).orElse(null);
+    }
+
+    /**
+     * Records the newest trusted local date in both stores. A clock set back
+     * before that date makes the app unavailable until the real date catches up.
+     * This does not replace online validation, but prevents the common offline
+     * trial-extension and expiry-bypass technique of simply changing the clock.
+     */
+    private boolean hasClockRollback() {
+        LocalDate today = LocalDate.now();
+        LocalDate lastSeen = latestValidDate(
+                settingsRepository.get(LAST_SEEN_DATE_SETTING),
+                preferences.get(LAST_SEEN_DATE_SETTING, null)
+        );
+        if (lastSeen != null && today.isBefore(lastSeen)) return true;
+
+        String todayValue = today.toString();
+        settingsRepository.set(LAST_SEEN_DATE_SETTING, todayValue);
+        preferences.put(LAST_SEEN_DATE_SETTING, todayValue);
+        return false;
+    }
+
+    private LocalDate latestValidDate(String... values) {
+        List<LocalDate> dates = new ArrayList<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) continue;
+            try {
+                dates.add(LocalDate.parse(value));
+            } catch (RuntimeException ignored) {
+                // Ignore corrupt copies; a valid copy in the other store still applies.
+            }
+        }
+        return dates.stream().max(LocalDate::compareTo).orElse(null);
     }
 }

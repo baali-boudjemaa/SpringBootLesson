@@ -242,13 +242,18 @@
 }
 .sidebar-scroll { -fx-border-width: 0; -fx-padding: 0; }
 .sidebar-scroll .scroll-bar:horizontal { -fx-pref-height: 0; -fx-opacity: 0; }
-.sidebar-scroll .scroll-bar:vertical   { -fx-pref-width: 8; -fx-background-color: transparent; }
-.sidebar-scroll .scroll-bar:vertical .track { -fx-background-color: transparent; }
-.sidebar-scroll .scroll-bar:vertical .thumb {
-    -fx-background-color: rgba(255,255,255,0.16);
-    -fx-background-radius: 4;
+.sidebar-scroll .scroll-bar:vertical   { -fx-pref-width: 10; -fx-background-color: transparent; -fx-padding: 2; }
+.sidebar-scroll .scroll-bar:vertical .track {
+    -fx-background-color: rgba(255,255,255,0.05);
+    -fx-background-radius: 8;
 }
-.sidebar-scroll .scroll-bar:vertical .thumb:hover { -fx-background-color: rgba(255,255,255,0.30); }
+.sidebar-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(203,213,225,0.42);
+    -fx-background-insets: 1;
+    -fx-background-radius: 8;
+}
+.sidebar-scroll .scroll-bar:vertical .thumb:hover { -fx-background-color: rgba(255,255,255,0.72); }
+.sidebar-scroll .scroll-bar:vertical .thumb:pressed { -fx-background-color: #60A5FA; }
 .sidebar-scroll .scroll-bar:vertical .increment-button,
 .sidebar-scroll .scroll-bar:vertical .decrement-button { -fx-pref-height: 0; -fx-opacity: 0; }
 
@@ -662,8 +667,10 @@
 .data-table .scroll-bar .thumb:hover { -fx-background-color: -muted-light; }
 .data-table .scroll-bar .increment-button,
 .data-table .scroll-bar .decrement-button { -fx-opacity: 0; -fx-padding: 0; }
-.data-table .corner  { -fx-background-color: #1E293B; }
-.data-table .filler  { -fx-background-color: #1E293B; }
+/* These nodes sit above the rounded header background.  Round their exposed
+   outer corners too, otherwise a filler/corner pane leaves one end square. */
+.data-table .corner  { -fx-background-color: #1E293B; -fx-background-radius: 0 14 0 0; }
+.data-table .filler  { -fx-background-color: #1E293B; -fx-background-radius: 14 0 0 0; }
 .data-table .placeholder .label { -fx-text-fill: -muted; -fx-font-size: 13px; }
 
 /* person cell */
@@ -1303,3 +1310,53 @@
     -fx-effect: dropshadow(gaussian, rgba(124,58,237,0.38), 12, 0, 0, 3);
 }
 .nav-button-settings-active:hover { -fx-background-color: linear-gradient(to right, #6D28D9, #9333EA); }
+
+/* Modern, unobtrusive scrollbars for every standard ScrollPane. Module-specific
+   rules above may still override these colours where needed. */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+.scroll-bar:vertical,
+.scroll-bar:horizontal {
+    -fx-background-color: transparent;
+    -fx-padding: 2;
+}
+.scroll-bar:vertical {
+    -fx-pref-width: 10px;
+}
+.scroll-bar:horizontal {
+    -fx-pref-height: 10px;
+}
+.scroll-bar:vertical .track,
+.scroll-bar:horizontal .track {
+    -fx-background-color: #F1F5F9;
+    -fx-background-radius: 8;
+}
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #94A3B8;
+    -fx-background-insets: 1;
+    -fx-background-radius: 8;
+}
+.scroll-bar:vertical .thumb:hover,
+.scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #64748B;
+}
+.scroll-bar:vertical .thumb:pressed,
+.scroll-bar:horizontal .thumb:pressed {
+    -fx-background-color: #2563EB;
+}
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button,
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-padding: 0;
+    -fx-opacity: 0;
+}
+.corner {
+    -fx-background-color: transparent;
+}

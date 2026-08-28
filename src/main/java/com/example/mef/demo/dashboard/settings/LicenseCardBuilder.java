@@ -40,15 +40,16 @@ public class LicenseCardBuilder {
         boolean activated = licenseActivationDialog.isAlreadyActivated();
 
         // ── Header ────────────────────────────────────────────────
-        Label icon = new Label("🛡️");
-        icon.setStyle("-fx-font-size: 20px;");
-        Label title = new Label(I18n.t("license.title"));
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-        HBox header = new HBox(10, icon, title);
-        header.setAlignment(Pos.CENTER_LEFT);
+        Label title = new Label("Licence et activation");
+        title.getStyleClass().add("workflow-title");
+        title.setStyle("-fx-text-fill: #0F172A;");
+        Label subtitle = new Label("Gérez l'état de la licence et l'activation du programme.");
+        subtitle.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748B;");
+        VBox heading = new VBox(3, title, subtitle);
 
-        VBox card = new VBox(18, header);
-        card.setPadding(new Insets(28));
+        // Same left edge and heading style as every other settings card.
+        VBox card = new VBox(18, heading);
+        card.setPadding(new Insets(40));
         card.setStyle("-fx-background-color: white; -fx-background-radius: 12; "
                 + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 12, 0, 0, 2);");
 

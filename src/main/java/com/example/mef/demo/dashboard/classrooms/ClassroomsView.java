@@ -119,14 +119,14 @@ public class ClassroomsView {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
 
-        TextField searchField = FormFactory.textField("Rechercher une section...");
+        TextField searchField = FormFactory.textField(I18n.t("classroom.search"));
         searchField.getStyleClass().add("filter-field");
         Label countLabel = new Label();
         countLabel.getStyleClass().add("stat-caption");
 
-        TextField nameField = FormFactory.textField("Nom de la section");
-        TextField ageGroupField = FormFactory.textField("Tranche d'âge");
-        TextField capacityField = FormFactory.textField("Capacité max");
+        TextField nameField = FormFactory.textField(I18n.t("classroom.name"));
+        TextField ageGroupField = FormFactory.textField(I18n.t("classroom.age_group"));
+        TextField capacityField = FormFactory.textField(I18n.t("classroom.max_capacity"));
         ComboBox<Category> categoryField = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
         categoryField.setMaxWidth(Double.MAX_VALUE);
         categoryField.setValue(Category.CRECHE);
@@ -152,9 +152,9 @@ public class ClassroomsView {
         List<CheckBox> roomChecks = new ArrayList<>();
 
         GridPane form = FormFactory.sectionGrid();
-        FormFactory.addRow(form, 0, "Nom", nameField);
-        FormFactory.addRow(form, 1, "Tranche d'âge", ageGroupField);
-        FormFactory.addRow(form, 2, "Capacité", capacityField);
+        FormFactory.addRow(form, 0, I18n.t("field.name"), nameField);
+        FormFactory.addRow(form, 1, I18n.t("classroom.age_group"), ageGroupField);
+        FormFactory.addRow(form, 2, I18n.t("field.capacity"), capacityField);
         FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
 
         FormFactory.addRow(form, 5,  occupancyGrid.getNode());
@@ -267,7 +267,7 @@ public class ClassroomsView {
                 });
                 cardGrid.getChildren().add(card);
             }
-            countLabel.setText(filtered.size() + (filtered.size() > 1 ? " sections" : " section"));
+            countLabel.setText(filtered.size() + " " + I18n.t(filtered.size() > 1 ? "classroom.section_plural" : "classroom.section_singular"));
         };
 
         reload[0] = () -> AsyncTasks.run(
@@ -286,12 +286,12 @@ public class ClassroomsView {
 
         save.setOnAction(e -> {
             try {
-                if (nameField.getText().isBlank()) throw new IllegalArgumentException("Le nom est requis.");
+                if (nameField.getText().isBlank()) throw new IllegalArgumentException(I18n.t("classroom.name_required"));
                 int capacity;
                 try {
                     capacity = Integer.parseInt(capacityField.getText().trim());
                 } catch (NumberFormatException ex) {
-                    throw new IllegalArgumentException("Capacité doit être un nombre.");
+                    throw new IllegalArgumentException(I18n.t("classroom.capacity_number"));
                 }
 
                 Classroom c = selected[0] != null ? selected[0] : Classroom.builder().build();
@@ -344,10 +344,10 @@ public class ClassroomsView {
 
         delete.setOnAction(e -> {
             if (selected[0] == null) {
-                DialogUtil.info(I18n.t("action.delete"), "Sélectionnez une classe avant de supprimer.");
+                DialogUtil.info(I18n.t("action.delete"), I18n.t("classroom.select_before_delete"));
                 return;
             }
-            if (DialogUtil.confirm(I18n.t("action.delete"), "Supprimer cette classe ?")) {
+            if (DialogUtil.confirm(I18n.t("action.delete"), I18n.t("classroom.delete_confirm"))) {
                 String id = selected[0].getId();
                 delete.setDisable(true);
                 AsyncTasks.run(
@@ -358,7 +358,7 @@ public class ClassroomsView {
             }
         });
 
-        Button addNew = new Button("+  Nouvelle Section");
+        Button addNew = new Button("+  " + I18n.t("classroom.new_section"));
         addNew.getStyleClass().add("primary-button");
         addNew.setOnAction(e -> {
             clearForm.run();
@@ -369,7 +369,7 @@ public class ClassroomsView {
         loadRooms.run();
         reload[0].run();
 
-        Label title = new Label("Classes");
+        Label title = new Label(I18n.t("classroom.title"));
         title.getStyleClass().add("page-title");
         HBox headerRow = new HBox(12, title);
         HBox.setHgrow(title, Priority.ALWAYS);
@@ -409,6 +409,16 @@ public class ClassroomsView {
         };
     }
 
+    private String attendanceStatusLabel(ClassStudentAttendance row) {
+        if (row.status() == null) return I18n.t("attendance.unmarked");
+        return switch (row.status()) {
+            case PRESENT -> I18n.t("status.present");
+            case ABSENT -> I18n.t("status.absent");
+            case LATE -> I18n.t("status.late");
+            case EXCUSED -> I18n.t("attendance.excused");
+        };
+    }
+
     private VBox buildClassroomCard(Classroom c) {
         Label name = new Label(c.getName());
         name.getStyleClass().add("section-title");
@@ -422,11 +432,11 @@ public class ClassroomsView {
         meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         int enrolled = classroomService.countStudentsInClassroom(c.getId());
-        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " places");
+        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " " + I18n.t("classroom.places"));
         capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
 
         // Explicit action, in addition to the double-click-to-open behavior on the card itself.
-        Button viewStudentsBtn = new Button("👁  Voir les élèves");
+        Button viewStudentsBtn = new Button("👁  " + I18n.t("classroom.view_students"));
         viewStudentsBtn.getStyleClass().add("link-button");
         viewStudentsBtn.setOnAction(e -> showClassStudentsDialog(rootContentPane, c));
         // Consume the click so it doesn't also bubble up to the card's own
@@ -434,18 +444,18 @@ public class ClassroomsView {
         viewStudentsBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
         // Same pattern, for the courses taught in this classroom.
-        Button viewCoursesBtn = new Button("📚  Voir les cours");
+        Button viewCoursesBtn = new Button("📚  " + I18n.t("classroom.view_courses"));
         viewCoursesBtn.getStyleClass().add("link-button");
         viewCoursesBtn.setOnAction(e -> showClassCoursesDialog(c));
         viewCoursesBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
         // Same pattern, for the weekly time schedule of this classroom.
-        Button viewScheduleBtn = new Button("🗓  Voir l'emploi du temps");
+        Button viewScheduleBtn = new Button("🗓  " + I18n.t("classroom.view_schedule"));
         viewScheduleBtn.getStyleClass().add("link-button");
         viewScheduleBtn.setOnAction(e -> showClassScheduleDialog(c));
         viewScheduleBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
-        Label hint = new Label("Double-clic pour voir les élèves");
+        Label hint = new Label(I18n.t("classroom.double_click_hint"));
         hint.setStyle("-fx-font-size: 10px; -fx-text-fill: #94A3B8;");
 
         VBox card = new VBox(6, name, meta, capacity);
@@ -467,13 +477,13 @@ public class ClassroomsView {
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.initOwner(contentPane.getScene().getWindow());
-        dialog.setTitle("Élèves — " + classroom.getName());
+        dialog.setTitle(I18n.t("classroom.students_title").replace("{0}", classroom.getName()));
         dialog.setMinWidth(460);
         dialog.setMinHeight(420);
 
         ListView<ClassStudentAttendance> listView = new ListView<>();
         listView.setPrefSize(420, 280);
-        listView.setPlaceholder(new Label("Aucun élève inscrit dans cette classe."));
+        listView.setPlaceholder(new Label(I18n.t("classroom.students_empty")));
         listView.setCellFactory(lv -> new ListCell<>() {
             @Override protected void updateItem(ClassStudentAttendance row, boolean empty) {
                 super.updateItem(row, empty);
@@ -482,7 +492,7 @@ public class ClassroomsView {
                     return;
                 }
 
-                setText(row.fullName() + "  (" + row.studentNumber() + ")  -  " + row.statusLabel());
+                setText(row.fullName() + "  (" + row.studentNumber() + ")  -  " + attendanceStatusLabel(row));
             }
         });
 
@@ -506,10 +516,10 @@ public class ClassroomsView {
                     reportArea.setVisible(false);
                     reportArea.setManaged(false);
 
-                    Button reportBtn = new Button("📋  Générer le rapport");
+                    Button reportBtn = new Button("📋  " + I18n.t("classroom.generate_report"));
                     reportBtn.getStyleClass().add("primary-button");
 
-                    Button copyBtn = new Button("📋  Copier");
+                    Button copyBtn = new Button("📋  " + I18n.t("action.copy"));
                     copyBtn.getStyleClass().add("secondary-button");
                     copyBtn.setVisible(false);
                     copyBtn.setManaged(false);
@@ -530,7 +540,7 @@ public class ClassroomsView {
                         reportArea.setText(buildClassReportText(classroom, report));
                     });
 
-                    Button closeBtn = new Button("Fermer");
+                    Button closeBtn = new Button(I18n.t("action.close"));
                     closeBtn.getStyleClass().add("secondary-button");
                     closeBtn.setOnAction(ev -> dialog.close());
 
@@ -553,7 +563,7 @@ public class ClassroomsView {
      * pattern used for the enrolled-students dialog in {@code CoursesView}.
      */
     private void showClassCoursesDialog(Classroom classroom) {
-        Label title = new Label("Cours — " + classroom.getName());
+        Label title = new Label(I18n.t("classroom.courses_title").replace("{0}", classroom.getName()));
         title.getStyleClass().add("workflow-title");
 
         Label loading = new Label("Chargement...");
@@ -569,7 +579,7 @@ public class ClassroomsView {
         if (owner != null) {
             dialog.initOwner(owner);
         }
-        dialog.setTitle("Cours de la classe");
+        dialog.setTitle(I18n.t("classroom.courses_dialog_title"));
         dialog.setScene(new Scene(root));
 
         AsyncTasks.run(
@@ -583,12 +593,12 @@ public class ClassroomsView {
 
                     root.getChildren().remove(loading);
 
-                    Label count = new Label(matching.size() + (matching.size() > 1 ? " cours" : " cours"));
+                    Label count = new Label(I18n.t("classroom.course_count").replace("{0}", String.valueOf(matching.size())));
                     count.getStyleClass().add("stat-caption");
 
                     VBox listBox = new VBox(8);
                     if (matching.isEmpty()) {
-                        Label none = new Label("Aucun cours pour cette classe.");
+                        Label none = new Label(I18n.t("classroom.courses_empty"));
                         none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
                         listBox.getChildren().add(none);
                     } else {
@@ -602,7 +612,7 @@ public class ClassroomsView {
                     scroll.setPrefViewportHeight(320);
                     scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-                    Button close = new Button("Fermer");
+                    Button close = new Button(I18n.t("action.close"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(ev -> dialog.close());
 
@@ -612,7 +622,7 @@ public class ClassroomsView {
                     root.getChildren().remove(loading);
                     Label errLabel = new Label("Erreur : " + err.getMessage());
                     errLabel.setStyle("-fx-text-fill: #B91C1C;");
-                    Button close = new Button("Fermer");
+                    Button close = new Button(I18n.t("action.close"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(ev -> dialog.close());
                     root.getChildren().addAll(errLabel, close);
@@ -637,7 +647,7 @@ public class ClassroomsView {
      * horizontal scrollbar/column-clipping can happen at all.
      */
     private void showClassScheduleDialog(Classroom classroom) {
-        Label title = new Label("Emploi du temps de : " + classroom.getName());
+        Label title = new Label(I18n.t("classroom.schedule_heading").replace("{0}", classroom.getName()));
         title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         Label loading = new Label("Chargement...");
@@ -658,7 +668,7 @@ public class ClassroomsView {
             dialog.initOwner(owner);
         }
 
-        dialog.setTitle("Emploi du temps — " + classroom.getName());
+        dialog.setTitle(I18n.t("classroom.schedule_title").replace("{0}", classroom.getName()));
         dialog.setMinWidth(820);
         dialog.setMinHeight(480);
         dialog.setResizable(true);
@@ -687,7 +697,7 @@ public class ClassroomsView {
 
                     VBox.setVgrow(scroll, Priority.ALWAYS);
 
-                    Button print = new Button("🖨  Générer le PDF");
+                    Button print = new Button("🖨  " + I18n.t("classroom.generate_pdf"));
                     print.getStyleClass().add("primary-button");
                     print.setOnAction(event -> {
                         print.setDisable(true);
@@ -711,7 +721,7 @@ public class ClassroomsView {
                         );
                     });
 
-                    Button close = new Button("Fermer");
+                    Button close = new Button(I18n.t("action.close"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(event -> dialog.close());
 
@@ -724,7 +734,7 @@ public class ClassroomsView {
                     Label errorLabel = new Label("Erreur : " + error.getMessage());
                     errorLabel.setStyle("-fx-text-fill: #B91C1C;");
 
-                    Button close = new Button("Fermer");
+                    Button close = new Button(I18n.t("action.close"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(event -> dialog.close());
 
@@ -773,7 +783,7 @@ public class ClassroomsView {
         grid.add(new Region(), 0, 0);
 
         for (int d = 0; d < TIMETABLE_DAYS.size(); d++) {
-            Label dayLabel = new Label(TIMETABLE_DAYS.get(d).toUpperCase(Locale.FRENCH));
+            Label dayLabel = new Label(localizedDay(TIMETABLE_DAYS.get(d)).toUpperCase(I18n.getLocale()));
             dayLabel.setStyle("-fx-background-color: #CFE8E4; "
                     + "-fx-background-radius: 14; "
                     + "-fx-text-fill: #0F172A; "
@@ -911,6 +921,19 @@ public class ClassroomsView {
             }
         }
         return entries;
+    }
+
+    private String localizedDay(String raw) {
+        return switch (dayIndexOf(raw)) {
+            case 0 -> I18n.t("day.mon");
+            case 1 -> I18n.t("day.tue");
+            case 2 -> I18n.t("day.wed");
+            case 3 -> I18n.t("day.thu");
+            case 4 -> I18n.t("day.fri");
+            case 5 -> I18n.t("day.sat");
+            case 6 -> I18n.t("day.sun");
+            default -> raw == null ? "" : raw;
+        };
     }
 
     private int dayIndexOf(String raw) {

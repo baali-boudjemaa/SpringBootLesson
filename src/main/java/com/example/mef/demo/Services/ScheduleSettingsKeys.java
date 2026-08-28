@@ -21,4 +21,21 @@ public final class ScheduleSettingsKeys {
      */
     public static final String CLOSED_DAYS = "schedule.closed_days";
     public static final String CLOSED_DAYS_DEFAULT = "";
+
+    /** Daily timetable boundaries and the non-teaching rest interval (HH:mm). */
+    public static final String DAY_START = "schedule.day_start";
+    public static final String DAY_END = "schedule.day_end";
+    public static final String BREAK_START = "schedule.break_start";
+    public static final String BREAK_END = "schedule.break_end";
+
+    public static final String DAY_START_DEFAULT = "08:00";
+    public static final String DAY_END_DEFAULT = "18:00";
+    public static final String BREAK_START_DEFAULT = "12:00";
+    public static final String BREAK_END_DEFAULT = "14:00";
+
+    // Compatibility names used by course scheduling/validation code.
+    public static final String REST_START = BREAK_START;
+    public static final String REST_END = BREAK_END;
+    public static final String REST_START_DEFAULT = BREAK_START_DEFAULT;
+    public static final String REST_END_DEFAULT = BREAK_END_DEFAULT;
 }

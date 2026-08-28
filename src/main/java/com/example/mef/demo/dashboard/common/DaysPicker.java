@@ -24,14 +24,18 @@ public final class DaysPicker {
     );
 
     private final Map<String, CheckBox> checks = new LinkedHashMap<>();
-    private final FlowPane pane = new FlowPane(10, 4);
+    private final FlowPane pane = new FlowPane(10, 8);
 
     public DaysPicker() {
         for (String day : DAYS) {
             CheckBox box = new CheckBox(day);
+            box.setStyle("-fx-background-color: #F1F5F9; -fx-background-radius: 14; "
+                    + "-fx-padding: 5 10; -fx-text-fill: #334155; -fx-font-size: 12px;");
             checks.put(day, box);
             pane.getChildren().add(box);
         }
+        pane.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #E2E8F0; "
+                + "-fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 10;");
     }
 
     public FlowPane getNode() {
