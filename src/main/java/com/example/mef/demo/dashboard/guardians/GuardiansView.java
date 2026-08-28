@@ -14,10 +14,12 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -26,10 +28,15 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Locale;
 
 /** Typed CRUD screen for the "guardians" module, styled to match StudentsView. */
 @Component
@@ -66,6 +73,21 @@ public class GuardiansView {
         studentField.setMaxWidth(Double.MAX_VALUE);
         studentField.setCellFactory(cb -> studentCell());
         studentField.setButtonCell(studentCell());
+        // Explicit converter: without this, the button cell can fall back to
+        // Student#toString() (e.g. "com.example...@1a2b3c") instead of the
+        // name, particularly when the selected value isn't reference-equal
+        // to an item already loaded into the combo's items list.
+        studentField.setConverter(new javafx.util.StringConverter<Student>() {
+            @Override
+            public String toString(Student s) {
+                return s == null ? "" : s.getFirstName() + " " + s.getLastName();
+            }
+
+            @Override
+            public Student fromString(String s) {
+                return studentField.getValue();
+            }
+        });
     }
 
     private ListCell<Student> studentCell() {
@@ -217,8 +239,15 @@ public class GuardiansView {
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
+        // Shows every child linked to this same tuteur (there's one Guardian row per
+        // child, so a tuteur with several kids appears as several rows sharing the
+        // same identity — this groups them back together).
+        Button viewChildren = new Button("👨‍👩‍👧  Voir tous les enfants");
+        viewChildren.getStyleClass().add("link-button");
+        viewChildren.setOnAction(e -> showChildrenDialog());
+
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label("Détails du tuteur"), grid, actions);
+        VBox panel = new VBox(12, new Label("Détails du tuteur"), grid, viewChildren, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
@@ -304,6 +333,128 @@ public class GuardiansView {
                 () -> { closeForm(); reload(); },
                 err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
         );
+    }
+
+    /**
+     * Loads every guardian, groups the ones matching the currently selected tuteur's
+     * identity (name + phone/email — since a tuteur with several children is stored as
+     * several {@link Guardian} rows, one per child), and shows their linked students.
+     */
+    private void showChildrenDialog() {
+        if (selected == null) {
+            DialogUtil.info("Enfants", "Sélectionnez d'abord un tuteur.");
+            return;
+        }
+        String tutorFirstName = normalize(selected.getFirstName());
+        String tutorLastName = normalize(selected.getLastName());
+        String tutorPhone = normalize(selected.getPhoneNumber());
+        String tutorEmail = normalize(selected.getEmail());
+
+        AsyncTasks.run(
+                () -> guardianService.search(null),
+                all -> {
+                    List<Guardian> sameTutor = all.stream()
+                            .filter(g -> normalize(g.getFirstName()).equals(tutorFirstName)
+                                    && normalize(g.getLastName()).equals(tutorLastName)
+                                    && (samePhoneOrEmail(tutorPhone, normalize(g.getPhoneNumber()))
+                                    || samePhoneOrEmail(tutorEmail, normalize(g.getEmail()))
+                                    // Fall back to name-only match when neither phone nor email is filled in.
+                                    || (tutorPhone.isBlank() && tutorEmail.isBlank())))
+                            .toList();
+                    openChildrenDialog(selected, sameTutor);
+                },
+                err -> DialogUtil.error("Erreur", "Échec du chargement des tuteurs : " + err.getMessage())
+        );
+    }
+
+    private static String normalize(String s) {
+        return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Two values match if both are non-blank and equal; blank values never count as a match. */
+    private static boolean samePhoneOrEmail(String a, String b) {
+        return !a.isBlank() && a.equals(b);
+    }
+
+    private void openChildrenDialog(Guardian tutor, List<Guardian> sameTutorRows) {
+        String tutorName = ((tutor.getFirstName() == null ? "" : tutor.getFirstName()) + " "
+                + (tutor.getLastName() == null ? "" : tutor.getLastName())).trim();
+
+        Label title = new Label("Enfants de " + tutorName);
+        title.getStyleClass().add("workflow-title");
+
+        Label count = new Label(sameTutorRows.size() + (sameTutorRows.size() > 1 ? " enfants" : " enfant"));
+        count.getStyleClass().add("stat-caption");
+
+        VBox listBox = new VBox(8);
+        List<Student> children = sameTutorRows.stream()
+                .map(Guardian::getStudent)
+                .filter(s -> s != null)
+                .toList();
+
+        if (children.isEmpty()) {
+            Label none = new Label("Aucun élève lié à ce tuteur.");
+            none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
+            listBox.getChildren().add(none);
+        } else {
+            for (Student child : children) {
+                listBox.getChildren().add(childRow(child));
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(listBox);
+        scroll.setFitToWidth(true);
+        scroll.setPrefViewportHeight(320);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        Button close = new Button("Fermer");
+        close.getStyleClass().add("secondary-button");
+
+        VBox root = new VBox(14, title, count, scroll, close);
+        root.getStyleClass().add("workflow-card");
+        root.setPadding(new Insets(20));
+        root.setPrefWidth(420);
+
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        Window owner = table.getScene() == null ? null : table.getScene().getWindow();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+        dialog.setTitle("Enfants du tuteur");
+        dialog.setScene(new Scene(root));
+        close.setOnAction(e -> dialog.close());
+        dialog.showAndWait();
+    }
+
+    /** One row: avatar-style initials + the child's full name, styled with explicit colors
+     * so it reads correctly regardless of the dialog's stylesheet context. */
+    private HBox childRow(Student s) {
+        String initials = TableStyleKit.initialsOf(s.getFirstName(), s.getLastName());
+        String color = TableStyleKit.colorFor(s.getGender() == null ? "" : s.getGender().name());
+        String fullName = ((s.getFirstName() == null ? "" : s.getFirstName()) + " "
+                + (s.getLastName() == null ? "" : s.getLastName())).trim();
+
+        Label avatar = new Label(initials);
+        avatar.setMinSize(36, 36);
+        avatar.setMaxSize(36, 36);
+        avatar.setAlignment(Pos.CENTER);
+        avatar.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 18; "
+                + "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;");
+
+        Label nameLbl = new Label(fullName);
+        nameLbl.setStyle("-fx-text-fill: #0F172A; -fx-font-weight: bold; -fx-font-size: 13px;");
+        String numberText = s.getStudentNumber() == null ? "—" : s.getStudentNumber();
+        Label numberLbl = new Label(numberText);
+        numberLbl.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+        VBox nameBox = new VBox(2, nameLbl, numberLbl);
+
+        HBox row = new HBox(12, avatar, nameBox, new Region());
+        HBox.setHgrow(row.getChildren().get(2), Priority.ALWAYS);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-background-color: #F8FAFC; -fx-background-radius: 8;");
+        row.setPadding(new Insets(8, 12, 8, 12));
+        return row;
     }
 
     private void reload() {

@@ -4,9 +4,12 @@ import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.CourseScheduleSlot;
 import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.Model.Inscription;
+import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
+import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.ScheduleSettingsKeys;
 import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
@@ -22,6 +25,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -42,6 +46,9 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.StringConverter;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.springframework.stereotype.Component;
@@ -61,6 +68,7 @@ public class CoursesView {
     private final EmployeeService employeeService;
     private final ClassroomService classroomService;
     private final SettingService settingService;
+    private final EnrollmentService enrollmentService;
 
     private final ObservableList<Course> rows = FXCollections.observableArrayList();
     private final TableView<Course> table = new TableView<>(rows);
@@ -93,11 +101,13 @@ public class CoursesView {
     private FloatingPanel floatingForm;
 
     public CoursesView(CourseService courseService, EmployeeService employeeService,
-                       ClassroomService classroomService, SettingService settingService) {
+                       ClassroomService classroomService, SettingService settingService,
+                       EnrollmentService enrollmentService) {
         this.courseService = courseService;
         this.employeeService = employeeService;
         this.classroomService = classroomService;
         this.settingService = settingService;
+        this.enrollmentService = enrollmentService;
 
         teacherField.setMaxWidth(Double.MAX_VALUE);
         classroomField.setMaxWidth(Double.MAX_VALUE);
@@ -293,12 +303,14 @@ public class CoursesView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", "Voir");
+                Button view = iconBtn("fth-eye", "Voir les élèves inscrits");
                 Button edit = iconBtn("fth-edit-2", "Modifier");
                 Button del = iconBtn("fth-trash-2", "Supprimer");
                 del.getStyleClass().add("icon-action-danger");
 
-                view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                // "Voir" now opens the enrolled-students dialog instead of the edit form —
+                // use the pencil icon to edit the course itself.
+                view.setOnAction(e -> showEnrolledStudents(item));
                 edit.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
                 del.setOnAction(e -> { selected = item; delete(); });
 
@@ -319,6 +331,108 @@ public class CoursesView {
         return btn;
     }
 
+    /**
+     * Loads every enrollment, filters down to the ones that include the given course, and
+     * shows the matching students in a small modal dialog. Filtering happens client-side
+     * since {@link EnrollmentService#findAll()} already returns each {@link Inscription}
+     * with its {@code courses} collection populated — no new repository query needed.
+     */
+    private void showEnrolledStudents(Course course) {
+        AsyncTasks.run(
+                enrollmentService::findAll,
+                inscriptions -> {
+                    List<Inscription> matching = inscriptions.stream()
+                            .filter(i -> i.getCourses() != null && i.getCourses().stream()
+                                    .anyMatch(c -> c.getId() != null && c.getId().equals(course.getId())))
+                            .toList();
+                    openEnrolledStudentsDialog(course, matching);
+                },
+                err -> DialogUtil.error("Erreur", "Échec du chargement des inscriptions : " + err.getMessage())
+        );
+    }
+
+    private void openEnrolledStudentsDialog(Course course, List<Inscription> matching) {
+        Label title = new Label("Élèves inscrits — " + course.getName());
+        title.getStyleClass().add("workflow-title");
+
+        Label count = new Label(matching.size() + (matching.size() > 1 ? " élèves" : " élève"));
+        count.getStyleClass().add("stat-caption");
+
+        VBox listBox = new VBox(8);
+        if (matching.isEmpty()) {
+            Label none = new Label("Aucun élève inscrit à ce cours pour le moment.");
+            none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
+            listBox.getChildren().add(none);
+        } else {
+            for (Inscription inscription : matching) {
+                listBox.getChildren().add(enrolledStudentRow(inscription));
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(listBox);
+        scroll.setFitToWidth(true);
+        scroll.setPrefViewportHeight(320);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        Button close = new Button("Fermer");
+        close.getStyleClass().add("secondary-button");
+
+        VBox root = new VBox(14, title, count, scroll, close);
+        root.getStyleClass().add("workflow-card");
+        root.setPadding(new Insets(20));
+        root.setPrefWidth(420);
+
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        Window owner = table.getScene() == null ? null : table.getScene().getWindow();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+        dialog.setTitle("Élèves inscrits");
+        dialog.setScene(new Scene(root));
+        close.setOnAction(e -> dialog.close());
+        dialog.showAndWait();
+    }
+
+    /** One row: avatar-style initials, student name, and their classroom/status for context. */
+    /** One row: avatar-style initials, student name, and their classroom/status for context. */
+    private HBox enrolledStudentRow(Inscription inscription) {
+        Student s = inscription.getStudent();
+        String initials = s == null ? "?" : TableStyleKit.initialsOf(s.getFirstName(), s.getLastName());
+        String color = TableStyleKit.colorFor(s == null || s.getGender() == null ? "" : s.getGender().name());
+        String fullName = s == null ? "—"
+                : ((s.getFirstName() == null ? "" : s.getFirstName()) + " " + (s.getLastName() == null ? "" : s.getLastName())).trim();
+        String classroomName = inscription.getClassroom() == null ? "—" : inscription.getClassroom().getName();
+        String statusName = inscription.getStatus() == null ? "—" : inscription.getStatus().name();
+
+        Label avatar = new Label(initials);
+        avatar.setMinSize(36, 36);
+        avatar.setMaxSize(36, 36);
+        avatar.setAlignment(Pos.CENTER);
+        avatar.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 18; "
+                + "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px;");
+
+        Label nameLbl = new Label(fullName);
+        nameLbl.setStyle("-fx-text-fill: #0F172A; -fx-font-weight: bold; -fx-font-size: 13px;");
+        Label classLbl = new Label(classroomName);
+        classLbl.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
+        VBox nameBox = new VBox(2, nameLbl, classLbl);
+
+        Label statusBadge = new Label(statusName);
+        statusBadge.getStyleClass().add("status-badge");
+        boolean active = "ACTIVE".equalsIgnoreCase(statusName);
+        statusBadge.setStyle((active
+                ? "-fx-background-color: #DCFCE7; -fx-text-fill: #15803D;"
+                : "-fx-background-color: #FEE2E2; -fx-text-fill: #B91C1C;")
+                + " -fx-padding: 3 10; -fx-background-radius: 10; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        HBox row = new HBox(12, avatar, nameBox, new Region(), statusBadge);
+        HBox.setHgrow(row.getChildren().get(2), Priority.ALWAYS);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-background-color: #F8FAFC; -fx-background-radius: 8;");
+        row.setPadding(new Insets(8, 12, 8, 12));
+        return row;
+    }
     private void openSchedulePicker() {
         Employee teacher = teacherField.getValue();
         AsyncTasks.run(
@@ -512,12 +626,24 @@ public class CoursesView {
         nameField.setText(course.getName());
         scheduleField.setText(course.getSchedule());
         feeField.setText(course.getMonthlyFee() == null ? "" : String.valueOf(course.getMonthlyFee()));
-        teacherField.setValue(course.getTeacher());
-        classroomField.setValue(course.getClassroom());
+        teacherField.setValue(matchById(teacherField.getItems(), course.getTeacher(), Employee::getId));
+        classroomField.setValue(matchById(classroomField.getItems(), course.getClassroom(), Classroom::getId));
         statusField.setValue(course.getStatus());
         showFormPanel();
     }
 
+    /** Resolves to the item already loaded in a ComboBox's list that shares the same id as
+     *  {@code target}, so the ComboBox's selection model can actually match it (avoids blank
+     *  display when {@code target} came from a different service call / object instance than
+     *  the combo's own items, and the entity has no id-based equals()). */
+    private static <T> T matchById(List<T> items, T target, java.util.function.Function<T, String> idFn) {
+        if (target == null || idFn.apply(target) == null) return target;
+        String targetId = idFn.apply(target);
+        return items.stream()
+                .filter(item -> targetId.equals(idFn.apply(item)))
+                .findFirst()
+                .orElse(target);
+    }
     private void clearForm() {
         selected = null;
         nameField.clear();

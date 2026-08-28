@@ -35,7 +35,7 @@ public class FloatingPanel extends VBox {
     private boolean isResizing = false;
 
     public FloatingPanel(String title, Node content, Runnable onClose) {
-        this(title, content, onClose, 380);
+        this(title, content, onClose, 400);
     }
 
     /** @param prefWidth initial panel width; still draggable/resizable afterward within min/max bounds. */

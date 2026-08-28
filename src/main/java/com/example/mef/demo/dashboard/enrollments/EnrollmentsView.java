@@ -76,6 +76,9 @@ public class EnrollmentsView {
     private final List<CheckBox> courseChecks = new ArrayList<>();
     private final Label totalCostValue = new Label("—");
 
+    /** Full course catalog as loaded from the server; buildCourseChips() renders a filtered subset of this. */
+    private final List<Course> allCourses = new ArrayList<>();
+
     private BorderPane layout;
     private VBox form;
     private Inscription selected;
@@ -122,6 +125,11 @@ public class EnrollmentsView {
                 return classroomField.getValue();
             }
         });
+
+        // Whenever the selected classroom changes, rebuild the course chips
+        // to show only the courses that belong to that classroom.
+        classroomField.valueProperty().addListener((obs, oldClass, newClass) ->
+                buildCourseChips(filterCoursesForSelectedClassroom()));
     }
 
     private ListCell<Student> studentCell() {
@@ -235,9 +243,35 @@ public class EnrollmentsView {
         status.setCellFactory(col -> statusCell());
         status.setPrefWidth(110);
 
-        table.getColumns().addAll(List.of(date, student, classroom, session, status));
-    }
+        // NEW: one pill per enrolled course
+        TableColumn<Inscription, Inscription> courses = new TableColumn<>("COURS");
+        courses.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        courses.setCellFactory(col -> coursesSummaryCell());
+        courses.setPrefWidth(240);
 
+        table.getColumns().addAll(List.of(date, student, classroom, session, status, courses));
+    }
+    /** Shows one pill per course the student is enrolled in for this inscription. */
+    private TableCell<Inscription, Inscription> coursesSummaryCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Inscription i, boolean empty) {
+                super.updateItem(i, empty);
+                if (empty || i == null || i.getCourses() == null || i.getCourses().isEmpty()) {
+                    setGraphic(null);
+                    setText(empty ? null : "—");
+                    return;
+                }
+                setText(null);
+                FlowPane pills = new FlowPane(6, 6);
+                pills.setPrefWrapLength(220);
+                for (Course c : i.getCourses()) {
+                    pills.getChildren().add(TableStyleKit.pill(c.getName(), "#F1F5F9", "#334155"));
+                }
+                setGraphic(pills);
+            }
+        };
+    }
     private TableCell<Inscription, Inscription> studentAvatarCell() {
         return new TableCell<>() {
             @Override
@@ -311,11 +345,25 @@ public class EnrollmentsView {
                 list -> classroomField.setItems(FXCollections.observableArrayList(list)),
                 err -> DialogUtil.error("Erreur", "Échec du chargement des classes : " + err.getMessage()));
         AsyncTasks.run(courseService::findAll,
-                this::buildCourseChips,
+                list -> {
+                    allCourses.addAll(list);
+                    buildCourseChips(filterCoursesForSelectedClassroom());
+                },
                 err -> DialogUtil.error("Erreur", "Échec du chargement des cours : " + err.getMessage()));
     }
 
-    /** (Re)builds the course chips; called once courses are loaded, keeping any prior selection selected by id. */
+    /** Returns only the courses belonging to the currently selected classroom, or all courses if none is selected. */
+    private List<Course> filterCoursesForSelectedClassroom() {
+        Classroom current = classroomField.getValue();
+        if (current == null || current.getId() == null) {
+            return allCourses;
+        }
+        return allCourses.stream()
+                .filter(c -> c.getClassroom() != null && current.getId().equals(c.getClassroom().getId()))
+                .toList();
+    }
+
+    /** (Re)builds the course chips for the given course list, keeping any prior selection selected by id. */
     private void buildCourseChips(List<Course> courses) {
         List<String> previouslyChecked = courseChecks.stream()
                 .filter(CheckBox::isSelected)
@@ -326,9 +374,12 @@ public class EnrollmentsView {
         courseChecks.clear();
 
         if (courses.isEmpty()) {
-            Label none = new Label("Aucun cours disponible.");
+            Label none = new Label(classroomField.getValue() == null
+                    ? "Aucun cours disponible."
+                    : "Aucun cours pour cette classe.");
             none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 12px;");
             coursesBox.getChildren().add(none);
+            updateTotalCost();
             return;
         }
 
@@ -368,14 +419,20 @@ public class EnrollmentsView {
         FormFactory.addRow(grid, 2, "Session", sessionField);
         FormFactory.addRow(grid, 3, "Statut", statusField);
 
+        // --- Cours: built as its own block, not through the 2-col grid row ---
+        Label coursesLabel = new Label("Cours");
+        coursesLabel.getStyleClass().add("field-label"); // match your other field labels' style
+
         ScrollPane coursesScroll = new ScrollPane(coursesBox);
         coursesScroll.setFitToWidth(true);
-        coursesScroll.setPrefHeight(90);
+        coursesScroll.setPrefHeight(200);
         coursesScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        FormFactory.addRow(grid, 4, "Cours", coursesScroll);
 
-        totalCostValue.getStyleClass().add("field-label");
-        FormFactory.addRow(grid, 5, "Coût mensuel (cours)", totalCostValue);
+        VBox coursesBlock = new VBox(6, coursesLabel, coursesScroll);
+        // -----------------------------------------------------------------
+
+        HBox totalCostRow = new HBox(8, new Label("Coût mensuel (cours)"), totalCostValue);
+        totalCostRow.setAlignment(Pos.CENTER_LEFT);
 
         Button save = new Button("Enregistrer");
         save.getStyleClass().add("primary-button");
@@ -390,12 +447,11 @@ public class EnrollmentsView {
         delete.setOnAction(e -> delete());
 
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label("Détails de l'inscription"), grid, actions);
+        VBox panel = new VBox(12, new Label("Détails de l'inscription"), grid, coursesBlock, totalCostRow, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
     }
-
     private void startCreate() {
         clearForm();
         showFormPanel();
@@ -417,6 +473,8 @@ public class EnrollmentsView {
             return;
         }
         studentField.setValue(inscription.getStudent());
+        // Setting the classroom fires the classroomField listener, which
+        // rebuilds courseChecks against the courses for this classroom.
         classroomField.setValue(inscription.getClassroom());
         sessionField.setValue(inscription.getSession());
         statusField.setValue(inscription.getStatus());
@@ -434,7 +492,7 @@ public class EnrollmentsView {
     private void clearForm() {
         selected = null;
         studentField.setValue(null);
-        classroomField.setValue(null);
+        classroomField.setValue(null); // triggers listener → chips rebuild to show all/none as appropriate
         sessionField.setValue(null);
         statusField.setValue(null);
         courseChecks.forEach(cb -> cb.setSelected(false));

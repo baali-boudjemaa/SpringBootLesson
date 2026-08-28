@@ -275,11 +275,16 @@ public class EnrollmentWizard {
         classroom.setCellFactory(cb -> classroomCell(data.remainingSeats()));
         classroom.setButtonCell(classroomCell(data.remainingSeats()));
 
-        /* Read-only indicator: shows the selected classroom's category (Creche/Preparatoire/Soutien). */
+        /* Read-only indicator: shows the selected classroom's category (Creche/Preparatoire/Soutien).
+         * Kept disabled on purpose — this must always mirror the selected classroom's real category
+         * (set programmatically below). If it were editable, an admin could pick a category here that
+         * doesn't match the actual classroom, which would desync the Session field's visibility
+         * (driven by this combo) from the Session validation (driven by the real classroom category)
+         * and produce a "select a session" error on a hidden field. */
         ComboBox<Category> classroomCategory = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
 
         classroomCategory.setMaxWidth(Double.MAX_VALUE);
-        //classroomCategory.setDisable(true);
+        classroomCategory.setDisable(true);
         classroomCategory.setCellFactory(cb -> categoryCell());
 
         classroomCategory.setButtonCell(categoryCell());
@@ -350,6 +355,11 @@ public class EnrollmentWizard {
         coursesWrap.setVisible(false);
         coursesWrap.setManaged(false);
 
+        // Used later (step 4) to keep the suggested payment amount in sync with the
+        // registration fee + selected support courses; declared here since the course
+        // checkboxes created below need to trigger it as soon as they're built.
+        Runnable[] refreshSuggestedAmount = new Runnable[1];
+
         Runnable[] refreshCourseOptions = new Runnable[1];
         refreshCourseOptions[0] = () -> {
             Classroom selectedClassroom = classroom.getValue();
@@ -368,11 +378,16 @@ public class EnrollmentWizard {
                 } else {
                     for (Course course : available) {
                         CheckBox cb = new CheckBox(course.getName());
+                        // Recompute the suggested payment total whenever a course is checked/unchecked.
+                        cb.selectedProperty().addListener((obs, was, isNow) -> {
+                            if (refreshSuggestedAmount[0] != null) refreshSuggestedAmount[0].run();
+                        });
                         courseCheckboxes.put(cb, course);
                         coursesBox.getChildren().add(cb);
                     }
                 }
             }
+            if (refreshSuggestedAmount[0] != null) refreshSuggestedAmount[0].run();
         };
         classroom.valueProperty().addListener((obs, old, val) -> refreshCourseOptions[0].run());
 
@@ -387,14 +402,50 @@ public class EnrollmentWizard {
         paymentMethod.setButtonCell(paymentMethodCell());
         paymentAmount.setDisable(true);
         paymentMethod.setDisable(true);
-        recordPayment.selectedProperty().addListener((obs, old, selected) -> {
-            paymentAmount.setDisable(!selected);
-            paymentMethod.setDisable(!selected);
-        });
 
         GridPane paymentForm = FormFactory.sectionGrid();
         FormFactory.addRow(paymentForm, 0, I18n.t("field.amount"), paymentAmount);
         FormFactory.addRow(paymentForm, 1, I18n.t("field.method"), paymentMethod);
+
+        // Shows the computed cost (registration fee + selected support courses) so the
+        // admin can see where the suggested Montant comes from.
+        Label suggestedCostLabel = new Label();
+        suggestedCostLabel.getStyleClass().add("stat-caption");
+
+        // Tracks whether the admin typed into the Montant field themselves; once they do,
+        // we stop silently overwriting it on every recalculation.
+        boolean[] programmaticAmountUpdate = {false};
+        boolean[] amountManuallyEdited = {false};
+        paymentAmount.textProperty().addListener((obs, old, val) -> {
+            if (!programmaticAmountUpdate[0]) {
+                amountManuallyEdited[0] = true;
+            }
+        });
+
+        refreshSuggestedAmount[0] = () -> {
+            double total = parseAmountSafely(registrationFee.getText());
+            for (Map.Entry<CheckBox, Course> e : courseCheckboxes.entrySet()) {
+                if (e.getKey().isSelected()) {
+                    Double fee = e.getValue().getMonthlyFee();
+                    total += fee == null ? 0 : fee;
+                }
+            }
+            suggestedCostLabel.setText(I18n.t("ewizard.suggested_total") + " : " + formatFee(total));
+            if (!amountManuallyEdited[0]) {
+                programmaticAmountUpdate[0] = true;
+                paymentAmount.setText(total > 0 ? String.format(java.util.Locale.US, "%.2f", total) : "");
+                programmaticAmountUpdate[0] = false;
+            }
+        };
+
+        // Registration fee changing also affects the suggested total.
+        registrationFee.textProperty().addListener((obs, old, val) -> refreshSuggestedAmount[0].run());
+
+        recordPayment.selectedProperty().addListener((obs, old, selected) -> {
+            paymentAmount.setDisable(!selected);
+            paymentMethod.setDisable(!selected);
+            if (selected) refreshSuggestedAmount[0].run(); // prefill as soon as payment is enabled
+        });
 
         Label receiptTitle = new Label("\uD83E\uDDFE  " + I18n.t("ewizard.receipt"));
         receiptTitle.getStyleClass().add("receipt-title");
@@ -410,7 +461,7 @@ public class EnrollmentWizard {
         VBox receiptBox = new VBox(10, receiptTitle, receiptGrid);
         receiptBox.getStyleClass().add("receipt-box");
 
-        VBox paymentStep = new VBox(16, recordPayment, paymentForm, receiptBox);
+        VBox paymentStep = new VBox(16, recordPayment, paymentForm, suggestedCostLabel, receiptBox);
 
         /* ── Step 5 — Summary ─────────────────────────────────────── */
 
@@ -479,6 +530,8 @@ public class EnrollmentWizard {
             recordPayment.setSelected(false);
             paymentAmount.clear();
             paymentMethod.setValue(null);
+            amountManuallyEdited[0] = false;
+            refreshSuggestedAmount[0].run();
         });
 
         /* ── Step rendering scaffold ──────────────────────────────── */

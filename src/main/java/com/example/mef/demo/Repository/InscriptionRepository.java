@@ -3,6 +3,7 @@ package com.example.mef.demo.Repository;
 import com.example.mef.demo.Model.Inscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,4 +25,13 @@ public interface InscriptionRepository extends JpaRepository<Inscription, String
             "LEFT JOIN FETCH i.anneeScolaire " +
             "LEFT JOIN FETCH i.courses")
     List<Inscription> findAllWithDetails();
+
+    /**
+     * Inscriptions for a set of students, with the (optional) classroom eagerly
+     * fetched. Used to resolve each student's current class for display/filtering
+     * without hitting a LazyInitializationException or N+1 queries.
+     * LEFT JOIN because classroom is optional on Inscription.
+     */
+    @Query("SELECT i FROM Inscription i LEFT JOIN FETCH i.classroom WHERE i.student.id IN :studentIds")
+    List<Inscription> findByStudentIdInWithClassroom(@Param("studentIds") List<String> studentIds);
 }

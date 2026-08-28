@@ -1,12 +1,17 @@
 package com.example.mef.demo.dashboard.students;
 
+import com.example.mef.demo.Model.Classroom;
+import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.Repository.InscriptionRepository;
+import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.StudentService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.BloodType;
+import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.Sexe;
 import com.example.mef.demo.util.DateUtil;
 import com.example.mef.demo.util.DialogUtil;
@@ -40,8 +45,11 @@ import org.kordamp.ikonli.javafx.FontIcon;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Typed CRUD screen for the "students" ("Enfants") module, restyled to match the
@@ -54,6 +62,8 @@ public class StudentsView {
     private static final List<String> BLOOD_TYPES = List.of("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-");
 
     private final StudentService studentService;
+    private final ClassroomService classroomService;
+    private final InscriptionRepository inscriptionRepository;
 
     private final ObservableList<Student> rows = FXCollections.observableArrayList();
     private final TableView<Student> table = new TableView<>(rows);
@@ -65,6 +75,8 @@ public class StudentsView {
     private final TextField searchField = FormFactory.textField("Rechercher par nom ...");
     private final ComboBox<String> genderFilter = new ComboBox<>(
             FXCollections.observableArrayList("Tous", "Garçon", "Fille"));
+    private final ComboBox<String> classFilter = new ComboBox<>(
+            FXCollections.observableArrayList("Toutes"));
 
     private final TextField firstNameField = FormFactory.textField("Prénom");
     private final TextField lastNameField = FormFactory.textField("Nom");
@@ -82,6 +94,8 @@ public class StudentsView {
     private final HBox summaryCards = new HBox(14);
 
     private List<Student> allStudents = List.of();
+    /** Current classroom name per student id, resolved from each student's Inscriptions. */
+    private Map<String, String> classroomNameByStudentId = Map.of();
     private Student selected;
     private VBox form;
     private Runnable onEnrollNew;
@@ -90,10 +104,15 @@ public class StudentsView {
     private Pane overlay;
     private FloatingPanel floatingForm;
 
-    public StudentsView(StudentService studentService) {
+    public StudentsView(StudentService studentService,
+                        ClassroomService classroomService,
+                        InscriptionRepository inscriptionRepository) {
         this.studentService = studentService;
+        this.classroomService = classroomService;
+        this.inscriptionRepository = inscriptionRepository;
         genderField.setMaxWidth(Double.MAX_VALUE);
         genderFilter.setValue("Tous");
+        classFilter.setValue("Toutes");
 
         genderField.setCellFactory(cb -> genderListCell());
         genderField.setButtonCell(genderListCell());
@@ -113,6 +132,8 @@ public class StudentsView {
         searchField.getStyleClass().add("filter-field");
         genderFilter.getStyleClass().add("filter-field");
         genderFilter.setPrefWidth(130);
+        classFilter.getStyleClass().add("filter-field");
+        classFilter.setPrefWidth(170);
         dobField.getStyleClass().add("filter-field");
         Button add = new Button("+  Ajouter un Enfant");
         add.getStyleClass().add("primary-button");
@@ -122,7 +143,7 @@ public class StudentsView {
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onEnrollNew.run());
 
-        HBox filters = new HBox(10, genderFilter, searchField);
+        HBox filters = new HBox(10, genderFilter, classFilter, searchField);
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
@@ -161,12 +182,14 @@ public class StudentsView {
         contentPane.setCenter(scrollPane);
 
         wireFilters();
+        loadClassrooms();
         reload();
     }
 
     private void wireFilters() {
         searchField.textProperty().addListener((o, a, b) -> applyFilters());
         genderFilter.valueProperty().addListener((o, a, b) -> applyFilters());
+        classFilter.valueProperty().addListener((o, a, b) -> applyFilters());
     }
 
     /** Opens the floating details panel for a row when the user double-clicks it. */
@@ -196,8 +219,10 @@ public class StudentsView {
         age.setPrefWidth(90);
 
         TableColumn<Student, String> section = new TableColumn<>("SECTION");
-        section.setCellValueFactory(d -> new ReadOnlyStringWrapper("—"));
-        section.setPrefWidth(90);
+        section.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                classroomNameByStudentId.get(d.getValue().getId())));
+        section.setCellFactory(col -> dashIfBlankCell());
+        section.setPrefWidth(120);
 
         TableColumn<Student, String> groupage = new TableColumn<>("GROUPAGE");
         groupage.setCellValueFactory(d -> new ReadOnlyStringWrapper(
@@ -481,15 +506,100 @@ public class StudentsView {
                 () -> studentService.search(""),
                 list -> {
                     allStudents = list;
-                    applyFilters();
+                    loadClassroomAssignments();
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
     }
 
+    /** Loads every classroom (not just ones currently in use) to populate the filter dropdown. */
+    private void loadClassrooms() {
+        AsyncTasks.run(
+                classroomService::findAll,
+                this::populateClassFilterOptions,
+                err -> DialogUtil.error("Erreur", "Échec du chargement des classes : " + err.getMessage())
+        );
+    }
+
+    /** Rebuilds the class filter's dropdown options from all existing classrooms. */
+    private void populateClassFilterOptions(List<Classroom> classrooms) {
+        String current = classFilter.getValue();
+
+        List<String> names = classrooms.stream()
+                .map(Classroom::getName)
+                .filter(n -> n != null && !n.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
+
+        ObservableList<String> items = FXCollections.observableArrayList("Toutes");
+        items.addAll(names);
+        classFilter.setItems(items);
+
+        // Keep the previous selection if it's still a valid option, otherwise reset.
+        classFilter.setValue(items.contains(current) ? current : "Toutes");
+    }
+
+    /** Resolves each currently loaded student's current classroom via their Inscription records. */
+    private void loadClassroomAssignments() {
+        List<String> studentIds = allStudents.stream().map(Student::getId).toList();
+        if (studentIds.isEmpty()) {
+            classroomNameByStudentId = Map.of();
+            applyFilters();
+            return;
+        }
+        AsyncTasks.run(
+                () -> inscriptionRepository.findByStudentIdInWithClassroom(studentIds),
+                inscriptions -> {
+                    classroomNameByStudentId = buildCurrentClassroomMap(inscriptions);
+                    applyFilters();
+                },
+                err -> DialogUtil.error("Erreur", "Échec du chargement des classes des élèves : " + err.getMessage())
+        );
+    }
+
+    /**
+     * Picks, for each student, the classroom of their most relevant Inscription:
+     * an ACTIVE one wins over any other status; ties broken by the most recent
+     * dateInscription. Students with no classroom-linked inscription are omitted.
+     */
+    private Map<String, String> buildCurrentClassroomMap(List<Inscription> inscriptions) {
+        Map<String, Inscription> latestByStudent = new HashMap<>();
+        for (Inscription current : inscriptions) {
+            if (current.getStudent() == null) continue;
+            String studentId = current.getStudent().getId();
+            Inscription existing = latestByStudent.get(studentId);
+            if (existing == null || isMoreRelevant(current, existing)) {
+                latestByStudent.put(studentId, current);
+            }
+        }
+
+        Map<String, String> result = new HashMap<>();
+        latestByStudent.forEach((studentId, inscription) -> {
+            if (inscription.getClassroom() != null) {
+                result.put(studentId, inscription.getClassroom().getName());
+            }
+        });
+        return result;
+    }
+
+    private boolean isMoreRelevant(Inscription candidate, Inscription current) {
+        boolean candidateActive = candidate.getStatus() == EnrollmentStatus.ACTIVE;
+        boolean currentActive = current.getStatus() == EnrollmentStatus.ACTIVE;
+        if (candidateActive != currentActive) {
+            return candidateActive;
+        }
+        LocalDateTime candidateDate = candidate.getDateInscription();
+        LocalDateTime currentDate = current.getDateInscription();
+        if (candidateDate == null) return false;
+        if (currentDate == null) return true;
+        return candidateDate.isAfter(currentDate);
+    }
+
     private void applyFilters() {
         String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
         String genderVal = genderFilter.getValue();
+        String classVal = classFilter.getValue();
 
         List<Student> filtered = allStudents.stream()
                 .filter(s -> {
@@ -500,6 +610,9 @@ public class StudentsView {
                     }
                     if (genderVal != null && !"Tous".equals(genderVal)) {
                         if (!genderLabel(s.getGender()).equals(genderVal)) return false;
+                    }
+                    if (classVal != null && !"Toutes".equals(classVal)) {
+                        if (!classVal.equals(classroomNameByStudentId.get(s.getId()))) return false;
                     }
                     return true;
                 })
