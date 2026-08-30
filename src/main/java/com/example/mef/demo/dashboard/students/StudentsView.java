@@ -11,6 +11,7 @@ import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.enums.BloodType;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.Sexe;
 import com.example.mef.demo.util.DateUtil;
@@ -78,6 +79,8 @@ public class StudentsView {
             FXCollections.observableArrayList("Tous", "Garçon", "Fille"));
     private final ComboBox<String> classFilter = new ComboBox<>(
             FXCollections.observableArrayList("Toutes"));
+    private final ComboBox<String> categoryFilter = new ComboBox<>(
+            FXCollections.observableArrayList("Toutes"));
 
     private final TextField firstNameField = FormFactory.textField("");
     private final TextField lastNameField = FormFactory.textField("");
@@ -97,6 +100,7 @@ public class StudentsView {
     private List<Student> allStudents = List.of();
     /** Current classroom name per student id, resolved from each student's Inscriptions. */
     private Map<String, String> classroomNameByStudentId = Map.of();
+    private Map<String, Category> classroomCategoryByStudentId = Map.of();
     private Student selected;
     private VBox form;
     private Runnable onEnrollNew;
@@ -114,6 +118,7 @@ public class StudentsView {
         genderField.setMaxWidth(Double.MAX_VALUE);
         genderFilter.setValue("Tous");
         classFilter.setValue("Toutes");
+        categoryFilter.setValue("Toutes");
 
         genderField.setCellFactory(cb -> genderListCell());
         genderField.setButtonCell(genderListCell());
@@ -136,6 +141,8 @@ public class StudentsView {
         genderFilter.setPrefWidth(130);
         classFilter.getStyleClass().add("filter-field");
         classFilter.setPrefWidth(170);
+        categoryFilter.getStyleClass().add("filter-field");
+        categoryFilter.setPrefWidth(140);
         dobField.getStyleClass().add("filter-field");
         Button add = new Button("+  " + I18n.t("students.add"));
         add.getStyleClass().add("primary-button");
@@ -145,7 +152,7 @@ public class StudentsView {
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onEnrollNew.run());
 
-        HBox filters = new HBox(10, genderFilter, classFilter, searchField);
+        HBox filters = new HBox(10, genderFilter, categoryFilter, classFilter, searchField);
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
@@ -191,6 +198,7 @@ public class StudentsView {
         searchField.textProperty().addListener((o, a, b) -> applyFilters());
         genderFilter.valueProperty().addListener((o, a, b) -> applyFilters());
         classFilter.valueProperty().addListener((o, a, b) -> applyFilters());
+        categoryFilter.valueProperty().addListener((o, a, b) -> applyFilters());
     }
 
     /** Opens the floating details panel for a row when the user double-clicks it. */
@@ -225,6 +233,12 @@ public class StudentsView {
         section.setCellFactory(col -> dashIfBlankCell());
         section.setPrefWidth(120);
 
+        TableColumn<Student, String> category = new TableColumn<>(I18n.t("students.table.category"));
+        category.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                categoryLabel(classroomCategoryByStudentId.get(d.getValue().getId()))));
+        category.setCellFactory(col -> dashIfBlankCell());
+        category.setPrefWidth(110);
+
         TableColumn<Student, String> groupage = new TableColumn<>(I18n.t("students.table.blood_group"));
         groupage.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getBloodType() == null ? "" : d.getValue().getBloodType().getLabel()));
@@ -247,7 +261,7 @@ public class StudentsView {
         actions.setPrefWidth(110);
         actions.setMaxWidth(120);
 
-        table.getColumns().addAll(List.of(child, age, section, groupage, inscription, notes, actions));
+        table.getColumns().addAll(List.of(child, age, section, category, groupage, inscription, notes, actions));
     }
 
     private TableCell<Student, Student> childCell() {
@@ -348,6 +362,17 @@ public class StudentsView {
     private static String genderLabel(Sexe gender) {
         return gender == Sexe.FEMALE ? I18n.t("gender.female") : gender == Sexe.MALE ? I18n.t("gender.male") : "—";
     }
+
+    private String categoryLabel(Category category) {
+        if (category == null) return "";
+        return switch (category) {
+            case CRECHE -> I18n.t("category.creche");
+            case PREPARATOIRE -> I18n.t("category.preparatoire");
+            case SOUTIEN -> I18n.t("category.soutien");
+        };
+    }
+
+    private record ClassroomAssignments(Map<String, String> names, Map<String, Category> categories) { }
 
     private javafx.scene.control.ListCell<Sexe> genderListCell() {
         return new javafx.scene.control.ListCell<>() {
@@ -539,6 +564,13 @@ public class StudentsView {
 
         // Keep the previous selection if it's still a valid option, otherwise reset.
         classFilter.setValue(items.contains(current) ? current : "Toutes");
+
+        String currentCategory = categoryFilter.getValue();
+        ObservableList<String> categories = FXCollections.observableArrayList("Toutes");
+        classrooms.stream().map(Classroom::getCategory).filter(java.util.Objects::nonNull)
+                .map(this::categoryLabel).distinct().sorted().forEach(categories::add);
+        categoryFilter.setItems(categories);
+        categoryFilter.setValue(categories.contains(currentCategory) ? currentCategory : "Toutes");
     }
 
     /** Resolves each currently loaded student's current classroom via their Inscription records. */
@@ -546,13 +578,16 @@ public class StudentsView {
         List<String> studentIds = allStudents.stream().map(Student::getId).toList();
         if (studentIds.isEmpty()) {
             classroomNameByStudentId = Map.of();
+            classroomCategoryByStudentId = Map.of();
             applyFilters();
             return;
         }
         AsyncTasks.run(
                 () -> inscriptionRepository.findByStudentIdInWithClassroom(studentIds),
                 inscriptions -> {
-                    classroomNameByStudentId = buildCurrentClassroomMap(inscriptions);
+                    ClassroomAssignments assignments = buildCurrentClassroomMap(inscriptions);
+                    classroomNameByStudentId = assignments.names();
+                    classroomCategoryByStudentId = assignments.categories();
                     applyFilters();
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement des classes des élèves : " + err.getMessage())
@@ -564,7 +599,7 @@ public class StudentsView {
      * an ACTIVE one wins over any other status; ties broken by the most recent
      * dateInscription. Students with no classroom-linked inscription are omitted.
      */
-    private Map<String, String> buildCurrentClassroomMap(List<Inscription> inscriptions) {
+    private ClassroomAssignments buildCurrentClassroomMap(List<Inscription> inscriptions) {
         Map<String, Inscription> latestByStudent = new HashMap<>();
         for (Inscription current : inscriptions) {
             if (current.getStudent() == null) continue;
@@ -576,12 +611,14 @@ public class StudentsView {
         }
 
         Map<String, String> result = new HashMap<>();
+        Map<String, Category> categories = new HashMap<>();
         latestByStudent.forEach((studentId, inscription) -> {
             if (inscription.getClassroom() != null) {
                 result.put(studentId, inscription.getClassroom().getName());
+                categories.put(studentId, inscription.getClassroom().getCategory());
             }
         });
-        return result;
+        return new ClassroomAssignments(result, categories);
     }
 
     private boolean isMoreRelevant(Inscription candidate, Inscription current) {
@@ -601,6 +638,7 @@ public class StudentsView {
         String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
         String genderVal = genderFilter.getValue();
         String classVal = classFilter.getValue();
+        String categoryVal = categoryFilter.getValue();
 
         List<Student> filtered = allStudents.stream()
                 .filter(s -> {
@@ -614,6 +652,9 @@ public class StudentsView {
                     }
                     if (classVal != null && !"Toutes".equals(classVal)) {
                         if (!classVal.equals(classroomNameByStudentId.get(s.getId()))) return false;
+                    }
+                    if (categoryVal != null && !"Toutes".equals(categoryVal)) {
+                        if (!categoryVal.equals(categoryLabel(classroomCategoryByStudentId.get(s.getId())))) return false;
                     }
                     return true;
                 })

@@ -844,6 +844,15 @@ public class WeeklyOccupancyGrid {
 
         clear();
 
+        // New format: one or more concrete weekly slots, for example
+        // "MONDAY 08:00-10:00; WEDNESDAY 14:00-16:00".  This is the
+        // format generated from course schedules and preserves each period.
+        if (loadStoredSlots(occupancySchedule)) {
+            refreshDaySlots();
+            refreshTimetable();
+            return;
+        }
+
         if (attendanceDays == null
                 || attendanceDays.isEmpty()) {
 
@@ -913,6 +922,41 @@ public class WeeklyOccupancyGrid {
     public Map<DayOfWeek, List<TimeSlot>> getValue() {
 
         return getDailySchedules();
+    }
+
+    /** Stable database representation of all individual slots. */
+    public String getStorageSchedule() {
+        return schedules.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(slot -> entry.getKey().name() + " "
+                        + slot.start.format(TIME_FORMAT) + "-" + slot.end.format(TIME_FORMAT)))
+                .collect(Collectors.joining("; "));
+    }
+
+    /** Stable database representation of selected day names. */
+    public String getStorageDays() {
+        return getDays().stream().map(DayOfWeek::name).collect(Collectors.joining(","));
+    }
+
+    private boolean loadStoredSlots(Object occupancySchedule) {
+        if (occupancySchedule == null) return false;
+        String stored = occupancySchedule.toString();
+        if (stored.isBlank() || stored.startsWith("{")) return false; // Legacy Map#toString format.
+
+        boolean loaded = false;
+        for (String raw : stored.split(";")) {
+            String entry = raw.trim();
+            int space = entry.indexOf(' ');
+            if (space < 0) continue;
+            DayOfWeek day = convertDay(entry.substring(0, space));
+            String[] range = entry.substring(space + 1).trim().split("-");
+            if (day == null || range.length != 2) continue;
+            LocalTime start = parseTime(range[0].trim());
+            LocalTime end = parseTime(range[1].trim());
+            if (start == null || end == null || !end.isAfter(start)) continue;
+            schedules.get(day).add(new TimeSlot(start, end));
+            loaded = true;
+        }
+        return loaded;
     }
 
     /**

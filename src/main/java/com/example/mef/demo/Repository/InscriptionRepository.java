@@ -1,6 +1,7 @@
 package com.example.mef.demo.Repository;
 
 import com.example.mef.demo.Model.Inscription;
+import com.example.mef.demo.enums.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,7 @@ import java.util.List;
 public interface InscriptionRepository extends JpaRepository<Inscription, String> {
     List<Inscription> findByStudentId(String studentId);
     List<Inscription> findByClassroomId(String classId);
+    List<Inscription> findByClassroomCategory(Category category);
     List<Inscription> findByAnneeScolaireId(String anneeScolaireId);
 
     /**

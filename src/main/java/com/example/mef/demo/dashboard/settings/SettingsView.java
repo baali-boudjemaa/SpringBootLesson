@@ -52,9 +52,10 @@ public class SettingsView {
         VBox languageCard = buildLanguageCard();
         VBox licenseCard = licenseCardBuilder.build(() -> render(contentPane));
         VBox enrollmentRulesCard = buildEnrollmentRulesCard();
+        VBox crechePricingCard = buildCrechePricingCard();
         VBox scheduleRulesCard = buildScheduleRulesCard();
 
-        VBox root = new VBox(20, schoolIdentityCard, languageCard, enrollmentRulesCard, scheduleRulesCard, licenseCard);
+        VBox root = new VBox(20, schoolIdentityCard, languageCard, enrollmentRulesCard, crechePricingCard, scheduleRulesCard, licenseCard);
         root.setPadding(new Insets(24));
 
         ScrollPane scroll = new ScrollPane(root);
@@ -254,6 +255,40 @@ public class SettingsView {
         Label closedDaysTitle = new Label(I18n.t("settings.schedule.closed_days"));
         closedDaysTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;");
         VBox card = new VBox(14, title, hint, hoursGrid, closedDaysTitle, closedDaysField.getNode(), actions);
+        card.getStyleClass().add("workflow-card");
+        return card;
+    }
+
+    /** Daily crèche pricing is shared by the enrollment/payment workflow. */
+    private VBox buildCrechePricingCard() {
+        Label title = new Label(I18n.t("settings.creche_pricing.title"));
+        title.getStyleClass().add("workflow-title");
+        Label hint = new Label(I18n.t("settings.creche_pricing.hint"));
+        hint.setWrapText(true);
+
+        TextField dailyFee = new TextField(settingService.get(EnrollmentSettingsKeys.CRECHE_DAILY_FEE, "0"));
+        TextField dueDay = new TextField(settingService.get(EnrollmentSettingsKeys.CRECHE_DUE_DAY,
+                String.valueOf(EnrollmentSettingsKeys.CRECHE_DUE_DAY_DEFAULT)));
+        GridPane grid = new GridPane();
+        grid.setHgap(12); grid.setVgap(10); grid.getStyleClass().add("form-grid");
+        grid.addRow(0, new Label(I18n.t("settings.creche_pricing.daily_fee")), dailyFee);
+        grid.addRow(1, new Label(I18n.t("settings.creche_pricing.due_day")), dueDay);
+
+        Button save = new Button(I18n.t("action.save"));
+        save.getStyleClass().add("primary-button");
+        save.setOnAction(event -> {
+            try {
+                double fee = Double.parseDouble(dailyFee.getText().trim().replace(',', '.'));
+                int day = Integer.parseInt(dueDay.getText().trim());
+                if (fee < 0 || day < 1 || day > 28) throw new NumberFormatException();
+                settingService.set(EnrollmentSettingsKeys.CRECHE_DAILY_FEE, String.valueOf(fee), I18n.t("settings.creche_pricing.daily_fee"));
+                settingService.set(EnrollmentSettingsKeys.CRECHE_DUE_DAY, String.valueOf(day), I18n.t("settings.creche_pricing.due_day"));
+                DialogUtil.info(title.getText(), I18n.t("settings.saved"));
+            } catch (NumberFormatException ex) {
+                DialogUtil.error(title.getText(), I18n.t("settings.creche_pricing.invalid"));
+            }
+        });
+        VBox card = new VBox(14, title, hint, grid, save);
         card.getStyleClass().add("workflow-card");
         return card;
     }

@@ -6,6 +6,7 @@ import com.example.mef.demo.Services.ClassroomService.ClassAttendanceReport;
 import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.enums.AttendanceStatus;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
@@ -35,6 +36,7 @@ public class AttendanceView {
     private final ClassroomService classroomService;
 
     private LocalDate selectedDate = LocalDate.now();
+    private Category selectedCategory;
     private String selectedClassroomId;
     private final Map<String, AttendanceStatus> selectedStatuses = new LinkedHashMap<>();
 
@@ -49,8 +51,12 @@ public class AttendanceView {
         AsyncTasks.run(
                 classroomService::findAll,
                 classrooms -> {
-                    if (selectedClassroomId == null && !classrooms.isEmpty()) {
-                        selectedClassroomId = classrooms.get(0).getId();
+                    if (selectedCategory == null && !classrooms.isEmpty()) {
+                        selectedCategory = classrooms.stream()
+                                .map(Classroom::getCategory)
+                                .filter(java.util.Objects::nonNull)
+                                .findFirst()
+                                .orElse(null);
                     }
                     loadReport(contentPane, classrooms);
                 },
@@ -61,9 +67,15 @@ public class AttendanceView {
     private void loadReport(BorderPane contentPane, List<Classroom> classrooms) {
         selectedStatuses.clear();
         AsyncTasks.run(
-                () -> selectedClassroomId == null
-                        ? classroomService.getAllStudentsAttendanceReport(selectedDate)
-                        : classroomService.getClassAttendanceReport(selectedClassroomId, selectedDate),
+                () -> {
+                    if (selectedClassroomId != null) {
+                        return classroomService.getClassAttendanceReport(selectedClassroomId, selectedDate);
+                    }
+                    if (selectedCategory != null) {
+                        return classroomService.getCategoryAttendanceReport(selectedCategory, selectedDate);
+                    }
+                    return classroomService.getAllStudentsAttendanceReport(selectedDate);
+                },
                 report -> buildUI(contentPane, classrooms, report),
                 err -> DialogUtil.error("Présence", err.getMessage())
         );
@@ -140,14 +152,36 @@ public class AttendanceView {
         HBox quickFill = new HBox(12, quickLabel, allPresent, allAbsent);
         quickFill.setAlignment(Pos.CENTER_LEFT);
 
+        HBox categoryTabs = new HBox(8);
+        Label categoryLabel = new Label(I18n.t("attendance.choose_category"));
+        categoryLabel.setStyle("-fx-text-fill: #64748B; -fx-padding: 8 4;");
+        categoryTabs.getChildren().add(categoryLabel);
+        for (Category category : Category.values()) {
+            boolean exists = classrooms.stream().anyMatch(room -> room.getCategory() == category);
+            if (!exists) continue;
+            Button tab = classTab(categoryLabel(category), category == selectedCategory);
+            tab.setOnAction(e -> {
+                selectedCategory = category;
+                selectedClassroomId = null;
+                loadReport(contentPane, classrooms);
+            });
+            categoryTabs.getChildren().add(tab);
+        }
+
+        List<Classroom> categoryClassrooms = classrooms.stream()
+                .filter(classroom -> classroom.getCategory() == selectedCategory)
+                .toList();
         HBox classTabs = new HBox(8);
-        Button allClasses = classTab(I18n.t("attendance.all_classes").replace("{0}", String.valueOf(report.students().size())), selectedClassroomId == null);
+        Label classLabel = new Label(I18n.t("attendance.choose_classroom"));
+        classLabel.setStyle("-fx-text-fill: #64748B; -fx-padding: 8 4;");
+        classTabs.getChildren().add(classLabel);
+        Button allClasses = classTab(I18n.t("attendance.all_category_classes").replace("{0}", String.valueOf(report.students().size())), selectedClassroomId == null);
         allClasses.setOnAction(e -> {
             selectedClassroomId = null;
             loadReport(contentPane, classrooms);
         });
         classTabs.getChildren().add(allClasses);
-        for (Classroom classroom : classrooms) {
+        for (Classroom classroom : categoryClassrooms) {
             Button tab = classTab(classroom.getName(), classroom.getId().equals(selectedClassroomId));
             tab.setOnAction(e -> {
                 selectedClassroomId = classroom.getId();
@@ -172,7 +206,7 @@ public class AttendanceView {
             rowIndex++;
         }
 
-        VBox root = new VBox(20, header, stats, quickFill, classTabs, table);
+        VBox root = new VBox(20, header, stats, quickFill, categoryTabs, classTabs, table);
         root.setPadding(new Insets(28));
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
@@ -217,6 +251,15 @@ public class AttendanceView {
         cell.setAlignment(Pos.CENTER_LEFT);
         cell.setStyle("-fx-padding: 14 20; -fx-border-color: #E2E8F0 transparent transparent transparent;");
         return cell;
+    }
+
+    private String categoryLabel(Category category) {
+        if (category == null) return "—";
+        return switch (category) {
+            case CRECHE -> I18n.t("category.creche");
+            case PREPARATOIRE -> I18n.t("category.preparatoire");
+            case SOUTIEN -> I18n.t("category.soutien");
+        };
     }
 
     private HBox statusButtons(BorderPane contentPane, List<Classroom> classrooms, ClassAttendanceReport report, ClassStudentAttendance student) {
@@ -272,6 +315,8 @@ public class AttendanceView {
                         row.studentNumber(),
                         row.firstName(),
                         row.lastName(),
+                        row.classroomName(),
+                        row.category(),
                         selectedStatuses.get(row.id())))
                 .toList();
 

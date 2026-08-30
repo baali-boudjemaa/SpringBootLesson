@@ -60,8 +60,7 @@ public final class SchedulePickerDialog {
 
     /** Opens the picker pre-filled from {@code currentSchedule} and blocks until closed. */
     public static Optional<String> show(Window owner, String currentSchedule) {
-        return show(owner, currentSchedule, "Horaire du cours",
-                "Cliquez sur les créneaux pour composer l'horaire du cours.");
+        return show(owner, currentSchedule, I18n.t("schedule.title"), I18n.t("schedule.hint"));
     }
 
     /** Opens the same individual-cell picker with caller-provided teacher/course wording. */
@@ -106,7 +105,7 @@ public final class SchedulePickerDialog {
             grid.lookupAll(".timetable-cell-check").forEach(n -> n.setVisible(false));
         });
 
-        Button cancel = new Button("Annuler");
+        Button cancel = new Button(I18n.t("action.cancel"));
         cancel.getStyleClass().add("secondary-button");
 
         Button ok = new Button(I18n.t("action.save"));
@@ -224,7 +223,7 @@ public final class SchedulePickerDialog {
         // Row 0: day headers.
         grid.add(new StackPane(), 0, 0);
         for (int c = 0; c < DAYS.length; c++) {
-            Label header = new Label(DAYS[c].toUpperCase());
+            Label header = new Label(dayLabel(DAYS[c]).toUpperCase());
             header.getStyleClass().add("timetable-day-header");
             header.setMaxWidth(Double.MAX_VALUE);
             StackPane wrap = new StackPane(header);
@@ -258,10 +257,10 @@ public final class SchedulePickerDialog {
                 }
                 if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
                     cell.getStyleClass().add("timetable-cell-unavailable");
-                    Tooltip.install(cell, new Tooltip("Indisponible pour cet enseignant"));
+                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_unavailable")));
                 } else if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
                     cell.getStyleClass().add("timetable-cell-occupied");
-                    Tooltip.install(cell, new Tooltip("Cet enseignant a déjà un cours à cette heure"));
+                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_occupied")));
                 }
                 cell.setOnMouseClicked(ev -> {
                     Set<Integer> daySelection = selected.get(day);
@@ -272,15 +271,15 @@ public final class SchedulePickerDialog {
                         return;
                     }
                     if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error("Indisponible",
-                                "Cet enseignant n'est pas disponible " + day + " de "
-                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " à " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        DialogUtil.error(I18n.t("schedule.unavailable_title"),
+                                I18n.t("schedule.teacher_unavailable") + " " + dayLabel(day) + " "
+                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " - " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
                         return;
                     }
                     if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error("Conflit d'horaire",
-                                "Cet enseignant a déjà un cours " + day + " de "
-                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " à " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        DialogUtil.error(I18n.t("schedule.conflict_title"),
+                                I18n.t("schedule.teacher_occupied") + " " + dayLabel(day) + " "
+                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " - " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
                         return;
                     }
                     daySelection.add(blockIndex);
@@ -355,6 +354,11 @@ public final class SchedulePickerDialog {
 
     private static String fmt(int hour) {
         return String.format("%02d:00", hour);
+    }
+
+    /** Schedule values retain their French day names for backward compatibility; only the UI is translated. */
+    private static String dayLabel(String day) {
+        return I18n.t("schedule.day." + day.toLowerCase());
     }
 
     /** Parses an existing schedule string into the set of hour-block indices it covers, per day. */

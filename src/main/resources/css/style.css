@@ -732,7 +732,12 @@
 .payments-table   .table-row-cell:filled:selected { -fx-background-color: #DCFCE7; }
 .payments-table   .table-row-cell:selected .table-cell { -fx-text-fill: #15803D; }
 .payments-table   .table-row-cell:hover { -fx-background-color: #F0FDF4; }
-.payments-table   .corner, .payments-table .filler { -fx-background-color: #16A34A; }
+/* In RTL the vertical-scrollbar corner is on the left of the header. Keep
+   that skin pane green and round its exposed outer edge with the header. */
+.payments-table   .corner, .payments-table .filler {
+    -fx-background-color: #16A34A;
+    -fx-background-radius: 14 0 0 0;
+}
 
 .reports-table    .column-header-background { -fx-background-color: linear-gradient(to right, #1E40AF, #2563EB); }
 .reports-table    .table-row-cell:filled:selected { -fx-background-color: #DBEAFE; }

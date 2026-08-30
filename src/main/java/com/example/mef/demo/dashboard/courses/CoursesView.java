@@ -459,8 +459,8 @@ public class CoursesView {
                     SchedulePickerDialog.show(
                                     scheduleButton.getScene() == null ? null : scheduleButton.getScene().getWindow(),
                                     scheduleField.getText(),
-                                    "Horaire du cours",
-                                    "Cliquez sur les créneaux pour composer l'horaire du cours.",
+                                    I18n.t("schedule.title"),
+                                    I18n.t("schedule.hint"),
                                     teacher, others)
                             .ifPresent(scheduleField::setText);
                 },
@@ -707,8 +707,8 @@ public class CoursesView {
                 },
                 violations -> {
                     if (!violations.isEmpty()) {
-                        DialogUtil.error("Conflit d'horaire",
-                                "Impossible d'enregistrer ce cours :\n\n" + String.join("\n", violations));
+                        DialogUtil.error(I18n.t("schedule.validation.title"),
+                                I18n.t("schedule.validation.save_failed") + "\n\n" + String.join("\n", violations));
                         return;
                     }
                     AsyncTasks.run(

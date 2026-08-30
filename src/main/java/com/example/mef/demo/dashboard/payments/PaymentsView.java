@@ -4,6 +4,7 @@ import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Payment;
 import com.example.mef.demo.Services.EnrollmentService;
 import com.example.mef.demo.Services.PaymentService;
+import com.example.mef.demo.Services.MonthlyBillingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FloatingPanel;
 import com.example.mef.demo.dashboard.common.FormFactory;
@@ -60,6 +61,7 @@ public class PaymentsView {
 
     private final PaymentService paymentService;
     private final EnrollmentService enrollmentService;
+    private final MonthlyBillingService monthlyBillingService;
 
     private final ObservableList<Payment> rows = FXCollections.observableArrayList();
     private final TableView<Payment> table = new TableView<>(rows);
@@ -80,27 +82,34 @@ public class PaymentsView {
     private final ComboBox<PaymentType> methodField = new ComboBox<>(FXCollections.observableArrayList(PaymentType.values()));
     private final ComboBox<PaymentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(PaymentStatus.values()));
     private final DatePicker paymentDateField = new DatePicker();
+    private final DatePicker billingDueDateField = new DatePicker();
 
     private final Label footerCountLabel = new Label();
     private final Label footerTotalLabel = new Label();
     private final HBox summaryCards = new HBox(14);
+    private final Label billingAlertLabel = new Label();
 
     private List<Payment> allPayments = List.of();
     private Payment selected;
+    /** Avoids replacing a payment's saved values while its row is loaded into the form. */
+    private boolean loadingPayment;
     private VBox form;
 
     /** Overlay Pane that the floating panel lives in, stacked on top of the normal screen content. */
     private Pane overlay;
     private FloatingPanel floatingForm;
 
-    public PaymentsView(PaymentService paymentService, EnrollmentService enrollmentService) {
+    public PaymentsView(PaymentService paymentService, EnrollmentService enrollmentService,
+                        MonthlyBillingService monthlyBillingService) {
         this.paymentService = paymentService;
         this.enrollmentService = enrollmentService;
+        this.monthlyBillingService = monthlyBillingService;
         statusFilter.setValue("Tous");
         inscriptionField.setMaxWidth(Double.MAX_VALUE);
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
         paymentDateField.setMaxWidth(Double.MAX_VALUE);
+        billingDueDateField.setMaxWidth(Double.MAX_VALUE);
         paymentDateField.getStyleClass().add("filter-field");
         inscriptionField.setCellFactory(cb -> inscriptionCell());
         inscriptionField.setButtonCell(inscriptionCell());
@@ -117,6 +126,11 @@ public class PaymentsView {
             @Override
             public Inscription fromString(String s) {
                 return inscriptionField.getValue();
+            }
+        });
+        inscriptionField.valueProperty().addListener((obs, oldInscription, newInscription) -> {
+            if (!loadingPayment && newInscription != null) {
+                populateForInscription(newInscription);
             }
         });
     }
@@ -150,7 +164,11 @@ public class PaymentsView {
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        HBox toolbar = new HBox(12, filters, addBtn);
+        Button duesBtn = new Button("Échéances");
+        duesBtn.getStyleClass().add("secondary-button");
+        duesBtn.setOnAction(e -> showMonthlyDues());
+
+        HBox toolbar = new HBox(12, filters, duesBtn, addBtn);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.getStyleClass().add("module-toolbar");
 
@@ -166,7 +184,9 @@ public class PaymentsView {
         VBox tableBlock = new VBox(0, table, footer);
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        VBox center = new VBox(16, subtitle, toolbar, tableBlock, summaryCards);
+        billingAlertLabel.getStyleClass().add("page-subtitle");
+        billingAlertLabel.setStyle("-fx-text-fill: #B45309;");
+        VBox center = new VBox(16, subtitle, billingAlertLabel, toolbar, tableBlock, summaryCards);
         center.setPadding(new Insets(24));
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
@@ -378,6 +398,7 @@ public class PaymentsView {
         FormFactory.addRow(grid, 3, I18n.t("field.method"), methodField);
         FormFactory.addRow(grid, 4, I18n.t("field.status"), statusField);
         FormFactory.addRow(grid, 5, I18n.t("payment.date"), paymentDateField);
+        FormFactory.addRow(grid, 6, "Échéance mensuelle couverte", billingDueDateField);
 
         Button save = new Button(I18n.t("action.save"));
         save.getStyleClass().add("primary-button");
@@ -433,13 +454,35 @@ public class PaymentsView {
     private void selectRow(Payment payment) {
         selected = payment;
         if (payment == null) return;
-        inscriptionField.setValue(payment.getInscription());
-        amountField.setText(payment.getAmount() == null ? "" : String.valueOf(payment.getAmount()));
-        categoryField.setText(payment.getLabel());
-        methodField.setValue(payment.getPaymentMethod());
-        statusField.setValue(payment.getStatus());
-        paymentDateField.setValue(payment.getDatePay() == null ? null : payment.getDatePay().toLocalDate());
+        loadingPayment = true;
+        try {
+            inscriptionField.setValue(payment.getInscription());
+            amountField.setText(payment.getAmount() == null ? "" : String.valueOf(payment.getAmount()));
+            categoryField.setText(payment.getLabel());
+            methodField.setValue(payment.getPaymentMethod());
+            statusField.setValue(payment.getStatus());
+            paymentDateField.setValue(payment.getDatePay() == null ? null : payment.getDatePay().toLocalDate());
+            billingDueDateField.setValue(payment.getBillingDueDate());
+        } finally {
+            loadingPayment = false;
+        }
         showFormPanel();
+    }
+
+    /** Fills the form from the selected enrollment instead of leaving values from the previous one. */
+    private void populateForInscription(Inscription inscription) {
+        AsyncTasks.run(
+                () -> monthlyBillingService.currentCycleDue(inscription),
+                due -> {
+                    // Ignore a result that belongs to a previous quick selection.
+                    if (due == null || inscriptionField.getValue() == null
+                            || !inscription.getId().equals(inscriptionField.getValue().getId())) return;
+                    amountField.setText(String.valueOf(due.remainingAmount()));
+                    categoryField.setText("Scolarité");
+                    statusField.setValue(due.isPaid() ? PaymentStatus.PAID : PaymentStatus.PENDING);
+                    billingDueDateField.setValue(due.dueDate());
+                },
+                err -> DialogUtil.error("Échéance mensuelle", "Impossible de charger l'échéance : " + err.getMessage()));
     }
 
     private void clearForm() {
@@ -450,6 +493,7 @@ public class PaymentsView {
         methodField.setValue(null);
         statusField.setValue(null);
         paymentDateField.setValue(LocalDate.now());
+        billingDueDateField.setValue(null);
         table.getSelectionModel().clearSelection();
     }
 
@@ -474,6 +518,7 @@ public class PaymentsView {
         payment.setDatePay(paymentDateField.getValue() == null
                 ? LocalDateTime.now()
                 : paymentDateField.getValue().atStartOfDay());
+        payment.setBillingDueDate(billingDueDateField.getValue());
         String inscriptionId = inscriptionField.getValue().getId();
 
         AsyncTasks.run(
@@ -500,6 +545,7 @@ public class PaymentsView {
                 list -> {
                     allPayments = list;
                     applyFilters();
+                    refreshBillingAlert();
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
         );
@@ -581,4 +627,39 @@ public class PaymentsView {
         card.setPadding(new Insets(14));
         return card;
     }
+
+    private void refreshBillingAlert() {
+        AsyncTasks.run(
+                () -> new BillingOverview(monthlyBillingService.findOpenDues(), monthlyBillingService.findDueWithinDays(7)),
+                overview -> billingAlertLabel.setText(overview.overdue().size() + " en retard · "
+                        + overview.upcoming().size() + " à échéance dans les 7 prochains jours"),
+                err -> billingAlertLabel.setText("Échéances mensuelles indisponibles : " + err.getMessage()));
+    }
+
+    private void showMonthlyDues() {
+        AsyncTasks.run(
+                () -> new BillingOverview(monthlyBillingService.findOpenDues(), monthlyBillingService.findDueWithinDays(7)),
+                overview -> DialogUtil.info("Échéances mensuelles", formatDues(overview)),
+                err -> DialogUtil.error("Échéances mensuelles", err.getMessage()));
+    }
+
+    private String formatDues(BillingOverview overview) {
+        StringBuilder out = new StringBuilder("EN RETARD\n");
+        appendDues(out, overview.overdue());
+        out.append("\nÀ ÉCHÉANCE DANS 7 JOURS\n");
+        appendDues(out, overview.upcoming());
+        return out.toString();
+    }
+
+    private void appendDues(StringBuilder out, List<MonthlyBillingService.Due> dues) {
+        if (dues.isEmpty()) { out.append("Aucun élève.\n"); return; }
+        for (MonthlyBillingService.Due due : dues) {
+            out.append(MonthlyBillingService.studentName(due.inscription()))
+                    .append(" — ").append(due.dueDate().format(DATE_FORMAT))
+                    .append(" — ").append(formatAmount(due.remainingAmount())).append('\n');
+        }
+    }
+
+    private record BillingOverview(List<MonthlyBillingService.Due> overdue,
+                                   List<MonthlyBillingService.Due> upcoming) { }
 }

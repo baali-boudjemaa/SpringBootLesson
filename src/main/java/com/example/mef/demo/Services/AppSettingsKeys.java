@@ -17,4 +17,7 @@ public final class AppSettingsKeys {
     /** Name displayed for the school/centre throughout the desktop application. */
     public static final String SCHOOL_NAME = "app.school_name";
     public static final String SCHOOL_NAME_DEFAULT = "Rawdati";
+
+    /** Date of the most recent in-app monthly-payment reminder. */
+    public static final String BILLING_REMINDER_LAST_DATE = "billing.reminder.last_date";
 }

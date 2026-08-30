@@ -10,6 +10,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -39,6 +40,9 @@ public class Payment {
     @Column(nullable = false)
     @Builder.Default
     private LocalDateTime datePay = LocalDateTime.now();
+
+    /** Monthly due date covered by this payment. Null keeps old payments compatible. */
+    private LocalDate billingDueDate;
 
     /** Also used as the payment "category" (Scolarité, Cours, Transport, ...) shown in the UI. */
     @Column(nullable = false)

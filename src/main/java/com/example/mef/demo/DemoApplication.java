@@ -3,11 +3,13 @@ package com.example.mef.demo;
 import java.util.logging.Logger;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javafx.application.Application;
 import javafx.application.Platform;
 
 @SpringBootApplication
+@EnableScheduling
 public class DemoApplication  {
 
     static {

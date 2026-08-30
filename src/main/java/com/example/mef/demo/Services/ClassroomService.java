@@ -6,6 +6,7 @@ import com.example.mef.demo.Model.Attendance;
 import com.example.mef.demo.Model.Inscription;
 import com.example.mef.demo.Model.Room;
 import com.example.mef.demo.Model.Student;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.Repository.AttendanceRepository;
 import com.example.mef.demo.Repository.ClassroomRepository;
 import com.example.mef.demo.Repository.InscriptionRepository;
@@ -75,10 +76,31 @@ public class ClassroomService {
         return buildAttendanceReport(date, studentRepository.findAll());
     }
 
+    /** Attendance report for all sections belonging to one category. */
+    @Transactional(readOnly = true)
+    public ClassAttendanceReport getCategoryAttendanceReport(Category category, LocalDate date) {
+        List<Student> students = inscriptionRepository.findByClassroomCategory(category).stream()
+                .map(Inscription::getStudent)
+                .toList();
+        return buildAttendanceReport(date, students);
+    }
+
     private ClassAttendanceReport buildAttendanceReport(LocalDate date, List<Student> students) {
         List<String> studentIds = students.stream()
                 .map(Student::getId)
                 .toList();
+
+        // Resolve the section once for the whole page.  Attendance can be shown for
+        // every section, therefore the section/category belongs to each row rather
+        // than only to the selected tab.
+        Map<String, Classroom> classroomByStudentId = studentIds.isEmpty()
+                ? Map.of()
+                : inscriptionRepository.findByStudentIdInWithClassroom(studentIds).stream()
+                .filter(inscription -> inscription.getClassroom() != null)
+                .collect(Collectors.toMap(
+                        inscription -> inscription.getStudent().getId(),
+                        Inscription::getClassroom,
+                        (first, ignored) -> first));
 
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.plusDays(1).atStartOfDay().minusNanos(1);
@@ -94,11 +116,16 @@ public class ClassroomService {
                 .map(student -> {
                     Attendance attendance = attendanceByStudentId.get(student.getId());
                     AttendanceStatus status = attendance == null ? null : attendance.getStatus();
+                    Classroom classroom = classroomByStudentId.get(student.getId());
                     return new ClassStudentAttendance(
                             student.getId(),
                             student.getStudentNumber(),
                             student.getFirstName(),
                             student.getLastName(),
+                            classroom == null ? "" : classroom.getName(),
+                            classroom == null || classroom.getCategory() == null
+                                    ? null
+                                    : classroom.getCategory(),
                             status);
                 })
                 .toList();
@@ -292,6 +319,8 @@ public class ClassroomService {
             String studentNumber,
             String firstName,
             String lastName,
+            String classroomName,
+            Category category,
             AttendanceStatus status) {
 
         public String fullName() {

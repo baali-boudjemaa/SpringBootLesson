@@ -10,6 +10,8 @@ import com.example.mef.demo.Repository.ClassroomRepository;
 import com.example.mef.demo.Repository.CourseRepository;
 import com.example.mef.demo.Repository.InscriptionRepository;
 import com.example.mef.demo.Repository.StudentRepository;
+import com.example.mef.demo.Repository.StudentCourseSubscriptionRepository;
+import com.example.mef.demo.Model.StudentCourseSubscription;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Typed service backing the "enrollments" module (Inscription entity). */
 @Service
@@ -30,17 +34,20 @@ public class EnrollmentService {
     private final ClassroomRepository classroomRepository;
     private final AnneeScolaireRepository anneeScolaireRepository;
     private final CourseRepository courseRepository;
+    private final StudentCourseSubscriptionRepository subscriptionRepository;
 
     public EnrollmentService(InscriptionRepository inscriptionRepository,
                              StudentRepository studentRepository,
                              ClassroomRepository classroomRepository,
                              AnneeScolaireRepository anneeScolaireRepository,
-                             CourseRepository courseRepository) {
+                             CourseRepository courseRepository,
+                             StudentCourseSubscriptionRepository subscriptionRepository) {
         this.inscriptionRepository = inscriptionRepository;
         this.studentRepository = studentRepository;
         this.classroomRepository = classroomRepository;
         this.anneeScolaireRepository = anneeScolaireRepository;
         this.courseRepository = courseRepository;
+        this.subscriptionRepository = subscriptionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -97,10 +104,15 @@ public class EnrollmentService {
         if (inscription.getStatus() == null) {
             inscription.setStatus(EnrollmentStatus.ACTIVE);
         }
-        inscription.setCourses((courseIds == null || courseIds.isEmpty())
+        Set<String> previousCourseIds = inscription.getCourses() == null ? Set.of() : inscription.getCourses().stream()
+                .map(Course::getId).collect(Collectors.toSet());
+        List<Course> selectedCourses = (courseIds == null || courseIds.isEmpty())
                 ? new ArrayList<>()
-                : courseRepository.findAllById(courseIds));
-        return inscriptionRepository.save(inscription);
+                : courseRepository.findAllById(courseIds);
+        inscription.setCourses(selectedCourses);
+        Inscription saved = inscriptionRepository.save(inscription);
+        reconcileCourseSubscriptions(saved, selectedCourses, previousCourseIds);
+        return saved;
     }
 
     public void delete(String id) {
@@ -136,5 +148,26 @@ public class EnrollmentService {
         LocalDate today = LocalDate.now();
         int startYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
         return startYear + "-" + (startYear + 1);
+    }
+
+    /** New courses start today; removing a course ends billing today (no refund for this cycle). */
+    private void reconcileCourseSubscriptions(Inscription inscription, List<Course> selectedCourses,
+                                              Set<String> previousCourseIds) {
+        LocalDate today = LocalDate.now();
+        LocalDate initialDate = inscription.getDateInscription() == null ? today : inscription.getDateInscription().toLocalDate();
+        List<StudentCourseSubscription> existing = subscriptionRepository.findByInscriptionIdWithCourse(inscription.getId());
+        for (StudentCourseSubscription record : existing) {
+            boolean kept = selectedCourses.stream().anyMatch(c -> c.getId().equals(record.getCourse().getId()));
+            if (!kept && record.getEndDate() == null) record.setEndDate(today);
+            if (kept && record.getEndDate() != null) { record.setEndDate(null); record.setStartDate(today); }
+        }
+        // Old enrollments have no history table. Their already-selected courses are
+        // backfilled from the original enrollment date; courses added now start today.
+        for (Course course : selectedCourses) {
+            boolean known = existing.stream().anyMatch(s -> s.getCourse().getId().equals(course.getId()));
+            if (!known) subscriptionRepository.save(StudentCourseSubscription.builder()
+                    .inscription(inscription).course(course)
+                    .startDate(previousCourseIds.contains(course.getId()) ? initialDate : today).build());
+        }
     }
 }

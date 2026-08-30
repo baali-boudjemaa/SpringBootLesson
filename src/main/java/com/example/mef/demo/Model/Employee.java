@@ -1,6 +1,7 @@
 package com.example.mef.demo.Model;
 
 import com.example.mef.demo.enums.EmployeeRole;
+import com.example.mef.demo.enums.CompensationType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
@@ -47,6 +48,30 @@ public class Employee {
 
     @Column(columnDefinition = "TEXT")
     private String certifications;
+
+    /** Payroll settings.  They are kept on the employee so each teacher has an auditable rule. */
+    @Enumerated(EnumType.STRING)
+    @Column
+    @Builder.Default
+    private CompensationType compensationType = CompensationType.MONTHLY;
+
+    // Nullable at schema level to let existing installations upgrade safely;
+    // the application treats a null legacy value as zero/monthly.
+    @Column
+    @Builder.Default
+    private Double monthlySalary = 0d;
+
+    @Column
+    @Builder.Default
+    private Double lessonRate = 0d;
+
+    @Column
+    @Builder.Default
+    private Double absenceDayDeduction = 0d;
+
+    @Column
+    @Builder.Default
+    private Double absenceHourDeduction = 0d;
 
     /** Comma-separated day names this teacher works (e.g. "Lundi,Mardi,Mercredi"). Null/blank = no restriction. */
     @Column(columnDefinition = "TEXT")

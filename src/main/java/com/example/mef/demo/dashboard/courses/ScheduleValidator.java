@@ -6,6 +6,7 @@ import com.example.mef.demo.Model.Employee;
 import com.example.mef.demo.Model.CourseScheduleSlot;
 import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.dashboard.common.TimeSlots;
+import com.example.mef.demo.util.I18n;
 
 import java.util.*;
 
@@ -85,7 +86,8 @@ public final class ScheduleValidator {
 
         for (Slot slot : slots) {
             if (closedDays.contains(slot.day())) {
-                errors.add("❌ " + slot.day() + " " + slot.range() + " : ce jour est un jour de fermeture (voir Paramètres).");
+                errors.add("❌ " + localizedDay(slot.day()) + " " + slot.range() + " : "
+                        + I18n.t("schedule.validation.closed_day"));
             }
 
             if (restStartMinutes >= 0 && restEndMinutes >= 0
@@ -169,7 +171,8 @@ public final class ScheduleValidator {
                             + " : la séance est en dehors de la période de la classe (fin à " + classroom.getPeriodEndTime() + ").");
                 }
                 if (!classDays.isEmpty() && !classDays.contains(slot.day())) {
-                    errors.add("❌ " + slot.day() + " : en dehors des jours de présence de la classe.");
+                    errors.add("❌ " + localizedDay(slot.day()) + " : "
+                            + I18n.t("schedule.validation.outside_class_days"));
                 }
             }
 
@@ -327,5 +330,18 @@ public final class ScheduleValidator {
 
     private static String format(int minutes) {
         return String.format("%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private static String localizedDay(String raw) {
+        return switch (raw == null ? "" : raw.toUpperCase(Locale.ROOT)) {
+            case "MONDAY", "LUNDI" -> I18n.t("day.mon");
+            case "TUESDAY", "MARDI" -> I18n.t("day.tue");
+            case "WEDNESDAY", "MERCREDI" -> I18n.t("day.wed");
+            case "THURSDAY", "JEUDI" -> I18n.t("day.thu");
+            case "FRIDAY", "VENDREDI" -> I18n.t("day.fri");
+            case "SATURDAY", "SAMEDI" -> I18n.t("day.sat");
+            case "SUNDAY", "DIMANCHE" -> I18n.t("day.sun");
+            default -> raw == null ? "" : raw;
+        };
     }
 }

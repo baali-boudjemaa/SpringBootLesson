@@ -5,6 +5,7 @@ import com.example.mef.demo.Model.Employee;
 import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EmployeeService;
+import com.example.mef.demo.Services.TeacherPayrollService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FloatingPanel;
@@ -12,6 +13,7 @@ import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.EmployeeRole;
+import com.example.mef.demo.enums.CompensationType;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 
@@ -72,6 +74,7 @@ public class TeachersView {
 
     private final EmployeeService employeeService;
     private final CourseService courseService;
+    private final TeacherPayrollService payrollService;
 
     // =========================================================
     // STATE
@@ -143,6 +146,13 @@ public class TeachersView {
     private final Button timetableButton =
             new Button();
 
+    private final ComboBox<CompensationType> compensationTypeField =
+            new ComboBox<>(FXCollections.observableArrayList(CompensationType.values()));
+    private final TextField monthlySalaryField = FormFactory.textField("0");
+    private final TextField lessonRateField = FormFactory.textField("0");
+    private final TextField absenceDayDeductionField = FormFactory.textField("0");
+    private final TextField absenceHourDeductionField = FormFactory.textField("0");
+
     // =========================================================
     // AVAILABILITY STATE
     // =========================================================
@@ -161,11 +171,13 @@ public class TeachersView {
 
     public TeachersView(
             EmployeeService employeeService,
-            CourseService courseService
+            CourseService courseService,
+            TeacherPayrollService payrollService
     ) {
 
         this.employeeService = employeeService;
         this.courseService = courseService;
+        this.payrollService = payrollService;
 
         TableStyleKit.applyTheme(
                 table,
@@ -178,6 +190,9 @@ public class TeachersView {
         );
         roleField.setCellFactory(cb -> roleListCell());
         roleField.setButtonCell(roleListCell());
+        compensationTypeField.setValue(CompensationType.MONTHLY);
+        compensationTypeField.setMaxWidth(Double.MAX_VALUE);
+        compensationTypeField.valueProperty().addListener((obs, old, type) -> updateCompensationFields());
 
         certificationsField.setPromptText(
                 I18n.t("teachers.form.certifications")
@@ -342,6 +357,7 @@ public class TeachersView {
         certificationsField.setPromptText(I18n.t("teachers.form.certifications"));
         availabilityButton.setText(I18n.t("teachers.form.choose"));
         timetableButton.setText("📅 " + I18n.t("teachers.form.timetable"));
+        updateCompensationFields();
         updateAvailabilitySummary();
     }
 
@@ -510,6 +526,11 @@ public class TeachersView {
         HBox.setHgrow(availabilityField, Priority.ALWAYS);
 
         FormFactory.addRow(grid, 6, I18n.t("teachers.form.availability"), availabilityRow);
+        FormFactory.addRow(grid, 7, I18n.t("teachers.payroll.type"), compensationTypeField);
+        FormFactory.addRow(grid, 8, I18n.t("teachers.payroll.monthly_salary"), monthlySalaryField);
+        FormFactory.addRow(grid, 9, I18n.t("teachers.payroll.lesson_rate"), lessonRateField);
+        FormFactory.addRow(grid, 10, I18n.t("teachers.payroll.day_deduction"), absenceDayDeductionField);
+        FormFactory.addRow(grid, 11, I18n.t("teachers.payroll.hour_deduction"), absenceHourDeductionField);
 
         // -----------------------------------------------------
         // BUTTONS
@@ -663,14 +684,16 @@ public class TeachersView {
                 }
                 Button view = iconBtn("fth-eye", "Voir");
                 Button edit = iconBtn("fth-edit-2", "Modifier");
+                Button payroll = iconBtn("fth-dollar-sign", I18n.t("teachers.payroll.title"));
                 Button del = iconBtn("fth-trash-2", "Supprimer");
                 del.getStyleClass().add("icon-action-danger");
 
                 view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
                 edit.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
+                payroll.setOnAction(e -> TeacherPayrollDialog.show(table.getScene().getWindow(), item, payrollService));
                 del.setOnAction(e -> { selected = item; delete(); });
 
-                HBox box = new HBox(4, view, edit, del);
+                HBox box = new HBox(4, view, edit, payroll, del);
                 box.setAlignment(Pos.CENTER);
                 setGraphic(box);
             }
@@ -785,6 +808,12 @@ public class TeachersView {
         phoneField.setText(safe(employee.getPhoneNumber()));
         roleField.setValue(employee.getRole());
         certificationsField.setText(safe(employee.getCertifications()));
+        compensationTypeField.setValue(employee.getCompensationType() == null
+                ? CompensationType.MONTHLY : employee.getCompensationType());
+        monthlySalaryField.setText(numberText(employee.getMonthlySalary()));
+        lessonRateField.setText(numberText(employee.getLessonRate()));
+        absenceDayDeductionField.setText(numberText(employee.getAbsenceDayDeduction()));
+        absenceHourDeductionField.setText(numberText(employee.getAbsenceHourDeduction()));
 
         currentWorkingDays = safe(employee.getWorkingDays());
         currentWorkStart = safe(employee.getWorkStartTime());
@@ -820,6 +849,11 @@ public class TeachersView {
         roleField.setValue(null);
 
         certificationsField.clear();
+        compensationTypeField.setValue(CompensationType.MONTHLY);
+        monthlySalaryField.setText("0");
+        lessonRateField.setText("0");
+        absenceDayDeductionField.setText("0");
+        absenceHourDeductionField.setText("0");
 
         currentWorkingDays = "";
         currentWorkStart = "";
@@ -871,6 +905,17 @@ public class TeachersView {
         employee.setPhoneNumber(phone);
         employee.setRole(EmployeeRole.TEACHER);
         employee.setCertifications(certificationsField.getText().trim());
+        try {
+            employee.setCompensationType(compensationTypeField.getValue() == null
+                    ? CompensationType.MONTHLY : compensationTypeField.getValue());
+            employee.setMonthlySalary(nonNegative(monthlySalaryField));
+            employee.setLessonRate(nonNegative(lessonRateField));
+            employee.setAbsenceDayDeduction(nonNegative(absenceDayDeductionField));
+            employee.setAbsenceHourDeduction(nonNegative(absenceHourDeductionField));
+        } catch (NumberFormatException ex) {
+            DialogUtil.error(I18n.t("teachers.payroll.title"), I18n.t("teachers.payroll.invalid_amount"));
+            return;
+        }
 
         String normalizedSchedule =
                 ScheduleValidator.parse(currentAvailabilitySchedule)
@@ -1041,8 +1086,8 @@ public class TeachersView {
         if (selected == null) {
 
             DialogUtil.info(
-                    "Emploi du temps",
-                    "Sélectionnez d'abord un enseignant."
+                    I18n.t("teachers.timetable.title"),
+                    I18n.t("teachers.timetable.select_teacher")
             );
 
             return;
@@ -1060,7 +1105,7 @@ public class TeachersView {
         }
 
         dialog.setTitle(
-                "Emploi du temps — "
+                I18n.t("teachers.timetable.title") + " — "
                         + safe(teacher.getFirstName())
                         + " "
                         + safe(teacher.getLastName())
@@ -1080,7 +1125,7 @@ public class TeachersView {
 
         Label title =
                 new Label(
-                        "Emploi du temps : "
+                        I18n.t("teachers.timetable.title") + " : "
                                 + safe(teacher.getFirstName())
                                 + " "
                                 + safe(teacher.getLastName())
@@ -1093,7 +1138,7 @@ public class TeachersView {
         );
 
         Label subtitle =
-                new Label("Planning hebdomadaire");
+                new Label(I18n.t("teachers.timetable.weekly_planning"));
 
         subtitle.setStyle(
                 "-fx-font-size: 11px;" +
@@ -1104,19 +1149,19 @@ public class TeachersView {
 
         BorderPane timetableContainer = new BorderPane();
 
-        Label loading = new Label("Chargement...");
+        Label loading = new Label(I18n.t("teachers.timetable.loading"));
 
         loading.setStyle("-fx-text-fill: #64748B;");
 
         timetableContainer.setCenter(loading);
 
-        Button printButton = new Button("🖨 Imprimer");
+        Button printButton = new Button("🖨 " + I18n.t("teachers.timetable.print"));
 
         printButton.getStyleClass().add("primary-button");
 
         printButton.setDisable(true);
 
-        Button closeButton = new Button("Fermer");
+        Button closeButton = new Button(I18n.t("action.close"));
 
         closeButton.getStyleClass().add("secondary-button");
 
@@ -1162,7 +1207,7 @@ public class TeachersView {
                 err -> {
 
                     Label error =
-                            new Label("Erreur : " + safe(err.getMessage()));
+                            new Label(I18n.t("teachers.timetable.error") + " : " + safe(err.getMessage()));
 
                     error.setWrapText(true);
 
@@ -1217,14 +1262,14 @@ public class TeachersView {
             grid.getColumnConstraints().add(dayColumn);
         }
 
-        addTimetableCell(grid, 0, 0, "Heure", "#E2E8F0", "#1E293B", true);
+        addTimetableCell(grid, 0, 0, I18n.t("teachers.timetable.hour"), "#E2E8F0", "#1E293B", true);
 
         for (int i = 0; i < DaysPicker.DAYS.size(); i++) {
 
             String day = DaysPicker.DAYS.get(i);
 
             addTimetableCell(
-                    grid, i + 1, 0, day.toUpperCase(), "#DBEAFE", "#1E3A8A", true
+                    grid, i + 1, 0, timetableDayLabel(day), "#DBEAFE", "#1E3A8A", true
             );
         }
 
@@ -1243,7 +1288,7 @@ public class TeachersView {
                             grid,
                             col,
                             row,
-                            col == 0 ? "12:00" : "PAUSE",
+                            col == 0 ? "12:00" : I18n.t("teachers.timetable.break"),
                             "#DBEAFE",
                             "#1E40AF",
                             true
@@ -1396,7 +1441,7 @@ public class TeachersView {
 
         if (job == null) {
 
-            DialogUtil.error("Impression", "Aucune imprimante disponible.");
+            DialogUtil.error(I18n.t("teachers.timetable.print"), I18n.t("teachers.timetable.no_printer"));
 
             return;
         }
@@ -1428,8 +1473,8 @@ public class TeachersView {
         if (width <= 0 || height <= 0) {
 
             DialogUtil.error(
-                    "Impression",
-                    "Impossible de déterminer la taille de l'emploi du temps."
+                    I18n.t("teachers.timetable.print"),
+                    I18n.t("teachers.timetable.print_size_error")
             );
 
             job.endJob();
@@ -1443,39 +1488,33 @@ public class TeachersView {
         double scaleX = printableWidth / width;
         double scaleY = printableHeight / height;
 
-        double scale = Math.min(scaleX, scaleY);
-
+        // A separate scaled wrapper keeps the live grid's transform origin intact;
+        // scaling the grid itself could crop the first row in the generated PDF.
+        double scale = Math.min(scaleX, scaleY) * 0.90;
         scale = Math.min(scale, 1.0);
-
-        double oldScaleX = timetable.getScaleX();
-        double oldScaleY = timetable.getScaleY();
+        javafx.scene.image.WritableImage snapshot = timetable.snapshot(new javafx.scene.SnapshotParameters(), null);
+        javafx.scene.image.ImageView printable = new javafx.scene.image.ImageView(snapshot);
+        printable.setFitWidth(width * scale);
+        printable.setFitHeight(height * scale);
+        printable.setPreserveRatio(true);
+        printable.setTranslateX(Math.max(0, (printableWidth - width * scale) / 2));
+        printable.setTranslateY(Math.max(0, (printableHeight - height * scale) / 2));
 
         try {
-
-            timetable.setScaleX(scale);
-            timetable.setScaleY(scale);
-
-            boolean success = job.printPage(pageLayout, timetable);
+            boolean success = job.printPage(pageLayout, printable);
 
             if (success) {
-
-                job.endJob();
-
                 DialogUtil.info(
-                        "Impression",
-                        "L'emploi du temps a été envoyé à l'imprimante."
+                        I18n.t("teachers.timetable.print"),
+                        I18n.t("teachers.timetable.print_success")
                 );
 
             } else {
 
-                DialogUtil.error("Impression", "L'impression a échoué.");
+                DialogUtil.error(I18n.t("teachers.timetable.print"), I18n.t("teachers.timetable.print_failed"));
             }
 
-        } finally {
-
-            timetable.setScaleX(oldScaleX);
-            timetable.setScaleY(oldScaleY);
-        }
+        } finally { job.endJob(); }
     }
 
     // =========================================================
@@ -1559,6 +1598,19 @@ public class TeachersView {
         };
     }
 
+    private static String timetableDayLabel(String day) {
+        return switch (day) {
+            case "Lundi" -> I18n.t("schedule.day.lundi");
+            case "Mardi" -> I18n.t("schedule.day.mardi");
+            case "Mercredi" -> I18n.t("schedule.day.mercredi");
+            case "Jeudi" -> I18n.t("schedule.day.jeudi");
+            case "Vendredi" -> I18n.t("schedule.day.vendredi");
+            case "Samedi" -> I18n.t("schedule.day.samedi");
+            case "Dimanche" -> I18n.t("schedule.day.dimanche");
+            default -> day;
+        };
+    }
+
     private static String employeeRoleLabel(EmployeeRole role) {
         return switch (role) {
             case TEACHER -> I18n.t("employee_role.teacher");
@@ -1567,6 +1619,22 @@ public class TeachersView {
             case CLEANER -> I18n.t("employee_role.cleaner");
             case ADMIN -> I18n.t("employee_role.admin");
         };
+    }
+
+    private void updateCompensationFields() {
+        boolean monthly = compensationTypeField.getValue() != CompensationType.PER_LESSON;
+        monthlySalaryField.setDisable(!monthly);
+        lessonRateField.setDisable(monthly);
+    }
+
+    private static double nonNegative(TextField field) {
+        double value = Double.parseDouble(field.getText().trim().replace(',', '.'));
+        if (value < 0) throw new NumberFormatException("negative amount");
+        return value;
+    }
+
+    private static String numberText(Double value) {
+        return String.valueOf(value == null ? 0d : value);
     }
 
     // =========================================================

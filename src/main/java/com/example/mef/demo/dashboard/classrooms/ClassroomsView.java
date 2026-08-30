@@ -13,7 +13,6 @@ import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.RoomService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
-import com.example.mef.demo.dashboard.common.WeeklyOccupancyGrid;
 import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
@@ -133,8 +132,6 @@ public class ClassroomsView {
         categoryField.setCellFactory(cb -> categoryCell());
         categoryField.setButtonCell(categoryCell());
 
-        WeeklyOccupancyGrid occupancyGrid = new WeeklyOccupancyGrid();
-
         // Room picker: horizontal chip row that scrolls sideways (many-to-many).
         HBox roomsBox = new HBox(8);
         roomsBox.setAlignment(Pos.CENTER_LEFT);
@@ -157,9 +154,10 @@ public class ClassroomsView {
         FormFactory.addRow(form, 2, I18n.t("field.capacity"), capacityField);
         FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
 
-        FormFactory.addRow(form, 5,  occupancyGrid.getNode());
-        FormFactory.addRow(form, 6, I18n.t("classroom.rooms"));
-        FormFactory.addRow(form, 7, roomsScroll);
+        // A section's room-use times come from its course schedules.  They are
+        // displayed through «Voir l'emploi du temps», not entered manually here.
+        FormFactory.addRow(form, 5, I18n.t("classroom.rooms"));
+        FormFactory.addRow(form, 6, roomsScroll);
 
         Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
         Button cancel = new Button(I18n.t("action.clear"));  cancel.getStyleClass().add("secondary-button");
@@ -229,7 +227,6 @@ public class ClassroomsView {
             ageGroupField.setText("");
             capacityField.setText("");
             categoryField.setValue(Category.CRECHE);
-            occupancyGrid.clear();
             roomChecks.forEach(cb -> cb.setSelected(false));
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
@@ -257,8 +254,6 @@ public class ClassroomsView {
                     ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
                     capacityField.setText(String.valueOf(c.getCapacity()));
                     categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
-                    occupancyGrid.setValue(c.getOccupancySchedule(), c.getAttendanceDays(),
-                            c.getPeriodStartTime(), c.getPeriodEndTime());
                     List<String> linkedRoomIds = c.getRooms() == null ? List.of()
                             : c.getRooms().stream().map(Room::getId).toList();
                     roomChecks.forEach(cb -> cb.setSelected(
@@ -299,10 +294,6 @@ public class ClassroomsView {
                 c.setAgeGroup(ageGroupField.getText().trim());
                 c.setCapacity(capacity);
                 c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
-                c.setOccupancySchedule(occupancyGrid.getValue().toString());
-                c.setAttendanceDays(occupancyGrid.getDays().toString());
-                c.setPeriodStartTime(occupancyGrid.getEarliestStart().toString());
-                c.setPeriodEndTime(occupancyGrid.getLatestEnd().toString());
                 c.setRooms(roomChecks.stream()
                         .filter(CheckBox::isSelected)
                         .map(cb -> (Room) cb.getUserData())

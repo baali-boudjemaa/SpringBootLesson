@@ -852,7 +852,10 @@ public class EnrollmentWizard {
                     String seatsInfo = seats == null || seats == Integer.MAX_VALUE
                             ? ""
                             : " (" + seats + " " + I18n.t("ewizard.seats_remaining") + ")";
-                    setText(item.getName() + seatsInfo);
+                    String categoryInfo = item.getCategory() == null
+                            ? ""
+                            : " — " + categoryLabel(item.getCategory());
+                    setText(item.getName() + categoryInfo + seatsInfo);
                 }
             }
         };
