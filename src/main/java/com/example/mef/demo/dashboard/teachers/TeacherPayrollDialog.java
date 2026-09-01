@@ -23,7 +23,7 @@ public final class TeacherPayrollDialog {
 
     public static void show(Window owner, Employee teacher, TeacherPayrollService payrollService) {
         Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle(I18n.t("teachers.payroll.title"));
+        dialog.setTitle(I18n.t("teachers.payroll.title", "تسجيل الحضور"));
         dialog.setHeaderText(teacher.getFirstName() + " " + teacher.getLastName());
         if (owner != null) dialog.initOwner(owner);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
@@ -39,12 +39,16 @@ public final class TeacherPayrollDialog {
 
         GridPane form = new GridPane();
         form.setHgap(10); form.setVgap(10);
-        form.addRow(0, new Label(I18n.t("teachers.payroll.date")), date);
-        form.addRow(1, new Label(I18n.t("teachers.payroll.status")), status);
-        form.addRow(2, new Label(I18n.t("teachers.payroll.absent_hours")), absentHours);
-        Button save = new Button(I18n.t("attendance.save"));
+        form.addRow(0, new Label(I18n.t("teachers.payroll.date", "تسجيل الحضور")), date);
+        form.addRow(1, new Label(I18n.t("teachers.payroll.status", "تسجيل الحضور")), status);
+        form.addRow(2, new Label(I18n.t("teachers.payroll.absent_hours", "تسجيل الحضور")), absentHours);
+        Button save = new Button(I18n.t("attendance.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
-        VBox root = new VBox(14, form, save, new Label(I18n.t("teachers.payroll.monthly_summary")), summary);
+        
+        Button recordExpense = new Button(I18n.t("teachers.payroll.record_expense", "تسجيل الحضور"));
+        recordExpense.getStyleClass().add("primary-button");
+        
+        VBox root = new VBox(14, form, save, new Label(I18n.t("teachers.payroll.monthly_summary", "تسجيل الحضور")), summary, recordExpense);
         root.setPadding(new Insets(12));
         dialog.getDialogPane().setContent(root);
 
@@ -54,17 +58,29 @@ public final class TeacherPayrollDialog {
             absentHours.setText(String.valueOf(record == null || record.getAbsentHours() == null ? 0 : record.getAbsentHours()));
             PayrollSummary payroll = payrollService.calculate(teacher.getId(), YearMonth.from(date.getValue()));
             summary.setText(format(payroll));
+            recordExpense.setDisable(payroll.net() <= 0);
         };
         date.valueProperty().addListener((obs, old, value) -> refresh.run());
+        
+        recordExpense.setOnAction(event -> {
+            try {
+                payrollService.recordSalaryExpense(teacher.getId(), YearMonth.from(date.getValue()));
+                DialogUtil.info(I18n.t("teachers.payroll.title", "تسجيل الحضور"), I18n.t("teachers.payroll.expense_recorded", "تسجيل الحضور"));
+                refresh.run();
+            } catch (Exception ex) {
+                DialogUtil.error(I18n.t("teachers.payroll.title", "تسجيل الحضور"), ex.getMessage());
+            }
+        });
+        
         save.setOnAction(event -> {
             try {
                 double hours = Double.parseDouble(absentHours.getText().trim().replace(',', '.'));
                 payrollService.saveAttendance(teacher.getId(), date.getValue(), status.getValue(), hours);
                 refresh.run();
             } catch (NumberFormatException ex) {
-                DialogUtil.error(I18n.t("teachers.payroll.title"), I18n.t("teachers.payroll.invalid_hours"));
+                DialogUtil.error(I18n.t("teachers.payroll.title", "تسجيل الحضور"), I18n.t("teachers.payroll.invalid_hours", "تسجيل الحضور"));
             } catch (Exception ex) {
-                DialogUtil.error(I18n.t("teachers.payroll.title"), ex.getMessage());
+                DialogUtil.error(I18n.t("teachers.payroll.title", "تسجيل الحضور"), ex.getMessage());
             }
         });
         refresh.run();
@@ -73,8 +89,8 @@ public final class TeacherPayrollDialog {
 
     private static String format(PayrollSummary payroll) {
         String type = payroll.compensationType().name().equals("MONTHLY")
-                ? I18n.t("teachers.payroll.monthly") : I18n.t("teachers.payroll.per_lesson");
-        return I18n.t("teachers.payroll.summary")
+                ? I18n.t("teachers.payroll.monthly", "تسجيل الحضور") : I18n.t("teachers.payroll.per_lesson", "تسجيل الحضور");
+        return I18n.t("teachers.payroll.summary", "تسجيل الحضور")
                 .replace("{0}", type)
                 .replace("{1}", String.valueOf(payroll.payableLessons()))
                 .replace("{2}", String.valueOf(payroll.absentDays()))

@@ -45,8 +45,8 @@ public class UsersView {
     private final TableView<User> table = new TableView<>(rows);
     { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "users"); }
 
-    private final TextField nameField = FormFactory.textField(I18n.t("field.full_name"));
-    private final TextField emailField = FormFactory.textField(I18n.t("field.email"));
+    private final TextField nameField = FormFactory.textField(I18n.t("field.full_name", "تسجيل الحضور"));
+    private final TextField emailField = FormFactory.textField(I18n.t("field.email", "تسجيل الحضور"));
     private final PasswordField passwordField = new PasswordField();
     private final ComboBox<UserRole> roleField = new ComboBox<>(FXCollections.observableArrayList(UserRole.values()));
 
@@ -54,25 +54,25 @@ public class UsersView {
 
     public UsersView(UserServices userServices) {
         this.userServices = userServices;
-        passwordField.setPromptText(I18n.t("users.keep_password"));
+        passwordField.setPromptText(I18n.t("users.keep_password", "تسجيل الحضور"));
         passwordField.setMaxWidth(Double.MAX_VALUE);
         roleField.setMaxWidth(Double.MAX_VALUE);
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("users.title"));
+        pageTitleLabel.setText(I18n.t("users.title", "تسجيل الحضور"));
 
         table.getColumns().clear();
         // Fill the available width so JavaFX does not render an unrounded
         // header filler pane at the outer edge of the table.
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<User, String> name = new TableColumn<>(I18n.t("field.name"));
+        TableColumn<User, String> name = new TableColumn<>(I18n.t("field.name", "تسجيل الحضور"));
         name.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getFullName()));
         name.setPrefWidth(180);
-        TableColumn<User, String> email = new TableColumn<>(I18n.t("field.email"));
+        TableColumn<User, String> email = new TableColumn<>(I18n.t("field.email", "تسجيل الحضور"));
         email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
         email.setPrefWidth(200);
-        TableColumn<User, String> role = new TableColumn<>(I18n.t("field.role"));
+        TableColumn<User, String> role = new TableColumn<>(I18n.t("field.role", "تسجيل الحضور"));
         role.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getRole() == null ? "" : d.getValue().getRole().name()));
         table.getColumns().addAll(List.of(name, email, role));
@@ -94,22 +94,22 @@ public class UsersView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("field.full_name"), nameField);
-        FormFactory.addRow(grid, 1, I18n.t("field.email"), emailField);
-        FormFactory.addRow(grid, 2, I18n.t("field.password"), passwordField);
-        FormFactory.addRow(grid, 3, I18n.t("field.role"), roleField);
+        FormFactory.addRow(grid, 0, I18n.t("field.full_name", "تسجيل الحضور"), nameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.email", "تسجيل الحضور"), emailField);
+        FormFactory.addRow(grid, 2, I18n.t("field.password", "تسجيل الحضور"), passwordField);
+        FormFactory.addRow(grid, 3, I18n.t("field.role", "تسجيل الحضور"), roleField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button(I18n.t("action.new"));
+        Button clear = new Button(I18n.t("action.new", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> clearForm());
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        return new VBox(12, new Label(I18n.t("users.details")), grid, new HBox(8, save, clear, delete));
+        return new VBox(12, new Label(I18n.t("users.details", "تسجيل الحضور")), grid, new HBox(8, save, clear, delete));
     }
 
     private void selectRow(User user) {
@@ -132,12 +132,12 @@ public class UsersView {
 
     private void save() {
         if (nameField.getText().isBlank() || emailField.getText().isBlank()) {
-            DialogUtil.error(I18n.t("dialog.required_fields"), I18n.t("users.name_email_required"));
+            DialogUtil.error(I18n.t("dialog.required_fields", "تسجيل الحضور"), I18n.t("users.name_email_required", "تسجيل الحضور"));
             return;
         }
         boolean isInsert = (selected == null);
         if (isInsert && passwordField.getText().isBlank()) {
-            DialogUtil.error(I18n.t("dialog.required_field"), I18n.t("users.password_required"));
+            DialogUtil.error(I18n.t("dialog.required_field", "تسجيل الحضور"), I18n.t("users.password_required", "تسجيل الحضور"));
             return;
         }
 
@@ -156,18 +156,18 @@ public class UsersView {
                     }
                 },
                 () -> { clearForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.save_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("dialog.save_failed", "تسجيل الحضور").replace("{0}", err.getMessage()))
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("users.delete_confirm"))) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm", "تسجيل الحضور"), I18n.t("users.delete_confirm", "تسجيل الحضور"))) return;
         int id = selected.getId();
         AsyncTasks.run(
                 () -> userServices.deleteUser(id),
                 () -> { clearForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.delete_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("dialog.delete_failed", "تسجيل الحضور").replace("{0}", err.getMessage()))
         );
     }
 
@@ -175,7 +175,7 @@ public class UsersView {
         AsyncTasks.run(
                 userServices::getAllUser,
                 list -> rows.setAll(list),
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.load_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("dialog.load_failed", "تسجيل الحضور").replace("{0}", err.getMessage()))
         );
     }
 }

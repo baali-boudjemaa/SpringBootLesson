@@ -9,11 +9,16 @@ import com.example.mef.demo.Repository.EmployeeRepository;
 import com.example.mef.demo.Repository.TeacherAttendanceRepository;
 import com.example.mef.demo.enums.CompensationType;
 import com.example.mef.demo.enums.TeacherAttendanceStatus;
+import com.example.mef.demo.Model.Outcoming;
+import com.example.mef.demo.Repository.OutcomingRepository;
+import com.example.mef.demo.enums.OutcomingCategory;
+import com.example.mef.demo.enums.PaymentType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Locale;
@@ -26,14 +31,18 @@ public class TeacherPayrollService {
     private final TeacherAttendanceRepository attendanceRepository;
     private final EmployeeRepository employeeRepository;
     private final CourseRepository courseRepository;
+    private final OutcomingRepository outcomingRepository;
 
     public TeacherPayrollService(TeacherAttendanceRepository attendanceRepository,
                                  EmployeeRepository employeeRepository,
-                                 CourseRepository courseRepository) {
+                                 CourseRepository courseRepository,
+                                 OutcomingRepository outcomingRepository) {
         this.attendanceRepository = attendanceRepository;
         this.employeeRepository = employeeRepository;
         this.courseRepository = courseRepository;
+        this.outcomingRepository = outcomingRepository;
     }
+
 
     public TeacherAttendance saveAttendance(String teacherId, LocalDate date,
                                              TeacherAttendanceStatus status, double absentHours) {
@@ -115,6 +124,38 @@ public class TeacherPayrollService {
     }
 
     private double amount(Double value) { return value == null ? 0d : Math.max(0d, value); }
+
+    public Outcoming recordSalaryExpense(String teacherId, YearMonth month) {
+        Employee teacher = employeeRepository.findById(teacherId)
+                .orElseThrow(() -> new IllegalArgumentException("Teacher not found"));
+        PayrollSummary summary = calculate(teacherId, month);
+        if (summary.net() <= 0) {
+            throw new IllegalStateException("Le salaire net est de 0 ou moins, impossible d'enregistrer la dépense.");
+        }
+        
+        String label = "Salaire " + month.toString() + " - " + teacher.getFirstName() + " " + teacher.getLastName();
+        
+        // Ensure not already paid
+        long existingCount = outcomingRepository.findAll().stream()
+                .filter(o -> OutcomingCategory.SALAIRES.equals(o.getCategory()))
+                .filter(o -> label.equals(o.getLabel()))
+                .count();
+        if (existingCount > 0) {
+            throw new IllegalStateException("Le salaire pour ce mois a déjà été enregistré.");
+        }
+
+        Outcoming outcoming = Outcoming.builder()
+                .amount(summary.net())
+                .category(OutcomingCategory.SALAIRES)
+                .paymentMethod(PaymentType.CASH)
+                .dateOutcome(LocalDateTime.now())
+                .label(label)
+                .beneficiary(teacher.getFirstName() + " " + teacher.getLastName())
+                .recurring(false)
+                .status(com.example.mef.demo.enums.PaymentStatus.PAID)
+                .build();
+        return outcomingRepository.save(outcoming);
+    }
 
     public record PayrollSummary(YearMonth month, CompensationType compensationType,
                                  int payableLessons, long absentDays, double absentHours,

@@ -121,8 +121,8 @@ public class EnrollmentWizard {
 
     /** Loads pickers in the background, then renders step 1. */
     public void show(BorderPane contentPane, Label pageTitleLabel, Runnable onBackToList) {
-        pageTitleLabel.setText(I18n.t("ewizard.title"));
-        contentPane.setCenter(new Label(I18n.t("table.loading")));
+        pageTitleLabel.setText(I18n.t("ewizard.title", "تسجيل الحضور"));
+        contentPane.setCenter(new Label(I18n.t("table.loading", "تسجيل الحضور")));
 
         AsyncTasks.run(
                 () -> {
@@ -138,7 +138,13 @@ public class EnrollmentWizard {
                             enrollmentService.findAllSchoolYears().stream().map(AnneeScolaire::getLibelleAnneesc).toList(),
                             remainingSeats,
                             settingService.getInt(EnrollmentSettingsKeys.MIN_AGE, EnrollmentSettingsKeys.MIN_AGE_DEFAULT),
-                            courseService.findAll()
+                            courseService.findAll(),
+                            settingService.getInt(EnrollmentSettingsKeys.CRECHE_MIN_AGE, EnrollmentSettingsKeys.CRECHE_MIN_AGE_DEFAULT),
+                            settingService.getInt(EnrollmentSettingsKeys.CRECHE_MAX_AGE, EnrollmentSettingsKeys.CRECHE_MAX_AGE_DEFAULT),
+                            settingService.getInt(EnrollmentSettingsKeys.PREPARATOIRE_MIN_AGE, EnrollmentSettingsKeys.PREPARATOIRE_MIN_AGE_DEFAULT),
+                            settingService.getInt(EnrollmentSettingsKeys.PREPARATOIRE_MAX_AGE, EnrollmentSettingsKeys.PREPARATOIRE_MAX_AGE_DEFAULT),
+                            settingService.getInt(EnrollmentSettingsKeys.SOUTIEN_MIN_AGE, EnrollmentSettingsKeys.SOUTIEN_MIN_AGE_DEFAULT),
+                            settingService.getInt(EnrollmentSettingsKeys.SOUTIEN_MAX_AGE, EnrollmentSettingsKeys.SOUTIEN_MAX_AGE_DEFAULT)
                     );
                 },
                 data -> buildWizard(contentPane, pageTitleLabel, data, onBackToList),
@@ -148,7 +154,10 @@ public class EnrollmentWizard {
 
     private record WizardData(List<Student> students, List<Guardian> guardians,
                               List<Classroom> classrooms, List<String> academicYears,
-                              Map<String, Integer> remainingSeats, int minAge, List<Course> courses) {}
+                              Map<String, Integer> remainingSeats, int minAge, List<Course> courses,
+                              int crecheMinAge, int crecheMaxAge,
+                              int preparatoireMinAge, int preparatoireMaxAge,
+                              int soutienMinAge, int soutienMaxAge) {}
 
     private record EnrollmentResult(String studentName, String guardianName, Inscription inscription,
                                     Payment registrationPayment, Payment tuitionPayment) {}
@@ -156,27 +165,27 @@ public class EnrollmentWizard {
     private void buildWizard(BorderPane contentPane, Label pageTitleLabel, WizardData data, Runnable onBackToList) {
 
         /* ── Step 1 — Student ─────────────────────────────────────── */
-        CheckBox existingStudentCheck = new CheckBox(I18n.t("ewizard.existing_student"));
+        CheckBox existingStudentCheck = new CheckBox(I18n.t("ewizard.existing_student", "تسجيل الحضور"));
 
-        TextField firstName = FormFactory.textField(I18n.t("field.first_name"));
-        TextField lastName  = FormFactory.textField(I18n.t("field.last_name"));
+        TextField firstName = FormFactory.textField(I18n.t("field.first_name", "تسجيل الحضور"));
+        TextField lastName  = FormFactory.textField(I18n.t("field.last_name", "تسجيل الحضور"));
         ComboBox<Sexe> gender = new ComboBox<>(FXCollections.observableArrayList(Sexe.values()));
         gender.setMaxWidth(Double.MAX_VALUE);
         DatePicker dateOfBirth = new DatePicker();
-        dateOfBirth.setPromptText(I18n.t("field.date_of_birth"));
+        dateOfBirth.setPromptText(I18n.t("field.date_of_birth", "تسجيل الحضور"));
         dateOfBirth.setMaxWidth(Double.MAX_VALUE);
         ComboBox<String> bloodType = FormFactory.comboBox(BLOOD_TYPES);
-        TextField medicalInfo = FormFactory.textField(I18n.t("field.medical_info"));
+        TextField medicalInfo = FormFactory.textField(I18n.t("field.medical_info", "تسجيل الحضور"));
 
         GridPane newStudentForm = FormFactory.sectionGrid();
-        FormFactory.addRow(newStudentForm, 0, I18n.t("field.last_name"), lastName);
-        FormFactory.addRow(newStudentForm, 1, I18n.t("field.first_name"), firstName);
-        FormFactory.addRow(newStudentForm, 2, I18n.t("field.gender"), gender);
-        FormFactory.addRow(newStudentForm, 3, I18n.t("field.date_of_birth"), dateOfBirth);
-        FormFactory.addRow(newStudentForm, 4, I18n.t("field.blood_group"), bloodType);
-        FormFactory.addRow(newStudentForm, 6, I18n.t("field.medical_info"), medicalInfo);
+        FormFactory.addRow(newStudentForm, 0, I18n.t("field.last_name", "تسجيل الحضور"), lastName);
+        FormFactory.addRow(newStudentForm, 1, I18n.t("field.first_name", "تسجيل الحضور"), firstName);
+        FormFactory.addRow(newStudentForm, 2, I18n.t("field.gender", "تسجيل الحضور"), gender);
+        FormFactory.addRow(newStudentForm, 3, I18n.t("field.date_of_birth", "تسجيل الحضور"), dateOfBirth);
+        FormFactory.addRow(newStudentForm, 4, I18n.t("field.blood_group", "تسجيل الحضور"), bloodType);
+        FormFactory.addRow(newStudentForm, 6, I18n.t("field.medical_info", "تسجيل الحضور"), medicalInfo);
 
-        TextField studentSearchField = FormFactory.textField(I18n.t("ewizard.search_student"));
+        TextField studentSearchField = FormFactory.textField(I18n.t("ewizard.search_student", "تسجيل الحضور"));
         ComboBox<Student> existingStudentCombo = new ComboBox<>(FXCollections.observableArrayList(data.students()));
         existingStudentCombo.setMaxWidth(Double.MAX_VALUE);
         existingStudentCombo.setCellFactory(cb -> studentCell());
@@ -213,24 +222,24 @@ public class EnrollmentWizard {
         VBox studentStep = new VBox(14, existingStudentCheck, newStudentForm, existingStudentBox);
 
         /* ── Step 2 — Guardian ────────────────────────────────────── */
-        CheckBox existingGuardianCheck = new CheckBox(I18n.t("ewizard.existing_guardian"));
+        CheckBox existingGuardianCheck = new CheckBox(I18n.t("ewizard.existing_guardian", "تسجيل الحضور"));
 
-        TextField guardianFirstName = FormFactory.textField(I18n.t("field.first_name"));
-        TextField guardianLastName  = FormFactory.textField(I18n.t("field.last_name"));
+        TextField guardianFirstName = FormFactory.textField(I18n.t("field.first_name", "تسجيل الحضور"));
+        TextField guardianLastName  = FormFactory.textField(I18n.t("field.last_name", "تسجيل الحضور"));
         ComboBox<String> relation = FormFactory.comboBox(RELATIONS);
-        TextField guardianPhone = FormFactory.textField(I18n.t("field.phone"));
-        TextField guardianEmail = FormFactory.textField(I18n.t("field.email"));
-        TextField guardianAddress = FormFactory.textField(I18n.t("field.address"));
+        TextField guardianPhone = FormFactory.textField(I18n.t("field.phone", "تسجيل الحضور"));
+        TextField guardianEmail = FormFactory.textField(I18n.t("field.email", "تسجيل الحضور"));
+        TextField guardianAddress = FormFactory.textField(I18n.t("field.address", "تسجيل الحضور"));
 
         GridPane newGuardianForm = FormFactory.sectionGrid();
-        FormFactory.addRow(newGuardianForm, 0, I18n.t("field.last_name"), guardianLastName);
-        FormFactory.addRow(newGuardianForm, 1, I18n.t("field.first_name"), guardianFirstName);
-        FormFactory.addRow(newGuardianForm, 2, I18n.t("field.relationship"), relation);
-        FormFactory.addRow(newGuardianForm, 3, I18n.t("field.phone"), guardianPhone);
-        FormFactory.addRow(newGuardianForm, 4, I18n.t("field.email"), guardianEmail);
-        FormFactory.addRow(newGuardianForm, 5, I18n.t("field.address"), guardianAddress);
+        FormFactory.addRow(newGuardianForm, 0, I18n.t("field.last_name", "تسجيل الحضور"), guardianLastName);
+        FormFactory.addRow(newGuardianForm, 1, I18n.t("field.first_name", "تسجيل الحضور"), guardianFirstName);
+        FormFactory.addRow(newGuardianForm, 2, I18n.t("field.relationship", "تسجيل الحضور"), relation);
+        FormFactory.addRow(newGuardianForm, 3, I18n.t("field.phone", "تسجيل الحضور"), guardianPhone);
+        FormFactory.addRow(newGuardianForm, 4, I18n.t("field.email", "تسجيل الحضور"), guardianEmail);
+        FormFactory.addRow(newGuardianForm, 5, I18n.t("field.address", "تسجيل الحضور"), guardianAddress);
 
-        TextField guardianSearchField = FormFactory.textField(I18n.t("ewizard.search_guardian"));
+        TextField guardianSearchField = FormFactory.textField(I18n.t("ewizard.search_guardian", "تسجيل الحضور"));
         ComboBox<Guardian> existingGuardianCombo = new ComboBox<>(FXCollections.observableArrayList(data.guardians()));
         existingGuardianCombo.setMaxWidth(Double.MAX_VALUE);
         existingGuardianCombo.setCellFactory(cb -> guardianCell());
@@ -294,7 +303,7 @@ public class EnrollmentWizard {
 
         session.setCellFactory(cb -> sessionCell());
         session.setButtonCell(sessionCell());
-        TextField registrationFee = FormFactory.textField(I18n.t("ewizard.registration_fee"));
+        TextField registrationFee = FormFactory.textField(I18n.t("ewizard.registration_fee", "تسجيل الحضور"));
 
         /* ── Attendance: start date + attendance plan (+ custom days) ── */
         DatePicker startDate = new DatePicker(LocalDate.now());
@@ -306,14 +315,14 @@ public class EnrollmentWizard {
         attendancePlan.setValue(AttendancePlan.FULL_WEEK);
 
         List<CheckBox> dayChecks = List.of(
-                new CheckBox(I18n.t("day.sun")), new CheckBox(I18n.t("day.mon")), new CheckBox(I18n.t("day.tue")),
-                new CheckBox(I18n.t("day.wed")), new CheckBox(I18n.t("day.thu")), new CheckBox(I18n.t("day.fri")),
-                new CheckBox(I18n.t("day.sat")));
+                new CheckBox(I18n.t("day.sun", "تسجيل الحضور")), new CheckBox(I18n.t("day.mon", "تسجيل الحضور")), new CheckBox(I18n.t("day.tue", "تسجيل الحضور")),
+                new CheckBox(I18n.t("day.wed", "تسجيل الحضور")), new CheckBox(I18n.t("day.thu", "تسجيل الحضور")), new CheckBox(I18n.t("day.fri", "تسجيل الحضور")),
+                new CheckBox(I18n.t("day.sat", "تسجيل الحضور")));
         FlowPane customDaysBox = new FlowPane(12, 8);
         customDaysBox.getChildren().addAll(dayChecks);
         customDaysBox.setVisible(false);
         customDaysBox.setManaged(false);
-        Label customDaysLabel = new Label(I18n.t("ewizard.custom_days"));
+        Label customDaysLabel = new Label(I18n.t("ewizard.custom_days", "تسجيل الحضور"));
         VBox customDaysWrap = new VBox(6, customDaysLabel, customDaysBox);
         customDaysLabel.setVisible(false);
         customDaysLabel.setManaged(false);
@@ -327,13 +336,13 @@ public class EnrollmentWizard {
         });
 
         GridPane enrollmentForm = FormFactory.sectionGrid();
-        FormFactory.addRow(enrollmentForm, 0, I18n.t("ewizard.academic_year"), academicYear);
-        FormFactory.addRow(enrollmentForm, 1, I18n.t("field.classroom"), classroom);
-        FormFactory.addRow(enrollmentForm, 2, I18n.t("classroom.category"), classroomCategory);
-        FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.session"), session);
-        FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.registration_fee"), registrationFee);
-        FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.start_date"), startDate);
-        FormFactory.addRow(enrollmentForm, 6, I18n.t("ewizard.attendance_plan"), attendancePlan);
+        FormFactory.addRow(enrollmentForm, 0, I18n.t("ewizard.academic_year", "تسجيل الحضور"), academicYear);
+        FormFactory.addRow(enrollmentForm, 1, I18n.t("field.classroom", "تسجيل الحضور"), classroom);
+        FormFactory.addRow(enrollmentForm, 2, I18n.t("classroom.category", "تسجيل الحضور"), classroomCategory);
+        FormFactory.addRow(enrollmentForm, 3, I18n.t("ewizard.session", "تسجيل الحضور"), session);
+        FormFactory.addRow(enrollmentForm, 4, I18n.t("ewizard.registration_fee", "تسجيل الحضور"), registrationFee);
+        FormFactory.addRow(enrollmentForm, 5, I18n.t("ewizard.start_date", "تسجيل الحضور"), startDate);
+        FormFactory.addRow(enrollmentForm, 6, I18n.t("ewizard.attendance_plan", "تسجيل الحضور"), attendancePlan);
 
         // Session and Plan de fréquentation are only relevant for Crèche / Préparatoire —
         // hidden automatically when the selected classroom's category is Soutien.
@@ -350,7 +359,7 @@ public class EnrollmentWizard {
         /* ── Support courses: only shown when the chosen classroom is a SOUTIEN section ── */
         Map<CheckBox, Course> courseCheckboxes = new LinkedHashMap<>();
         FlowPane coursesBox = new FlowPane(12, 8);
-        Label coursesLabel = new Label(I18n.t("ewizard.support_courses"));
+        Label coursesLabel = new Label(I18n.t("ewizard.support_courses", "تسجيل الحضور"));
         VBox coursesWrap = new VBox(6, coursesLabel, coursesBox);
         coursesWrap.setVisible(false);
         coursesWrap.setManaged(false);
@@ -374,7 +383,7 @@ public class EnrollmentWizard {
                         .filter(c -> c.getClassroom() != null && c.getClassroom().getId().equals(selectedClassroom.getId()))
                         .toList();
                 if (available.isEmpty()) {
-                    coursesBox.getChildren().add(new Label(I18n.t("ewizard.no_courses_for_classroom")));
+                    coursesBox.getChildren().add(new Label(I18n.t("ewizard.no_courses_for_classroom", "تسجيل الحضور")));
                 } else {
                     for (Course course : available) {
                         CheckBox cb = new CheckBox(course.getName());
@@ -394,8 +403,8 @@ public class EnrollmentWizard {
         VBox enrollmentStep = new VBox(16, enrollmentForm, customDaysWrap, coursesWrap);
 
         /* ── Step 4 — Payment (amount / method / receipt) ──────────── */
-        CheckBox recordPayment = new CheckBox(I18n.t("ewizard.record_payment"));
-        TextField paymentAmount = FormFactory.textField(I18n.t("field.amount"));
+        CheckBox recordPayment = new CheckBox(I18n.t("ewizard.record_payment", "تسجيل الحضور"));
+        TextField paymentAmount = FormFactory.textField(I18n.t("field.amount", "تسجيل الحضور"));
         ComboBox<PaymentType> paymentMethod = new ComboBox<>(FXCollections.observableArrayList(PaymentType.values()));
         paymentMethod.setMaxWidth(Double.MAX_VALUE);
         paymentMethod.setCellFactory(cb -> paymentMethodCell());
@@ -404,8 +413,8 @@ public class EnrollmentWizard {
         paymentMethod.setDisable(true);
 
         GridPane paymentForm = FormFactory.sectionGrid();
-        FormFactory.addRow(paymentForm, 0, I18n.t("field.amount"), paymentAmount);
-        FormFactory.addRow(paymentForm, 1, I18n.t("field.method"), paymentMethod);
+        FormFactory.addRow(paymentForm, 0, I18n.t("field.amount", "تسجيل الحضور"), paymentAmount);
+        FormFactory.addRow(paymentForm, 1, I18n.t("field.method", "تسجيل الحضور"), paymentMethod);
 
         // Shows the computed cost (registration fee + selected support courses) so the
         // admin can see where the suggested Montant comes from.
@@ -430,7 +439,7 @@ public class EnrollmentWizard {
                     total += fee == null ? 0 : fee;
                 }
             }
-            suggestedCostLabel.setText(I18n.t("ewizard.suggested_total") + " : " + formatFee(total));
+            suggestedCostLabel.setText(I18n.t("ewizard.suggested_total", "تسجيل الحضور") + " : " + formatFee(total));
             if (!amountManuallyEdited[0]) {
                 programmaticAmountUpdate[0] = true;
                 paymentAmount.setText(total > 0 ? String.format(java.util.Locale.US, "%.2f", total) : "");
@@ -447,17 +456,17 @@ public class EnrollmentWizard {
             if (selected) refreshSuggestedAmount[0].run(); // prefill as soon as payment is enabled
         });
 
-        Label receiptTitle = new Label("\uD83E\uDDFE  " + I18n.t("ewizard.receipt"));
+        Label receiptTitle = new Label("\uD83E\uDDFE  " + I18n.t("ewizard.receipt", "تسجيل الحضور"));
         receiptTitle.getStyleClass().add("receipt-title");
         Label receiptStudent = new Label();
         Label receiptAmount = new Label();
         Label receiptMethod = new Label();
         Label receiptDate = new Label(LocalDate.now().format(RECEIPT_DATE_FORMAT));
         GridPane receiptGrid = FormFactory.sectionGrid();
-        FormFactory.addRow(receiptGrid, 0, I18n.t("ewizard.summary.student"), receiptStudent);
-        FormFactory.addRow(receiptGrid, 1, I18n.t("field.amount"), receiptAmount);
-        FormFactory.addRow(receiptGrid, 2, I18n.t("field.method"), receiptMethod);
-        FormFactory.addRow(receiptGrid, 3, I18n.t("field.date"), receiptDate);
+        FormFactory.addRow(receiptGrid, 0, I18n.t("ewizard.summary.student", "تسجيل الحضور"), receiptStudent);
+        FormFactory.addRow(receiptGrid, 1, I18n.t("field.amount", "تسجيل الحضور"), receiptAmount);
+        FormFactory.addRow(receiptGrid, 2, I18n.t("field.method", "تسجيل الحضور"), receiptMethod);
+        FormFactory.addRow(receiptGrid, 3, I18n.t("field.date", "تسجيل الحضور"), receiptDate);
         VBox receiptBox = new VBox(10, receiptTitle, receiptGrid);
         receiptBox.getStyleClass().add("receipt-box");
 
@@ -466,30 +475,30 @@ public class EnrollmentWizard {
         /* ── Step 5 — Summary ─────────────────────────────────────── */
 
         GridPane summaryGrid = FormFactory.sectionGrid();
-        FormFactory.addRow(summaryGrid, 0, I18n.t("ewizard.summary.student"),  summaryStudent);
-        FormFactory.addRow(summaryGrid, 1, I18n.t("ewizard.summary.guardian"), summaryGuardian);
-        FormFactory.addRow(summaryGrid, 2, I18n.t("ewizard.summary.class"),    summaryClass);
-        FormFactory.addRow(summaryGrid, 3, I18n.t("ewizard.summary.year"),     summaryYear);
-        FormFactory.addRow(summaryGrid, 4, I18n.t("ewizard.summary.session"),  summarySession);
-        FormFactory.addRow(summaryGrid, 5, I18n.t("ewizard.start_date"),       summaryStartDate);
-        FormFactory.addRow(summaryGrid, 6, I18n.t("ewizard.attendance_plan"),  summaryAttendance);
-        FormFactory.addRow(summaryGrid, 7, I18n.t("ewizard.support_courses"),  summaryCourses);
-        FormFactory.addRow(summaryGrid, 8, I18n.t("ewizard.summary.fee"),      summaryFee);
-        FormFactory.addRow(summaryGrid, 9, I18n.t("ewizard.summary.payment"),  summaryPayment);
+        FormFactory.addRow(summaryGrid, 0, I18n.t("ewizard.summary.student", "تسجيل الحضور"),  summaryStudent);
+        FormFactory.addRow(summaryGrid, 1, I18n.t("ewizard.summary.guardian", "تسجيل الحضور"), summaryGuardian);
+        FormFactory.addRow(summaryGrid, 2, I18n.t("ewizard.summary.class", "تسجيل الحضور"),    summaryClass);
+        FormFactory.addRow(summaryGrid, 3, I18n.t("ewizard.summary.year", "تسجيل الحضور"),     summaryYear);
+        FormFactory.addRow(summaryGrid, 4, I18n.t("ewizard.summary.session", "تسجيل الحضور"),  summarySession);
+        FormFactory.addRow(summaryGrid, 5, I18n.t("ewizard.start_date", "تسجيل الحضور"),       summaryStartDate);
+        FormFactory.addRow(summaryGrid, 6, I18n.t("ewizard.attendance_plan", "تسجيل الحضور"),  summaryAttendance);
+        FormFactory.addRow(summaryGrid, 7, I18n.t("ewizard.support_courses", "تسجيل الحضور"),  summaryCourses);
+        FormFactory.addRow(summaryGrid, 8, I18n.t("ewizard.summary.fee", "تسجيل الحضور"),      summaryFee);
+        FormFactory.addRow(summaryGrid, 9, I18n.t("ewizard.summary.payment", "تسجيل الحضور"),  summaryPayment);
         VBox summaryStep = new VBox(12, summaryGrid);
 
         /* ── Nav buttons ───────────────────────────────────────────── */
-        Button finish = new Button(I18n.t("ewizard.finish"));
+        Button finish = new Button(I18n.t("ewizard.finish", "تسجيل الحضور"));
         finish.getStyleClass().add("success-button");
         finish.setVisible(false);
         finish.setManaged(false);
-        Button clear = new Button(I18n.t("action.clear"));
+        Button clear = new Button(I18n.t("action.clear", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
-        Button previous = new Button(I18n.t("wizard.previous"));
+        Button previous = new Button(I18n.t("wizard.previous", "تسجيل الحضور"));
         previous.getStyleClass().add("secondary-button");
-        Button next = new Button(I18n.t("wizard.next"));
+        Button next = new Button(I18n.t("wizard.next", "تسجيل الحضور"));
         next.getStyleClass().add("primary-button");
-        Button cancel = new Button(I18n.t("wizard.cancel"));
+        Button cancel = new Button(I18n.t("wizard.cancel", "تسجيل الحضور"));
         cancel.getStyleClass().add("secondary-button");
         cancel.setOnAction(event -> onBackToList.run());
         HBox actions = new HBox(10, previous, next, finish, clear, cancel);
@@ -543,17 +552,17 @@ public class EnrollmentWizard {
         HBox.setHgrow(detailCard, Priority.ALWAYS);
 
         List<String> stepTitles = List.of(
-                I18n.t("ewizard.step.student"),
-                I18n.t("ewizard.step.guardian"),
-                I18n.t("ewizard.step.enrollment"),
-                I18n.t("ewizard.step.payment"),
-                I18n.t("ewizard.step.summary")
+                I18n.t("ewizard.step.student", "تسجيل الحضور"),
+                I18n.t("ewizard.step.guardian", "تسجيل الحضور"),
+                I18n.t("ewizard.step.enrollment", "تسجيل الحضور"),
+                I18n.t("ewizard.step.payment", "تسجيل الحضور"),
+                I18n.t("ewizard.step.summary", "تسجيل الحضور")
         );
         List<Node> stepContent = List.of(studentStep, guardianStep, enrollmentStep, paymentStep, summaryStep);
         List<Button> stepButtons = new ArrayList<>();
         VBox stepList = new VBox(8);
         stepList.getStyleClass().add("workflow-list");
-        Label stepListTitle = new Label(I18n.t("ewizard.title"));
+        Label stepListTitle = new Label(I18n.t("ewizard.title", "تسجيل الحضور"));
         stepListTitle.getStyleClass().add("workflow-list-title");
         stepList.getChildren().add(stepListTitle);
 
@@ -579,7 +588,7 @@ public class EnrollmentWizard {
                 summaryFee.setText(formatFee(parseAmountSafely(registrationFee.getText())));
                 summaryPayment.setText(recordPayment.isSelected()
                         ? formatFee(parseAmountSafely(paymentAmount.getText())) + " (" + (paymentMethod.getValue() == null ? "—" : paymentMethodLabel(paymentMethod.getValue())) + ")"
-                        : I18n.t("ewizard.summary.no_payment"));
+                        : I18n.t("ewizard.summary.no_payment", "تسجيل الحضور"));
             }
             detailTitle.setText(stepTitles.get(activeStep[0]));
             detailBody.getChildren().setAll(stepContent.get(activeStep[0]));
@@ -610,11 +619,14 @@ public class EnrollmentWizard {
                 validateStep(activeStep[0], existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                         existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
                         academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
-                        recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
+                        recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge(),
+                        data.crecheMinAge(), data.crecheMaxAge(),
+                        data.preparatoireMinAge(), data.preparatoireMaxAge(),
+                        data.soutienMinAge(), data.soutienMaxAge());
                 activeStep[0]++;
                 renderStep[0].run();
             } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("wizard.next"), e.getMessage());
+                DialogUtil.error(I18n.t("wizard.next", "تسجيل الحضور"), e.getMessage());
             }
         });
 
@@ -625,7 +637,10 @@ public class EnrollmentWizard {
                     validateStep(s, existingStudentCheck, existingStudentCombo, firstName, lastName, dateOfBirth,
                             existingGuardianCheck, existingGuardianCombo, guardianFirstName, guardianLastName, relation, guardianPhone, guardianEmail,
                             academicYear, classroom, session, registrationFee, attendancePlan, dayChecks, courseCheckboxes,
-                            recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge());
+                            recordPayment, paymentAmount, paymentMethod, data.remainingSeats(), data.minAge(),
+                            data.crecheMinAge(), data.crecheMaxAge(),
+                            data.preparatoireMinAge(), data.preparatoireMaxAge(),
+                            data.soutienMinAge(), data.soutienMaxAge());
                 }
 
                 boolean isExistingStudent = existingStudentCheck.isSelected();
@@ -717,7 +732,7 @@ public class EnrollmentWizard {
                                 Payment p = new Payment();
                                 p.setAmount(feeValue);
                                 p.setPaymentMethod(PaymentType.CASH);
-                                p.setLabel(I18n.t("ewizard.registration_fee"));
+                                p.setLabel(I18n.t("ewizard.registration_fee", "تسجيل الحضور"));
                                 p.setStatus(PaymentStatus.PAID);
                                 registrationPayment = paymentService.save(p, savedInscription.getId());
                             }
@@ -727,7 +742,7 @@ public class EnrollmentWizard {
                                 Payment p = new Payment();
                                 p.setAmount(paymentAmountValue);
                                 p.setPaymentMethod(paymentMethodValue == null ? PaymentType.CASH : paymentMethodValue);
-                                p.setLabel(I18n.t("ewizard.step.payment"));
+                                p.setLabel(I18n.t("ewizard.step.payment", "تسجيل الحضور"));
                                 p.setStatus(PaymentStatus.PAID);
                                 tuitionPayment = paymentService.save(p, savedInscription.getId());
                             }
@@ -741,11 +756,11 @@ public class EnrollmentWizard {
                         },
                         err -> {
                             finish.setDisable(false);
-                            DialogUtil.error(I18n.t("ewizard.finish"), err.getMessage());
+                            DialogUtil.error(I18n.t("ewizard.finish", "تسجيل الحضور"), err.getMessage());
                         }
                 );
             } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("ewizard.finish"), e.getMessage());
+                DialogUtil.error(I18n.t("ewizard.finish", "تسجيل الحضور"), e.getMessage());
             }
         });
 
@@ -762,7 +777,7 @@ public class EnrollmentWizard {
     private void showEnrollSuccessCard(BorderPane contentPane, Label pageTitleLabel, EnrollmentResult result, Runnable onBackToList) {
         Label icon = new Label("✅");
         icon.setStyle("-fx-font-size: 40px;");
-        Label title = new Label(I18n.t("ewizard.success"));
+        Label title = new Label(I18n.t("ewizard.success", "تسجيل الحضور"));
         title.getStyleClass().add("success-card-title");
         Label body = new Label(result.studentName() + "  ·  " + result.guardianName());
         body.getStyleClass().add("success-card-body");
@@ -771,15 +786,15 @@ public class EnrollmentWizard {
         double totalPaid = (result.registrationPayment() == null ? 0.0 : result.registrationPayment().getAmount())
                 + (result.tuitionPayment() == null ? 0.0 : result.tuitionPayment().getAmount());
         Label receipt = new Label(totalPaid > 0
-                ? I18n.t("ewizard.receipt") + " : " + formatFee(totalPaid)
-                : I18n.t("ewizard.summary.no_payment"));
+                ? I18n.t("ewizard.receipt", "تسجيل الحضور") + " : " + formatFee(totalPaid)
+                : I18n.t("ewizard.summary.no_payment", "تسجيل الحضور"));
         receipt.getStyleClass().add("success-card-body");
 
-        Button newOne = new Button("➕  " + I18n.t("ewizard.new"));
+        Button newOne = new Button("➕  " + I18n.t("ewizard.new", "تسجيل الحضور"));
         newOne.getStyleClass().add("primary-button");
         newOne.setOnAction(e -> show(contentPane, pageTitleLabel, onBackToList));
 
-        Button backToList = new Button("📋  " + I18n.t("ewizard.back_to_list"));
+        Button backToList = new Button("📋  " + I18n.t("ewizard.back_to_list", "تسجيل الحضور"));
         backToList.getStyleClass().add("secondary-button");
         backToList.setOnAction(e -> onBackToList.run());
 
@@ -851,7 +866,7 @@ public class EnrollmentWizard {
                     Integer seats = remainingSeats.get(item.getId());
                     String seatsInfo = seats == null || seats == Integer.MAX_VALUE
                             ? ""
-                            : " (" + seats + " " + I18n.t("ewizard.seats_remaining") + ")";
+                            : " (" + seats + " " + I18n.t("ewizard.seats_remaining", "تسجيل الحضور") + ")";
                     String categoryInfo = item.getCategory() == null
                             ? ""
                             : " — " + categoryLabel(item.getCategory());
@@ -873,9 +888,9 @@ public class EnrollmentWizard {
 
     private String attendancePlanLabel(AttendancePlan plan) {
         return switch (plan) {
-            case FULL_WEEK -> I18n.t("attendance_plan.full_week");
-            case ALTERNATE_DAYS -> I18n.t("attendance_plan.alternate_days");
-            case CUSTOM_DAYS -> I18n.t("attendance_plan.custom_days");
+            case FULL_WEEK -> I18n.t("attendance_plan.full_week", "تسجيل الحضور");
+            case ALTERNATE_DAYS -> I18n.t("attendance_plan.alternate_days", "تسجيل الحضور");
+            case CUSTOM_DAYS -> I18n.t("attendance_plan.custom_days", "تسجيل الحضور");
         };
     }
 
@@ -942,24 +957,25 @@ public class EnrollmentWizard {
 
     private String categoryLabel(Category category) {
         return switch (category) {
-            case CRECHE -> I18n.t("category.creche");
-            case PREPARATOIRE -> I18n.t("category.preparatoire");
-            case SOUTIEN -> I18n.t("category.soutien");
+            case CRECHE -> I18n.t("category.creche", "تسجيل الحضور");
+            case PREPARATOIRE -> I18n.t("category.preparatoire", "تسجيل الحضور");
+            case SOUTIEN -> I18n.t("category.soutien", "تسجيل الحضور");
         };
     }
 
     private String sessionLabel(SessionName session) {
         return switch (session) {
-            case MATINEE -> I18n.t("session.matinee");
-            case JOURNEE_COMPLETE -> I18n.t("session.journee_complete");
+            case MATINEE -> I18n.t("session.matinee", "تسجيل الحضور");
+            case MATINEE_AVEC_REPAS -> I18n.t("session.matinee_avec_repas", "تسجيل الحضور");
+            case JOURNEE_COMPLETE -> I18n.t("session.journee_complete", "تسجيل الحضور");
         };
     }
 
     private String paymentMethodLabel(PaymentType type) {
         return switch (type) {
-            case CASH -> I18n.t("payment_method.cash");
-            case CARD -> I18n.t("payment_method.card");
-            case TRANSFER -> I18n.t("payment_method.transfer");
+            case CASH -> I18n.t("payment_method.cash", "تسجيل الحضور");
+            case CARD -> I18n.t("payment_method.card", "تسجيل الحضور");
+            case TRANSFER -> I18n.t("payment_method.transfer", "تسجيل الحضور");
         };
     }
 
@@ -992,7 +1008,7 @@ public class EnrollmentWizard {
         try {
             return Double.parseDouble(raw.trim().replace(",", "."));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(I18n.t("field.amount") + " " + I18n.t("ewizard.must_be_numeric"));
+            throw new IllegalArgumentException(I18n.t("field.amount", "تسجيل الحضور") + " " + I18n.t("ewizard.must_be_numeric", "تسجيل الحضور"));
         }
     }
 
@@ -1016,32 +1032,35 @@ public class EnrollmentWizard {
                               ComboBox<String> academicYear, ComboBox<Classroom> classroom, ComboBox<SessionName> session, TextField registrationFee,
                               ComboBox<AttendancePlan> attendancePlan, List<CheckBox> dayChecks, Map<CheckBox, Course> courseCheckboxes,
                               CheckBox recordPayment, TextField paymentAmount, ComboBox<PaymentType> paymentMethod,
-                              Map<String, Integer> remainingSeats, int minAge) {
+                              Map<String, Integer> remainingSeats, int minAge,
+                              int crecheMinAge, int crecheMaxAge,
+                              int preparatoireMinAge, int preparatoireMaxAge,
+                              int soutienMinAge, int soutienMaxAge) {
         if (step == 0) {
             if (existingStudentCheck.isSelected()) {
                 if (existingStudentCombo.getValue() == null) {
-                    throw new IllegalArgumentException(I18n.t("ewizard.select_student"));
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_student", "تسجيل الحضور"));
                 }
             } else {
                 if (firstName.getText() == null || firstName.getText().isBlank()) {
                     firstName.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.first_name") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.first_name", "تسجيل الحضور") + " est requis.");
                 }
                 firstName.getStyleClass().remove("field-error");
                 if (lastName.getText() == null || lastName.getText().isBlank()) {
                     lastName.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.last_name") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.last_name", "تسجيل الحضور") + " est requis.");
                 }
                 lastName.getStyleClass().remove("field-error");
                 if (minAge > 0) {
                     if (dateOfBirth.getValue() == null) {
                         dateOfBirth.getStyleClass().add("field-error");
-                        throw new IllegalArgumentException(I18n.t("field.date_of_birth") + " est requis.");
+                        throw new IllegalArgumentException(I18n.t("field.date_of_birth", "تسجيل الحضور") + " est requis.");
                     }
                     dateOfBirth.getStyleClass().remove("field-error");
                     int age = Period.between(dateOfBirth.getValue(), LocalDate.now()).getYears();
                     if (age < minAge) {
-                        throw new IllegalArgumentException(I18n.t("ewizard.min_age").replace("{0}", String.valueOf(minAge)));
+                        throw new IllegalArgumentException(I18n.t("ewizard.min_age", "تسجيل الحضور").replace("{0}", String.valueOf(minAge)));
                     }
                 }
             }
@@ -1049,64 +1068,115 @@ public class EnrollmentWizard {
         if (step == 1) {
             if (existingGuardianCheck.isSelected()) {
                 if (existingGuardianCombo.getValue() == null) {
-                    throw new IllegalArgumentException(I18n.t("ewizard.select_guardian"));
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_guardian", "تسجيل الحضور"));
                 }
             } else {
                 if (guardianFirstName.getText() == null || guardianFirstName.getText().isBlank()) {
                     guardianFirstName.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.first_name") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.first_name", "تسجيل الحضور") + " est requis.");
                 }
                 guardianFirstName.getStyleClass().remove("field-error");
                 if (guardianLastName.getText() == null || guardianLastName.getText().isBlank()) {
                     guardianLastName.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.last_name") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.last_name", "تسجيل الحضور") + " est requis.");
                 }
                 guardianLastName.getStyleClass().remove("field-error");
                 if (guardianPhone.getText() == null || guardianPhone.getText().isBlank()) {
                     guardianPhone.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.phone") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.phone", "تسجيل الحضور") + " est requis.");
                 }
                 guardianPhone.getStyleClass().remove("field-error");
                 if (guardianEmail.getText() == null || guardianEmail.getText().isBlank()) {
                     guardianEmail.getStyleClass().add("field-error");
-                    throw new IllegalArgumentException(I18n.t("field.email") + " est requis.");
+                    throw new IllegalArgumentException(I18n.t("field.email", "تسجيل الحضور") + " est requis.");
                 }
                 guardianEmail.getStyleClass().remove("field-error");
             }
         }
         if (step == 2) {
             if (FormFactory.value(academicYear).isBlank()) {
-                throw new IllegalArgumentException(I18n.t("ewizard.academic_year") + " est requis.");
+                throw new IllegalArgumentException(I18n.t("ewizard.academic_year", "تسجيل الحضور") + " est requis.");
             }
             if (classroom.getValue() == null) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_classroom"));
+                throw new IllegalArgumentException(I18n.t("ewizard.select_classroom", "تسجيل الحضور"));
             }
             Integer seats = remainingSeats.get(classroom.getValue().getId());
             if (seats != null && seats <= 0) {
-                throw new IllegalArgumentException(I18n.t("ewizard.classroom_full"));
+                throw new IllegalArgumentException(I18n.t("ewizard.classroom_full", "تسجيل الحضور"));
             }
             if (classroom.getValue().getCategory() != Category.SOUTIEN && session.getValue() == null) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_session"));
+                throw new IllegalArgumentException(I18n.t("ewizard.select_session", "تسجيل الحضور"));
             }
             if (attendancePlan.getValue() == AttendancePlan.CUSTOM_DAYS
                     && dayChecks.stream().noneMatch(CheckBox::isSelected)) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days"));
+                throw new IllegalArgumentException(I18n.t("ewizard.select_custom_days", "تسجيل الحضور"));
             }
             if (classroom.getValue().getCategory() == Category.SOUTIEN
                     && !courseCheckboxes.isEmpty()
                     && courseCheckboxes.keySet().stream().noneMatch(CheckBox::isSelected)) {
-                throw new IllegalArgumentException(I18n.t("ewizard.select_support_courses"));
+                throw new IllegalArgumentException(I18n.t("ewizard.select_support_courses", "تسجيل الحضور"));
             }
             parseAmount(registrationFee.getText());
+
+            // ── Enforce per-category age rules (age was entered on step 0) ──
+            // Only enforced when a new student's date of birth is provided.
+            // Existing students are allowed through without an age check because
+            // their DOB may not be available in the combo display text.
+            if (!existingStudentCheck.isSelected() && dateOfBirth.getValue() != null) {
+                int age = java.time.Period.between(dateOfBirth.getValue(), java.time.LocalDate.now()).getYears();
+                Category cat = classroom.getValue().getCategory();
+                if (cat == Category.CRECHE) {
+                    if (crecheMinAge > 0 && age < crecheMinAge) {
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_min", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.creche", "تسجيل الحضور"))
+                                        .replace("{min}", String.valueOf(crecheMinAge)));
+                    }
+                    if (crecheMaxAge > 0 && age > crecheMaxAge) {
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_max", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.creche", "تسجيل الحضور"))
+                                        .replace("{max}", String.valueOf(crecheMaxAge)));
+                    }
+                } else if (cat == Category.PREPARATOIRE) {
+                    if (preparatoireMinAge > 0 && age < preparatoireMinAge) {
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_min", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.preparatoire", "تسجيل الحضور"))
+                                        .replace("{min}", String.valueOf(preparatoireMinAge)));
+                    }
+                    if (preparatoireMaxAge > 0 && age >= preparatoireMaxAge) {
+                        // Preparatoire: strictly LESS than maxAge
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_max_exclusive", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.preparatoire", "تسجيل الحضور"))
+                                        .replace("{max}", String.valueOf(preparatoireMaxAge)));
+                    }
+                } else if (cat == Category.SOUTIEN) {
+                    if (soutienMinAge > 0 && age <= soutienMinAge) {
+                        // Soutien: strictly MORE than minAge
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_min_exclusive", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.soutien", "تسجيل الحضور"))
+                                        .replace("{min}", String.valueOf(soutienMinAge)));
+                    }
+                    if (soutienMaxAge > 0 && age > soutienMaxAge) {
+                        throw new IllegalArgumentException(
+                                I18n.t("ewizard.category_age_max", "تسجيل الحضور")
+                                        .replace("{category}", I18n.t("category.soutien", "تسجيل الحضور"))
+                                        .replace("{max}", String.valueOf(soutienMaxAge)));
+                    }
+                }
+            }
         }
         if (step == 3) {
             if (recordPayment.isSelected()) {
                 double amount = parseAmount(paymentAmount.getText());
                 if (amount <= 0) {
-                    throw new IllegalArgumentException(I18n.t("field.amount") + " " + I18n.t("ewizard.must_be_numeric"));
+                    throw new IllegalArgumentException(I18n.t("field.amount", "تسجيل الحضور") + " " + I18n.t("ewizard.must_be_numeric", "تسجيل الحضور"));
                 }
                 if (paymentMethod.getValue() == null) {
-                    throw new IllegalArgumentException(I18n.t("ewizard.select_payment_method"));
+                    throw new IllegalArgumentException(I18n.t("ewizard.select_payment_method", "تسجيل الحضور"));
                 }
             }
         }

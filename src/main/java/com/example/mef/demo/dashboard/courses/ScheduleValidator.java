@@ -3,8 +3,6 @@ package com.example.mef.demo.dashboard.courses;
 import com.example.mef.demo.Model.Classroom;
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
-import com.example.mef.demo.Model.CourseScheduleSlot;
-import com.example.mef.demo.Model.TeacherAvailabilitySlot;
 import com.example.mef.demo.dashboard.common.TimeSlots;
 import com.example.mef.demo.util.I18n;
 
@@ -87,7 +85,7 @@ public final class ScheduleValidator {
         for (Slot slot : slots) {
             if (closedDays.contains(slot.day())) {
                 errors.add("❌ " + localizedDay(slot.day()) + " " + slot.range() + " : "
-                        + I18n.t("schedule.validation.closed_day"));
+                        + I18n.t("schedule.validation.closed_day", "تسجيل الحضور"));
             }
 
             if (restStartMinutes >= 0 && restEndMinutes >= 0
@@ -172,7 +170,7 @@ public final class ScheduleValidator {
                 }
                 if (!classDays.isEmpty() && !classDays.contains(slot.day())) {
                     errors.add("❌ " + localizedDay(slot.day()) + " : "
-                            + I18n.t("schedule.validation.outside_class_days"));
+                            + I18n.t("schedule.validation.outside_class_days", "تسجيل الحضور"));
                 }
             }
 
@@ -334,13 +332,13 @@ public final class ScheduleValidator {
 
     private static String localizedDay(String raw) {
         return switch (raw == null ? "" : raw.toUpperCase(Locale.ROOT)) {
-            case "MONDAY", "LUNDI" -> I18n.t("day.mon");
-            case "TUESDAY", "MARDI" -> I18n.t("day.tue");
-            case "WEDNESDAY", "MERCREDI" -> I18n.t("day.wed");
-            case "THURSDAY", "JEUDI" -> I18n.t("day.thu");
-            case "FRIDAY", "VENDREDI" -> I18n.t("day.fri");
-            case "SATURDAY", "SAMEDI" -> I18n.t("day.sat");
-            case "SUNDAY", "DIMANCHE" -> I18n.t("day.sun");
+            case "MONDAY", "LUNDI" -> I18n.t("day.mon", "تسجيل الحضور");
+            case "TUESDAY", "MARDI" -> I18n.t("day.tue", "تسجيل الحضور");
+            case "WEDNESDAY", "MERCREDI" -> I18n.t("day.wed", "تسجيل الحضور");
+            case "THURSDAY", "JEUDI" -> I18n.t("day.thu", "تسجيل الحضور");
+            case "FRIDAY", "VENDREDI" -> I18n.t("day.fri", "تسجيل الحضور");
+            case "SATURDAY", "SAMEDI" -> I18n.t("day.sat", "تسجيل الحضور");
+            case "SUNDAY", "DIMANCHE" -> I18n.t("day.sun", "تسجيل الحضور");
             default -> raw == null ? "" : raw;
         };
     }

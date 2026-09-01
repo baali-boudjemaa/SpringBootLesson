@@ -23,6 +23,8 @@ import java.util.OptionalInt;
 public class JavaFxApplication extends Application {
 
     private ConfigurableApplicationContext applicationContext;
+    /** Cached on first call so schoolName() never hits the DB more than once per session. */
+    private String cachedSchoolName;
 
     @Override
     public void init() {
@@ -92,7 +94,10 @@ public class JavaFxApplication extends Application {
     }
 
     private String schoolName() {
-        return applicationContext.getBean(SettingService.class).get(
-                AppSettingsKeys.SCHOOL_NAME, AppSettingsKeys.SCHOOL_NAME_DEFAULT);
+        if (cachedSchoolName == null) {
+            cachedSchoolName = applicationContext.getBean(SettingService.class).get(
+                    AppSettingsKeys.SCHOOL_NAME, AppSettingsKeys.SCHOOL_NAME_DEFAULT);
+        }
+        return cachedSchoolName;
     }
 }

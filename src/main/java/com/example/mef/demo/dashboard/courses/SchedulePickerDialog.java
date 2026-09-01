@@ -2,6 +2,7 @@ package com.example.mef.demo.dashboard.courses;
 
 import com.example.mef.demo.Model.Course;
 import com.example.mef.demo.Model.Employee;
+import com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
@@ -31,11 +32,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Modal "weekly timetable" picker: days across the top, one-hour rows down
- * the side (08h → 18h, with the 12h–14h lunch break shown as a non-clickable
- * band, same shape as the school's printable weekly planner). The user
- * clicks cells to toggle them on/off; contiguous ticked cells on the same
- * day are merged into a single time range on save.
+ * Modal "weekly timetable" picker: days across the top, dynamic rows down
+ * the side. The user clicks cells to toggle them on/off; contiguous ticked 
+ * cells on the same day are merged into a single time range on save.
  *
  * Produces (and parses back) the same compact string other pickers used,
  * e.g. "Lundi 08:00-10:00; Mercredi 14:00-16:00", stored verbatim in
@@ -47,25 +46,19 @@ public final class SchedulePickerDialog {
             "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"
     };
 
-    /** [startHour, endHour] blocks shown as rows, in display order (lunch break omitted here). */
-    private static final int[][] HOUR_BLOCKS = {
-            {8, 9}, {9, 10}, {10, 11}, {11, 12}, {14, 15}, {15, 16}, {16, 17}, {17, 18}
-    };
-    private static final int LUNCH_BREAK_ROW_INDEX = 4; // grid row inserted between block index 3 and 4
-
     private static final String ENTRY_SEPARATOR = "; ";
     private static final String RANGE_SEPARATOR = "-";
 
     private SchedulePickerDialog() {}
 
     /** Opens the picker pre-filled from {@code currentSchedule} and blocks until closed. */
-    public static Optional<String> show(Window owner, String currentSchedule) {
-        return show(owner, currentSchedule, I18n.t("schedule.title"), I18n.t("schedule.hint"));
+    public static Optional<String> show(Window owner, String currentSchedule, List<TimeBlock> blocks) {
+        return show(owner, currentSchedule, I18n.t("schedule.title", "تسجيل الحضور"), I18n.t("schedule.hint", "تسجيل الحضور"), blocks);
     }
 
     /** Opens the same individual-cell picker with caller-provided teacher/course wording. */
-    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText) {
-        return show(owner, currentSchedule, title, subtitleText, null, List.of());
+    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText, List<TimeBlock> blocks) {
+        return show(owner, currentSchedule, title, subtitleText, null, List.of(), blocks);
     }
 
     /**
@@ -76,10 +69,10 @@ public final class SchedulePickerDialog {
      * on save is still the authoritative check.
      */
     public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText,
-                                        Employee teacher, List<Course> otherCourses) {
-        Map<String, Set<Integer>> selected = initialSelection(currentSchedule);
-        Map<String, Set<Integer>> unavailable = computeUnavailableBlocks(teacher);
-        Map<String, Set<Integer>> occupied = computeOccupiedBlocks(teacher, otherCourses, unavailable);
+                                        Employee teacher, List<Course> otherCourses, List<TimeBlock> blocks) {
+        Map<String, Set<Integer>> selected = initialSelection(currentSchedule, blocks);
+        Map<String, Set<Integer>> unavailable = computeUnavailableBlocks(teacher, blocks);
+        Map<String, Set<Integer>> occupied = computeOccupiedBlocks(teacher, otherCourses, unavailable, blocks);
 
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
@@ -93,11 +86,11 @@ public final class SchedulePickerDialog {
         subtitle.getStyleClass().add("timetable-subtitle");
         subtitle.setWrapText(true);
 
-        GridPane grid = buildGrid(selected, unavailable, occupied);
+        GridPane grid = buildGrid(selected, unavailable, occupied, blocks);
         VBox card = new VBox(grid);
         card.getStyleClass().add("timetable-card");
 
-        Button clearAll = new Button(I18n.t("action.clear"));
+        Button clearAll = new Button(I18n.t("action.clear", "تسجيل الحضور"));
         clearAll.getStyleClass().add("secondary-button");
         clearAll.setOnAction(e -> {
             selected.values().forEach(Set::clear);
@@ -105,16 +98,16 @@ public final class SchedulePickerDialog {
             grid.lookupAll(".timetable-cell-check").forEach(n -> n.setVisible(false));
         });
 
-        Button cancel = new Button(I18n.t("action.cancel"));
+        Button cancel = new Button(I18n.t("action.cancel", "تسجيل الحضور"));
         cancel.getStyleClass().add("secondary-button");
 
-        Button ok = new Button(I18n.t("action.save"));
+        Button ok = new Button(I18n.t("action.save", "تسجيل الحضور"));
         ok.getStyleClass().add("primary-button");
 
         final String[] result = new String[1];
 
         ok.setOnAction(e -> {
-            result[0] = buildScheduleString(selected);
+            result[0] = buildScheduleString(selected, blocks);
             dialog.close();
         });
         cancel.setOnAction(e -> dialog.close());
@@ -136,7 +129,7 @@ public final class SchedulePickerDialog {
     }
 
     /** Red cells: outside the teacher's declared availability. */
-    private static Map<String, Set<Integer>> computeUnavailableBlocks(Employee teacher) {
+    private static Map<String, Set<Integer>> computeUnavailableBlocks(Employee teacher, List<TimeBlock> blocks) {
         Map<String, Set<Integer>> unavailable = new LinkedHashMap<>();
         for (String day : DAYS) {
             unavailable.put(day, new LinkedHashSet<>());
@@ -146,9 +139,10 @@ public final class SchedulePickerDialog {
         }
 
         for (String day : DAYS) {
-            for (int b = 0; b < HOUR_BLOCKS.length; b++) {
-                int blockStart = HOUR_BLOCKS[b][0] * 60;
-                int blockEnd = HOUR_BLOCKS[b][1] * 60;
+            for (int b = 0; b < blocks.size(); b++) {
+                if (blocks.get(b).isBreak()) continue;
+                int blockStart = blocks.get(b).startMinutes();
+                int blockEnd = blocks.get(b).endMinutes();
                 ScheduleValidator.Slot blockSlot = new ScheduleValidator.Slot(day, blockStart, blockEnd);
                 if (ScheduleValidator.isOutsideAvailability(teacher, blockSlot)) {
                     unavailable.get(day).add(b);
@@ -163,7 +157,7 @@ public final class SchedulePickerDialog {
      * flagged red by {@code unavailable}, so a cell only ever shows one color.
      */
     private static Map<String, Set<Integer>> computeOccupiedBlocks(Employee teacher, List<Course> otherCourses,
-                                                                   Map<String, Set<Integer>> unavailable) {
+                                                                   Map<String, Set<Integer>> unavailable, List<TimeBlock> blocks) {
         Map<String, Set<Integer>> occupied = new LinkedHashMap<>();
         for (String day : DAYS) {
             occupied.put(day, new LinkedHashSet<>());
@@ -173,12 +167,13 @@ public final class SchedulePickerDialog {
         }
 
         for (String day : DAYS) {
-            for (int b = 0; b < HOUR_BLOCKS.length; b++) {
+            for (int b = 0; b < blocks.size(); b++) {
+                if (blocks.get(b).isBreak()) continue;
                 if (unavailable.getOrDefault(day, Set.of()).contains(b)) {
                     continue;
                 }
-                int blockStart = HOUR_BLOCKS[b][0] * 60;
-                int blockEnd = HOUR_BLOCKS[b][1] * 60;
+                int blockStart = blocks.get(b).startMinutes();
+                int blockEnd = blocks.get(b).endMinutes();
 
                 for (Course other : otherCourses) {
                     if (other.getTeacher() == null || teacher.getId() == null
@@ -207,7 +202,8 @@ public final class SchedulePickerDialog {
     /** Builds the day-header + hour-row grid, wiring click handlers that flip {@code selected}. */
     private static GridPane buildGrid(Map<String, Set<Integer>> selected,
                                       Map<String, Set<Integer>> unavailable,
-                                      Map<String, Set<Integer>> occupied) {
+                                      Map<String, Set<Integer>> occupied,
+                                      List<TimeBlock> blocks) {
         GridPane grid = new GridPane();
         grid.getStyleClass().add("timetable-grid");
 
@@ -233,12 +229,15 @@ public final class SchedulePickerDialog {
         }
 
         int row = 1;
-        for (int b = 0; b < HOUR_BLOCKS.length; b++) {
-            if (b == LUNCH_BREAK_ROW_INDEX) {
+        for (int b = 0; b < blocks.size(); b++) {
+            TimeBlock block = blocks.get(b);
+            if (block.isBreak()) {
                 addLunchBreakRow(grid, row++);
+                continue;
             }
-            int start = HOUR_BLOCKS[b][0];
-            int end = HOUR_BLOCKS[b][1];
+
+            int start = block.startMinutes();
+            int end = block.endMinutes();
             grid.add(hourLabel(start, end), 0, row);
 
             for (int c = 0; c < DAYS.length; c++) {
@@ -257,10 +256,10 @@ public final class SchedulePickerDialog {
                 }
                 if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
                     cell.getStyleClass().add("timetable-cell-unavailable");
-                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_unavailable")));
+                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_unavailable", "تسجيل الحضور")));
                 } else if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
                     cell.getStyleClass().add("timetable-cell-occupied");
-                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_occupied")));
+                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_occupied", "تسجيل الحضور")));
                 }
                 cell.setOnMouseClicked(ev -> {
                     Set<Integer> daySelection = selected.get(day);
@@ -271,15 +270,15 @@ public final class SchedulePickerDialog {
                         return;
                     }
                     if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error(I18n.t("schedule.unavailable_title"),
-                                I18n.t("schedule.teacher_unavailable") + " " + dayLabel(day) + " "
-                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " - " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        DialogUtil.error(I18n.t("schedule.unavailable_title", "تسجيل الحضور"),
+                                I18n.t("schedule.teacher_unavailable", "تسجيل الحضور") + " " + dayLabel(day) + " "
+                                        + fmtHour(block.startMinutes()) + " - " + fmtHour(block.endMinutes()) + ".");
                         return;
                     }
                     if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error(I18n.t("schedule.conflict_title"),
-                                I18n.t("schedule.teacher_occupied") + " " + dayLabel(day) + " "
-                                        + fmt(HOUR_BLOCKS[blockIndex][0]) + " - " + fmt(HOUR_BLOCKS[blockIndex][1]) + ".");
+                        DialogUtil.error(I18n.t("schedule.conflict_title", "تسجيل الحضور"),
+                                I18n.t("schedule.teacher_occupied", "تسجيل الحضور") + " " + dayLabel(day) + " "
+                                        + fmtHour(block.startMinutes()) + " - " + fmtHour(block.endMinutes()) + ".");
                         return;
                     }
                     daySelection.add(blockIndex);
@@ -295,7 +294,7 @@ public final class SchedulePickerDialog {
     }
 
     private static void addLunchBreakRow(GridPane grid, int row) {
-        Label label = new Label(I18n.t("schedule.lunch_break"));
+        Label label = new Label(I18n.t("schedule.lunch_break", "تسجيل الحضور"));
         label.getStyleClass().add("timetable-break-label");
         StackPane band = new StackPane(label);
         band.getStyleClass().add("timetable-break-row");
@@ -315,10 +314,12 @@ public final class SchedulePickerDialog {
         grid.getRowConstraints().set(row, rc);
     }
 
-    private static VBox hourLabel(int startHour, int endHour) {
-        Label start = new Label(startHour + "h");
+    private static VBox hourLabel(int startMinutes, int endMinutes) {
+        String startText = (startMinutes / 60) + "h" + (startMinutes % 60 == 0 ? "" : String.format("%02d", startMinutes % 60));
+        String endText = (endMinutes / 60) + "h" + (endMinutes % 60 == 0 ? "" : String.format("%02d", endMinutes % 60));
+        Label start = new Label(startText);
         Label dash = new Label("—");
-        Label end = new Label(endHour + "h");
+        Label end = new Label(endText);
         start.getStyleClass().add("timetable-hour-label");
         end.getStyleClass().add("timetable-hour-label");
         dash.getStyleClass().add("timetable-hour-dash");
@@ -328,7 +329,7 @@ public final class SchedulePickerDialog {
     }
 
     /** Merges contiguous ticked hour blocks per day into "HH:mm-HH:mm" ranges and joins them. */
-    private static String buildScheduleString(Map<String, Set<Integer>> selected) {
+    private static String buildScheduleString(Map<String, Set<Integer>> selected, List<TimeBlock> blocks) {
         List<String> entries = new ArrayList<>();
         for (String day : DAYS) {
             List<Integer> indices = new ArrayList<>(selected.get(day));
@@ -340,29 +341,34 @@ public final class SchedulePickerDialog {
                 int endBlock = startBlock;
                 while (i + 1 < indices.size()
                         && indices.get(i + 1) == endBlock + 1
-                        && HOUR_BLOCKS[endBlock][1] == HOUR_BLOCKS[indices.get(i + 1)][0]) {
+                        && !blocks.get(endBlock + 1).isBreak()
+                        && blocks.get(endBlock).endMinutes() == blocks.get(indices.get(i + 1)).startMinutes()) {
                     endBlock = indices.get(++i);
                 }
-                int startHour = HOUR_BLOCKS[startBlock][0];
-                int endHour = HOUR_BLOCKS[endBlock][1];
-                entries.add(day + " " + fmt(startHour) + RANGE_SEPARATOR + fmt(endHour));
+                int startMins = blocks.get(startBlock).startMinutes();
+                int endMins = blocks.get(endBlock).endMinutes();
+                entries.add(day + " " + fmtMinutes(startMins) + RANGE_SEPARATOR + fmtMinutes(endMins));
                 i++;
             }
         }
         return String.join(ENTRY_SEPARATOR, entries);
     }
 
-    private static String fmt(int hour) {
-        return String.format("%02d:00", hour);
+    private static String fmtHour(int minutes) {
+        return (minutes / 60) + "h" + (minutes % 60 == 0 ? "00" : String.format("%02d", minutes % 60));
+    }
+
+    private static String fmtMinutes(int minutes) {
+        return String.format("%02d:%02d", minutes / 60, minutes % 60);
     }
 
     /** Schedule values retain their French day names for backward compatibility; only the UI is translated. */
     private static String dayLabel(String day) {
-        return I18n.t("schedule.day." + day.toLowerCase());
+        return I18n.t("schedule.day." + day.toLowerCase(), "تسجيل الحضور");
     }
 
     /** Parses an existing schedule string into the set of hour-block indices it covers, per day. */
-    private static Map<String, Set<Integer>> initialSelection(String schedule) {
+    private static Map<String, Set<Integer>> initialSelection(String schedule, List<TimeBlock> blocks) {
         Map<String, Set<Integer>> map = new LinkedHashMap<>();
         for (String day : DAYS) {
             map.put(day, new LinkedHashSet<>());
@@ -395,9 +401,10 @@ public final class SchedulePickerDialog {
             }
             if (canonicalDay == null) continue;
 
-            for (int b = 0; b < HOUR_BLOCKS.length; b++) {
-                int blockStart = HOUR_BLOCKS[b][0] * 60;
-                int blockEnd = HOUR_BLOCKS[b][1] * 60;
+            for (int b = 0; b < blocks.size(); b++) {
+                if (blocks.get(b).isBreak()) continue;
+                int blockStart = blocks.get(b).startMinutes();
+                int blockEnd = blocks.get(b).endMinutes();
                 boolean overlaps = start < blockEnd && blockStart < end;
                 if (overlaps) {
                     map.get(canonicalDay).add(b);

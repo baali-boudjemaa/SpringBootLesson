@@ -18,6 +18,6 @@ public record Field(String column, String labelKey, List<String> options) {
     }
 
     public String label() {
-        return I18n.t(labelKey);
+        return I18n.t(labelKey, "تسجيل الحضور");
     }
 }

@@ -40,22 +40,22 @@ public final class MonthlyReport {
 
     /** Renders the monthly report screen into contentPane. */
     public void show() {
-        pageTitleLabel.setText(I18n.t("monthly.title"));
+        pageTitleLabel.setText(I18n.t("monthly.title", "تسجيل الحضور"));
 
         DatePicker monthPicker = new DatePicker(LocalDate.now().withDayOfMonth(1));
-        monthPicker.setPromptText(I18n.t("monthly.select_month"));
+        monthPicker.setPromptText(I18n.t("monthly.select_month", "تسجيل الحضور"));
         monthPicker.setEditable(false);
         monthPicker.getStyleClass().add("filter-field");
         monthPicker.setPrefWidth(120);
         monthPicker.setStyle("-fx-show-week-numbers: false;");
 
-        Button generateBtn = new Button(I18n.t("monthly.generate"));
+        Button generateBtn = new Button(I18n.t("monthly.generate", "تسجيل الحضور"));
         generateBtn.getStyleClass().add("primary-button");
 
-        Button seedBtn = new Button(I18n.t("monthly.seed_data"));
+        Button seedBtn = new Button(I18n.t("monthly.seed_data", "تسجيل الحضور"));
         seedBtn.getStyleClass().add("secondary-button");
 
-        HBox toolbar = new HBox(12, new Label(I18n.t("monthly.select_month") + " :"), monthPicker, generateBtn, seedBtn);
+        HBox toolbar = new HBox(12, new Label(I18n.t("monthly.select_month", "تسجيل الحضور") + " :"), monthPicker, generateBtn, seedBtn);
         toolbar.setAlignment(Pos.CENTER_LEFT);
 
         Label incomeNum  = new Label("—");  incomeNum.getStyleClass().add("monthly-stat-number");
@@ -63,10 +63,10 @@ public final class MonthlyReport {
         Label presentNum = new Label("—");  presentNum.getStyleClass().add("monthly-stat-number");
         Label absentNum  = new Label("—");  absentNum.getStyleClass().add("monthly-stat-number");
 
-        VBox incomeCard  = monthlyStatCard("💰", incomeNum,  I18n.t("monthly.income"));
-        VBox countCard   = monthlyStatCard("📋", countNum,   I18n.t("monthly.payments_count"));
-        VBox presentCard = monthlyStatCard("✅", presentNum, I18n.t("monthly.present"));
-        VBox absentCard  = monthlyStatCard("❌", absentNum,  I18n.t("monthly.absent"));
+        VBox incomeCard  = monthlyStatCard("💰", incomeNum,  I18n.t("monthly.income", "تسجيل الحضور"));
+        VBox countCard   = monthlyStatCard("📋", countNum,   I18n.t("monthly.payments_count", "تسجيل الحضور"));
+        VBox presentCard = monthlyStatCard("✅", presentNum, I18n.t("monthly.present", "تسجيل الحضور"));
+        VBox absentCard  = monthlyStatCard("❌", absentNum,  I18n.t("monthly.absent", "تسجيل الحضور"));
 
         HBox statsRow = new HBox(14, incomeCard, countCard, presentCard, absentCard);
         for (Node n : statsRow.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
@@ -75,9 +75,9 @@ public final class MonthlyReport {
         reportArea.setEditable(false);
         reportArea.setWrapText(false);
         reportArea.getStyleClass().add("monthly-report-area");
-        reportArea.setText(I18n.t("monthly.no_data"));
+        reportArea.setText(I18n.t("monthly.no_data", "تسجيل الحضور"));
 
-        Button copyBtn = new Button("📋  " + I18n.t("monthly.copy"));
+        Button copyBtn = new Button("📋  " + I18n.t("monthly.copy", "تسجيل الحضور"));
         copyBtn.getStyleClass().add("secondary-button");
         copyBtn.setOnAction(e -> {
             javafx.scene.input.Clipboard cb = javafx.scene.input.Clipboard.getSystemClipboard();
@@ -86,7 +86,7 @@ public final class MonthlyReport {
             cb.setContent(content);
         });
 
-        Label reportTitle = new Label(I18n.t("monthly.report_title"));
+        Label reportTitle = new Label(I18n.t("monthly.report_title", "تسجيل الحضور"));
         reportTitle.getStyleClass().add("section-title");
         Region reportSpacer = new Region();
         HBox reportHeader = new HBox(12, reportTitle, reportSpacer, copyBtn);
@@ -149,7 +149,7 @@ public final class MonthlyReport {
                 seedBtn.setDisable(false);
                 int created = seedTask.getValue();
                 if (created == 0) {
-                    reportArea.setText(I18n.t("monthly.seed_no_data"));
+                    reportArea.setText(I18n.t("monthly.seed_no_data", "تسجيل الحضور"));
                 } else {
                     generateReport.run();
                 }
@@ -184,14 +184,14 @@ public final class MonthlyReport {
                %s
                """.formatted(
                 line,
-                I18n.t("monthly.report_title"), month.toUpperCase(), year,
+                I18n.t("monthly.report_title", "تسجيل الحضور"), month.toUpperCase(), year,
                 line,
-                I18n.t("monthly.income"), d.income(),
-                I18n.t("monthly.payments_count"), d.paymentCount(),
-                I18n.t("dashboard.attendance"),
-                I18n.t("monthly.present"), d.present(),
-                I18n.t("monthly.absent"), d.absent(),
-                I18n.t("dashboard.late"), d.late(),
+                I18n.t("monthly.income", "تسجيل الحضور"), d.income(),
+                I18n.t("monthly.payments_count", "تسجيل الحضور"), d.paymentCount(),
+                I18n.t("dashboard.attendance", "تسجيل الحضور"),
+                I18n.t("monthly.present", "تسجيل الحضور"), d.present(),
+                I18n.t("monthly.absent", "تسجيل الحضور"), d.absent(),
+                I18n.t("dashboard.late", "تسجيل الحضور"), d.late(),
                 line
         );
     }

@@ -257,12 +257,12 @@ public class DashboardController {
         boolean rtl = I18n.isRTL();
         rootPane.setNodeOrientation(rtl ? NodeOrientation.RIGHT_TO_LEFT : NodeOrientation.LEFT_TO_RIGHT);
 
-        if (brandLabel != null) brandLabel.setText(I18n.t("brand"));
-        if (brandSubtitleLabel != null) brandSubtitleLabel.setText(I18n.t("brand.subtitle"));
-        if (logoutButton != null) logoutButton.setText(I18n.t("action.logout"));
-        if (backupButton != null) backupButton.setText(I18n.t("action.backup"));
-        if (restoreButton != null) restoreButton.setText(I18n.t("action.restore"));
-        if (searchBarBtn != null) searchBarBtn.setText(I18n.t("search.quick"));
+        if (brandLabel != null) brandLabel.setText(I18n.t("brand", "تسجيل الحضور"));
+        if (brandSubtitleLabel != null) brandSubtitleLabel.setText(I18n.t("brand.subtitle", "تسجيل الحضور"));
+        if (logoutButton != null) logoutButton.setText(I18n.t("action.logout", "تسجيل الحضور"));
+        if (backupButton != null) backupButton.setText(I18n.t("action.backup", "تسجيل الحضور"));
+        if (restoreButton != null) restoreButton.setText(I18n.t("action.restore", "تسجيل الحضور"));
+        if (searchBarBtn != null) searchBarBtn.setText(I18n.t("search.quick", "تسجيل الحضور"));
 
         if (frButton != null && arButton != null) {
             frButton.getStyleClass().setAll(rtl ? "lang-button" : "lang-button-active");
@@ -376,7 +376,7 @@ public class DashboardController {
 
     private void showModule(Module module) {
         activeModule = module;
-        pageTitleLabel.setText(I18n.t(module.titleKey()));
+        pageTitleLabel.setText(I18n.t(module.titleKey(), "تسجيل الحضور"));
 
         if ("classes".equals(module.table())) {
             classroomsView.render(contentPane);

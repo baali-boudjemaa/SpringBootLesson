@@ -40,8 +40,8 @@ public class DashboardHomeView {
     private DynamicDatabaseService dao;
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("nav.dashboard"));
-        Label loading = new Label(I18n.t("table.loading"));
+        pageTitleLabel.setText(I18n.t("nav.dashboard", "تسجيل الحضور"));
+        Label loading = new Label(I18n.t("table.loading", "تسجيل الحضور"));
         contentPane.setCenter(loading);
 
         AsyncTasks.run(
@@ -67,10 +67,10 @@ public class DashboardHomeView {
     private void buildDashboardUI(BorderPane contentPane, DashboardData d) {
         // ── Top stat cards ──────────────────────────────────────
         HBox statsRow = new HBox(14,
-                statCard("fth-users",       String.valueOf(d.students),  I18n.t("dashboard.students"),  "#2563EB", "#DBEAFE"),
-                statCard("fth-briefcase",   String.valueOf(d.teachers),  I18n.t("dashboard.teachers"),  "#7C3AED", "#EDE9FE"),
-                statCard("fth-layout",      String.valueOf(d.classes),   I18n.t("dashboard.classes"),   "#0D9488", "#CCFBF1"),
-                statCard("fth-credit-card", String.valueOf(d.payments),  I18n.t("dashboard.payments"),  "#059669", "#D1FAE5")
+                statCard("fth-users",       String.valueOf(d.students),  I18n.t("dashboard.students", "تسجيل الحضور"),  "#2563EB", "#DBEAFE"),
+                statCard("fth-briefcase",   String.valueOf(d.teachers),  I18n.t("dashboard.teachers", "تسجيل الحضور"),  "#7C3AED", "#EDE9FE"),
+                statCard("fth-layout",      String.valueOf(d.classes),   I18n.t("dashboard.classes", "تسجيل الحضور"),   "#0D9488", "#CCFBF1"),
+                statCard("fth-credit-card", String.valueOf(d.payments),  I18n.t("dashboard.payments", "تسجيل الحضور"),  "#059669", "#D1FAE5")
         );
         for (Node n : statsRow.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
 
@@ -80,11 +80,11 @@ public class DashboardHomeView {
         int late    = d.attendance.getOrDefault("LATE",   0);
 
         PieChart chart = new PieChart(FXCollections.observableArrayList(
-                new PieChart.Data(I18n.t("dashboard.present") + " (" + present + ")", Math.max(present, 0.01)),
-                new PieChart.Data(I18n.t("dashboard.absent")  + " (" + absent  + ")", Math.max(absent, 0.01)),
-                new PieChart.Data(I18n.t("dashboard.late")    + " (" + late    + ")", Math.max(late, 0.01))
+                new PieChart.Data(I18n.t("dashboard.present", "تسجيل الحضور") + " (" + present + ")", Math.max(present, 0.01)),
+                new PieChart.Data(I18n.t("dashboard.absent", "تسجيل الحضور")  + " (" + absent  + ")", Math.max(absent, 0.01)),
+                new PieChart.Data(I18n.t("dashboard.late", "تسجيل الحضور")    + " (" + late    + ")", Math.max(late, 0.01))
         ));
-        chart.setTitle(I18n.t("dashboard.attendance"));
+        chart.setTitle(I18n.t("dashboard.attendance", "تسجيل الحضور"));
         chart.setLegendVisible(true);
         chart.setPrefHeight(240);
 
@@ -114,7 +114,7 @@ public class DashboardHomeView {
         revenueChart.getData().add(series);
 
         VBox revenueCard = new VBox(8,
-                new Label(I18n.t("dashboard.monthly_income")),
+                new Label(I18n.t("dashboard.monthly_income", "تسجيل الحضور")),
                 labelWith(String.format("%.2f DA", d.totalPayments), "stat-number"),
                 revenueChart
         );
@@ -128,12 +128,12 @@ public class DashboardHomeView {
         HBox.setHgrow(revenueCard, Priority.ALWAYS);
 
         // ── Recent payments ──────────────────────────────────────
-        Label recentTitle = new Label(I18n.t("dashboard.recent_payments"));
+        Label recentTitle = new Label(I18n.t("dashboard.recent_payments", "تسجيل الحضور"));
         recentTitle.getStyleClass().add("section-title");
 
         VBox recentList = new VBox(8);
         if (d.recentPayments.isEmpty()) {
-            recentList.getChildren().add(new Label(I18n.t("dashboard.no_payments")));
+            recentList.getChildren().add(new Label(I18n.t("dashboard.no_payments", "تسجيل الحضور")));
         } else {
             for (Map<String, String> row : d.recentPayments) {
                 String name   = row.getOrDefault("student_name", "—");

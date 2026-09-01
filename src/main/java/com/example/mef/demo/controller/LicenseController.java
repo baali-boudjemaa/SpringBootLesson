@@ -36,12 +36,12 @@ public class LicenseController {
 
     private void refreshTrialBanner() {
         if (licenseService.isActivated()) {
-            trialBannerTitle.setText(I18n.t("license.activated_title"));
-            trialBannerMessage.setText(I18n.t("license.activated_message"));
+            trialBannerTitle.setText(I18n.t("license.activated_title", "تسجيل الحضور"));
+            trialBannerMessage.setText(I18n.t("license.activated_message", "تسجيل الحضور"));
         } else {
             long days = trialService.daysRemaining();
-            trialBannerTitle.setText(I18n.t("license.trial_active_title"));
-            trialBannerMessage.setText(I18n.t("license.trial_remaining").replace("{days}", String.valueOf(days)));
+            trialBannerTitle.setText(I18n.t("license.trial_active_title", "تسجيل الحضور"));
+            trialBannerMessage.setText(I18n.t("license.trial_remaining", "تسجيل الحضور").replace("{days}", String.valueOf(days)));
         }
     }
 
@@ -56,7 +56,7 @@ public class LicenseController {
     private void handleActivate() {
         String key = activationKeyField.getText();
         if (key == null || key.isBlank()) {
-            DialogUtil.error(I18n.t("license.activate"), I18n.t("license.key_required"));
+            DialogUtil.error(I18n.t("license.activate", "تسجيل الحضور"), I18n.t("license.key_required", "تسجيل الحضور"));
             return;
         }
         activateButton.setDisable(true);
@@ -66,11 +66,11 @@ public class LicenseController {
         task.setOnSucceeded(e -> {
             activateButton.setDisable(false);
             refreshTrialBanner();
-            DialogUtil.info(I18n.t("license.activate"), I18n.t("license.activate_success"));
+            DialogUtil.info(I18n.t("license.activate", "تسجيل الحضور"), I18n.t("license.activate_success", "تسجيل الحضور"));
         });
         task.setOnFailed(e -> {
             activateButton.setDisable(false);
-            DialogUtil.error(I18n.t("license.activate"), task.getException().getMessage());
+            DialogUtil.error(I18n.t("license.activate", "تسجيل الحضور"), task.getException().getMessage());
         });
         Thread t = new Thread(task);
         t.setDaemon(true);

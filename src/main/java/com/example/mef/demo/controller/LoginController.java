@@ -72,7 +72,7 @@ public class LoginController {
             @Override
             public String toString(String role) {
                 if (role == null) return "";
-                return "ADMIN".equals(role) ? I18n.t("login.role_admin") : I18n.t("login.role_user");
+                return "ADMIN".equals(role) ? I18n.t("login.role_admin", "تسجيل الحضور") : I18n.t("login.role_user", "تسجيل الحضور");
             }
 
             @Override
@@ -93,7 +93,7 @@ public class LoginController {
             toggleButton.setDisable(true);
             usernameField.setDisable(true);
             passwordField.setDisable(true);
-            formSubtitle.setText(I18n.t("login.subtitle_activation_required"));
+            formSubtitle.setText(I18n.t("login.subtitle_activation_required", "تسجيل الحضور"));
         }
     }
 
@@ -121,40 +121,40 @@ public class LoginController {
             arButton.getStyleClass().setAll(rtl ? "lang-button-active" : "lang-button");
         }
 
-        brandLabel.setText(I18n.t("brand"));
-        brandSubtitleLabel.setText(I18n.t("brand.subtitle"));
+        brandLabel.setText(I18n.t("brand", "تسجيل الحضور"));
+        brandSubtitleLabel.setText(I18n.t("brand.subtitle", "تسجيل الحضور"));
 
-        emailLabel.setText(I18n.t("field.email"));
-        usernameField.setPromptText(I18n.t("field.email"));
-        passwordLabel.setText(I18n.t("field.password"));
-        passwordField.setPromptText(I18n.t("field.password"));
+        emailLabel.setText(I18n.t("field.email", "تسجيل الحضور"));
+        usernameField.setPromptText(I18n.t("field.email", "تسجيل الحضور"));
+        passwordLabel.setText(I18n.t("field.password", "تسجيل الحضور"));
+        passwordField.setPromptText(I18n.t("field.password", "تسجيل الحضور"));
 
-        regNameField.setPromptText(I18n.t("field.full_name"));
-        regEmailField.setPromptText(I18n.t("field.email"));
-        regPasswordField.setPromptText(I18n.t("field.password"));
-        regConfirmField.setPromptText(I18n.t("login.confirm_password"));
-        regRoleCombo.setPromptText(I18n.t("field.role"));
+        regNameField.setPromptText(I18n.t("field.full_name", "تسجيل الحضور"));
+        regEmailField.setPromptText(I18n.t("field.email", "تسجيل الحضور"));
+        regPasswordField.setPromptText(I18n.t("field.password", "تسجيل الحضور"));
+        regConfirmField.setPromptText(I18n.t("login.confirm_password", "تسجيل الحضور"));
+        regRoleCombo.setPromptText(I18n.t("field.role", "تسجيل الحضور"));
         // force the combo box to re-render its selected/cell text with the new converter
         String currentRole = regRoleCombo.getValue();
         regRoleCombo.setValue(null);
         regRoleCombo.setValue(currentRole);
 
-        trialBannerTitle.setText(I18n.t("login.trial_banner_title"));
-        trialBannerMessage.setText(I18n.t("login.trial_banner_message"));
-        activateNowButton.setText(I18n.t("login.activate_now"));
+        trialBannerTitle.setText(I18n.t("login.trial_banner_title", "تسجيل الحضور"));
+        trialBannerMessage.setText(I18n.t("login.trial_banner_message", "تسجيل الحضور"));
+        activateNowButton.setText(I18n.t("login.activate_now", "تسجيل الحضور"));
 
         if (trialExpired) {
-            formSubtitle.setText(I18n.t("login.subtitle_activation_required"));
+            formSubtitle.setText(I18n.t("login.subtitle_activation_required", "تسجيل الحضور"));
         } else if (registerMode) {
-            formSubtitle.setText(I18n.t("login.subtitle_register"));
-            primaryButton.setText(I18n.t("login.register_button"));
-            toggleHint.setText(I18n.t("login.have_account"));
-            toggleButton.setText(I18n.t("login.signin_link"));
+            formSubtitle.setText(I18n.t("login.subtitle_register", "تسجيل الحضور"));
+            primaryButton.setText(I18n.t("login.register_button", "تسجيل الحضور"));
+            toggleHint.setText(I18n.t("login.have_account", "تسجيل الحضور"));
+            toggleButton.setText(I18n.t("login.signin_link", "تسجيل الحضور"));
         } else {
-            formSubtitle.setText(I18n.t("login.subtitle_signin"));
-            primaryButton.setText(I18n.t("login.signin_button"));
-            toggleHint.setText(I18n.t("login.no_account"));
-            toggleButton.setText(I18n.t("login.register_link"));
+            formSubtitle.setText(I18n.t("login.subtitle_signin", "تسجيل الحضور"));
+            primaryButton.setText(I18n.t("login.signin_button", "تسجيل الحضور"));
+            toggleHint.setText(I18n.t("login.no_account", "تسجيل الحضور"));
+            toggleButton.setText(I18n.t("login.register_link", "تسجيل الحضور"));
         }
 
         if (rootPane != null) {
@@ -176,15 +176,15 @@ public class LoginController {
         registerFields.setManaged(registerMode);
 
         if (registerMode) {
-            formSubtitle.setText(I18n.t("login.subtitle_register"));
-            primaryButton.setText(I18n.t("login.register_button"));
-            toggleHint.setText(I18n.t("login.have_account"));
-            toggleButton.setText(I18n.t("login.signin_link"));
+            formSubtitle.setText(I18n.t("login.subtitle_register", "تسجيل الحضور"));
+            primaryButton.setText(I18n.t("login.register_button", "تسجيل الحضور"));
+            toggleHint.setText(I18n.t("login.have_account", "تسجيل الحضور"));
+            toggleButton.setText(I18n.t("login.signin_link", "تسجيل الحضور"));
         } else {
-            formSubtitle.setText(I18n.t("login.subtitle_signin"));
-            primaryButton.setText(I18n.t("login.signin_button"));
-            toggleHint.setText(I18n.t("login.no_account"));
-            toggleButton.setText(I18n.t("login.register_link"));
+            formSubtitle.setText(I18n.t("login.subtitle_signin", "تسجيل الحضور"));
+            primaryButton.setText(I18n.t("login.signin_button", "تسجيل الحضور"));
+            toggleHint.setText(I18n.t("login.no_account", "تسجيل الحضور"));
+            toggleButton.setText(I18n.t("login.register_link", "تسجيل الحضور"));
         }
     }
 
@@ -220,13 +220,13 @@ public class LoginController {
                 Session.login(user.get());
                 SceneManager.switchTo("/fxml/dashboard.fxml", "/css/style.css");
             } else {
-                showError(I18n.t("login.error_invalid_credentials"));
+                showError(I18n.t("login.error_invalid_credentials", "تسجيل الحضور"));
                 passwordField.clear();
             }
         });
         task.setOnFailed(e -> {
             setBusy(false);
-            showError(I18n.t("login.error_login_failed") + " " + task.getException().getMessage());
+            showError(I18n.t("login.error_login_failed", "تسجيل الحضور") + " " + task.getException().getMessage());
         });
         startDaemonThread(task);
     }
@@ -242,11 +242,11 @@ public class LoginController {
         String roleStr  = regRoleCombo.getValue();
 
         // Validation (fast — stays on FX thread)
-        if (name.isEmpty())              { showError(I18n.t("login.error_name_required"));         return; }
-        if (email.isEmpty())             { showError(I18n.t("login.error_email_required"));         return; }
-        if (!email.contains("@"))        { showError(I18n.t("login.error_email_invalid"));          return; }
-        if (password.length() < 6)       { showError(I18n.t("login.error_password_length"));        return; }
-        if (!password.equals(confirm))   { showError(I18n.t("login.error_password_mismatch"));      return; }
+        if (name.isEmpty())              { showError(I18n.t("login.error_name_required", "تسجيل الحضور"));         return; }
+        if (email.isEmpty())             { showError(I18n.t("login.error_email_required", "تسجيل الحضور"));         return; }
+        if (!email.contains("@"))        { showError(I18n.t("login.error_email_invalid", "تسجيل الحضور"));          return; }
+        if (password.length() < 6)       { showError(I18n.t("login.error_password_length", "تسجيل الحضور"));        return; }
+        if (!password.equals(confirm))   { showError(I18n.t("login.error_password_mismatch", "تسجيل الحضور"));      return; }
 
         UserRole role = UserRole.valueOf(roleStr);
 
@@ -260,18 +260,18 @@ public class LoginController {
         task.setOnSucceeded(e -> {
             setBusy(false);
             if (task.getValue()) {
-                showSuccess(I18n.t("login.success_account_created"));
+                showSuccess(I18n.t("login.success_account_created", "تسجيل الحضور"));
                 // Switch back to login and pre-fill email
                 registerMode = true;   // trick handleToggleMode into switching back
                 handleToggleMode();
                 usernameField.setText(email);
             } else {
-                showError(I18n.t("login.error_email_exists"));
+                showError(I18n.t("login.error_email_exists", "تسجيل الحضور"));
             }
         });
         task.setOnFailed(e -> {
             setBusy(false);
-            showError(I18n.t("login.error_register_failed") + " " + task.getException().getMessage());
+            showError(I18n.t("login.error_register_failed", "تسجيل الحضور") + " " + task.getException().getMessage());
         });
         startDaemonThread(task);
     }
@@ -288,9 +288,9 @@ public class LoginController {
         primaryButton.setDisable(busy);
         toggleButton.setDisable(busy);
         if (!busy) {
-            primaryButton.setText(registerMode ? I18n.t("login.register_button") : I18n.t("login.signin_button"));
+            primaryButton.setText(registerMode ? I18n.t("login.register_button", "تسجيل الحضور") : I18n.t("login.signin_button", "تسجيل الحضور"));
         } else {
-            primaryButton.setText(registerMode ? I18n.t("login.creating") : I18n.t("login.signing_in"));
+            primaryButton.setText(registerMode ? I18n.t("login.creating", "تسجيل الحضور") : I18n.t("login.signing_in", "تسجيل الحضور"));
         }
     }
 

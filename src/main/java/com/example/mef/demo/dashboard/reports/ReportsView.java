@@ -46,7 +46,7 @@ public class ReportsView {
     private final TableView<Report> table = new TableView<>(rows);
     { com.example.mef.demo.dashboard.common.TableStyleKit.applyTheme(table, "reports"); }
 
-    private final TextField titleField = FormFactory.textField(I18n.t("field.title"));
+    private final TextField titleField = FormFactory.textField(I18n.t("field.title", "تسجيل الحضور"));
     private final ComboBox<ReportType> typeField = new ComboBox<>(FXCollections.observableArrayList(ReportType.values()));
     private final TextArea summaryField = new TextArea();
     private final Label reportCount = new Label();
@@ -61,29 +61,35 @@ public class ReportsView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("nav.reports"));
+        pageTitleLabel.setText(I18n.t("nav.reports", "التقارير"));
 
-        table.setPlaceholder(new Label(I18n.t("report.empty")));
+        table.setPlaceholder(new Label(I18n.t("report.empty", "لا توجد تقارير متاحة. أنشئ تقريرك الأول.")));
+
+        // CONSTRAINED_RESIZE_POLICY forces columns to fill the full table width,
+        // eliminating the empty ghost header column that appeared on the right.
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         table.getColumns().clear();
-        TableColumn<Report, String> title = new TableColumn<>(I18n.t("field.title"));
+        TableColumn<Report, String> title = new TableColumn<>(I18n.t("field.title", "العنوان"));
         title.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getTitle()));
-        title.setPrefWidth(220);
-        TableColumn<Report, String> type = new TableColumn<>(I18n.t("field.type"));
+        title.setMinWidth(200);
+        TableColumn<Report, String> type = new TableColumn<>(I18n.t("field.type", "النوع"));
         type.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getReportType() == null ? "" : d.getValue().getReportType().name()));
-        TableColumn<Report, String> created = new TableColumn<>(I18n.t("report.created"));
+        type.setMinWidth(100);
+        TableColumn<Report, String> created = new TableColumn<>(I18n.t("report.created", "تاريخ الإنشاء"));
         created.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getCreatedAt() == null ? "" : d.getValue().getCreatedAt().format(DATE_FORMAT)));
+        created.setMinWidth(130);
         table.getColumns().addAll(List.of(title, type, created));
 
-        Label listTitle = new Label(I18n.t("report.history"));
+        Label listTitle = new Label(I18n.t("report.history", "سجل التقارير"));
         listTitle.getStyleClass().add("workflow-title");
-        Label listHint = new Label(I18n.t("report.hint"));
+        Label listHint = new Label(I18n.t("report.hint", "اعرض التقارير المسجلة وحددها وحدّثها."));
         listHint.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
         reportCount.setStyle("-fx-background-color: #DBEAFE; -fx-text-fill: #1D4ED8; -fx-font-weight: bold; "
                 + "-fx-background-radius: 12; -fx-padding: 4 10; -fx-font-size: 11px;");
-        Button newReport = new Button("+ " + I18n.t("report.new"));
+        Button newReport = new Button("+ " + I18n.t("report.new", "تقرير جديد"));
         newReport.getStyleClass().add("primary-button");
         newReport.setOnAction(e -> clearForm());
         HBox listHeader = new HBox(10, new VBox(3, listTitle, listHint), reportCount, newReport);
@@ -109,23 +115,23 @@ public class ReportsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("field.title"), titleField);
-        FormFactory.addRow(grid, 1, I18n.t("field.type"), typeField);
-        FormFactory.addRow(grid, 2, I18n.t("field.summary"), summaryField);
+        FormFactory.addRow(grid, 0, I18n.t("field.title", "العنوان"), titleField);
+        FormFactory.addRow(grid, 1, I18n.t("field.type", "النوع"), typeField);
+        FormFactory.addRow(grid, 2, I18n.t("field.summary", "الملخص"), summaryField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "حفظ"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button(I18n.t("action.new"));
+        Button clear = new Button(I18n.t("action.new", "جديد"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> clearForm());
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "حذف"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
-        Label title = new Label(I18n.t("report.details"));
+        Label title = new Label(I18n.t("report.details", "تفاصيل التقرير"));
         title.getStyleClass().add("workflow-title");
-        Label hint = new Label(I18n.t("report.form_hint"));
+        Label hint = new Label(I18n.t("report.form_hint", "أضف عنوانًا ونوعًا وملخصًا واضحًا لتقريرك."));
         hint.setWrapText(true);
         hint.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
         HBox actions = new HBox(8, save, clear, delete);
@@ -153,7 +159,7 @@ public class ReportsView {
 
     private void save() {
         if (titleField.getText().isBlank()) {
-            DialogUtil.error(I18n.t("dialog.required_field"), I18n.t("report.title_required"));
+            DialogUtil.error(I18n.t("dialog.required_field", "حقل مطلوب"), I18n.t("report.title_required", "عنوان التقرير مطلوب."));
             return;
         }
 
@@ -165,18 +171,18 @@ public class ReportsView {
         AsyncTasks.run(
                 () -> reportService.save(report),
                 saved -> { clearForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.save_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "خطأ"), I18n.t("dialog.save_failed", "فشل الحفظ: {0}").replace("{0}", err.getMessage()))
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("report.delete_confirm"))) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm", "تأكيد"), I18n.t("report.delete_confirm", "هل تريد حذف هذا التقرير؟"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> reportService.delete(id),
                 () -> { clearForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.delete_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "خطأ"), I18n.t("dialog.delete_failed", "فشل الحذف: {0}").replace("{0}", err.getMessage()))
         );
     }
 
@@ -185,9 +191,9 @@ public class ReportsView {
                 reportService::findAll,
                 list -> {
                     rows.setAll(list);
-                    reportCount.setText(list.size() + " " + I18n.t(list.size() > 1 ? "report.count_plural" : "report.count_singular"));
+                    reportCount.setText(list.size() + " " + I18n.t(list.size() > 1 ? "report.count_plural" : "report.count_singular", list.size() > 1 ? "تقارير" : "تقرير"));
                 },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("dialog.load_failed").replace("{0}", err.getMessage()))
+                err -> DialogUtil.error(I18n.t("dialog.error", "خطأ"), I18n.t("dialog.load_failed", "فشل تحميل البيانات: {0}").replace("{0}", err.getMessage()))
         );
     }
 }

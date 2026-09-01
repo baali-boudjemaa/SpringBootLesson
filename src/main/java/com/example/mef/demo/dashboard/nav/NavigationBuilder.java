@@ -73,8 +73,8 @@ public class NavigationBuilder {
                       Runnable onDashboard, Runnable onMonthlyReport, Consumer<Module> onModule) {
         navigationBox.getChildren().clear();
 
-        Button dashboard = navButton(I18n.t("nav.dashboard"), "fth-home", "dashboard".equals(activeKey), false, collapsed);
-        Button monthly = navButton(I18n.t("nav.monthly_report"), "fth-clipboard", "monthly".equals(activeKey), false, collapsed);
+        Button dashboard = navButton(I18n.t("nav.dashboard", "تسجيل الحضور"), "fth-home", "dashboard".equals(activeKey), false, collapsed);
+        Button monthly = navButton(I18n.t("nav.monthly_report", "تسجيل الحضور"), "fth-clipboard", "monthly".equals(activeKey), false, collapsed);
         dashboard.setOnAction(event -> onDashboard.run());
         navigationBox.getChildren().add(dashboard);
 
@@ -85,7 +85,7 @@ public class NavigationBuilder {
             String icon = MODULE_ICONS.getOrDefault(module.table(), "fth-circle");
             boolean active = module.table().equals(activeKey);
             boolean isSettings = module.table().equals("settings");
-            Button button = navButton(I18n.t(module.titleKey()), icon, active, isSettings, collapsed);
+            Button button = navButton(I18n.t(module.titleKey(), "تسجيل الحضور"), icon, active, isSettings, collapsed);
             button.setOnAction(event -> onModule.accept(module));
             navigationBox.getChildren().add(button);
         }

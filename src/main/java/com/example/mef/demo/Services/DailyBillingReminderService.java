@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.concurrent.CompletableFuture;
 
 /** Daily in-app reminder for unpaid and soon-due monthly course payments. */
 @Service
@@ -20,10 +21,24 @@ public class DailyBillingReminderService {
         this.settings = settings;
     }
 
-    /** Also checks at startup, so a centre that opens the app after 08:00 is not missed. */
+    /**
+     * Checks at startup completely off the Spring/FX threads using
+     * {@link CompletableFuture#runAsync}, which is more reliable than
+     * {@code @Async + @EventListener} (the proxy chain can silently
+     * degrade to synchronous execution in some configurations).
+     * A 3-second delay lets the UI appear before the billing scan runs.
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void checkAtStartup() {
-        checkAndNotify();
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(3_000); // let the UI open fully before running
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            checkAndNotify();
+        });
     }
 
     /** Runs once every day at 08:00 while the desktop application is running. */

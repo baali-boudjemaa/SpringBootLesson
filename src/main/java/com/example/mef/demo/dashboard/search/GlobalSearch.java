@@ -59,7 +59,7 @@ public final class GlobalSearch {
         searchIcon.setStyle("-fx-font-size: 16px; -fx-padding: 0 4 0 12;");
 
         TextField searchField = new TextField();
-        searchField.setPromptText(I18n.t("search.placeholder"));
+        searchField.setPromptText(I18n.t("search.placeholder", "تسجيل الحضور"));
         searchField.getStyleClass().add("search-popup-field");
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
@@ -71,7 +71,7 @@ public final class GlobalSearch {
         searchRow.setAlignment(Pos.CENTER_LEFT);
         searchRow.setPadding(new Insets(0, 8, 0, 0));
 
-        Label hintLabel = new Label(I18n.t("search.hint"));
+        Label hintLabel = new Label(I18n.t("search.hint", "تسجيل الحضور"));
         hintLabel.getStyleClass().add("search-hint-label");
         hintLabel.setMaxWidth(Double.MAX_VALUE);
 
@@ -98,7 +98,7 @@ public final class GlobalSearch {
             hintLabel.setVisible(true);
 
             if (query == null || query.isBlank()) {
-                hintLabel.setText(I18n.t("search.hint"));
+                hintLabel.setText(I18n.t("search.hint", "تسجيل الحضور"));
                 popupContent.getChildren().remove(resultsScroll);
                 return;
             }
@@ -106,15 +106,15 @@ public final class GlobalSearch {
             String needle = query.trim().toLowerCase();
             List<SearchResult> results = performSearch(needle);
 
-            hintLabel.setText(results.size() + " " + I18n.t("search.results"));
+            hintLabel.setText(results.size() + " " + I18n.t("search.results", "تسجيل الحضور"));
 
             if (results.isEmpty()) {
-                Label noRes = new Label(I18n.t("search.no_results") + " \"" + query + "\"");
+                Label noRes = new Label(I18n.t("search.no_results", "تسجيل الحضور") + " \"" + query + "\"");
                 noRes.getStyleClass().add("search-hint-label");
                 resultsList.getChildren().add(noRes);
             } else {
                 for (SearchResult sr : results) {
-                    Label moduleBadge = new Label(I18n.t(sr.moduleTitleKey()));
+                    Label moduleBadge = new Label(I18n.t(sr.moduleTitleKey(), "تسجيل الحضور"));
                     moduleBadge.getStyleClass().add("search-result-module");
                     Label mainText = new Label(sr.display());
                     mainText.getStyleClass().add("search-result-text");

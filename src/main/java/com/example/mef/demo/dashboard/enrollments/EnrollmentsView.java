@@ -180,22 +180,22 @@ public class EnrollmentsView {
     /** @param onNewEnrollmentWizard invoked when the user wants to run the step-by-step enrollment wizard. */
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onNewEnrollmentWizard) {
         this.onNewEnrollmentWizard = onNewEnrollmentWizard;
-        searchField.setPromptText(I18n.t("enrollment.search"));
-        pageTitleLabel.setText(I18n.t("enrollment.title"));
+        searchField.setPromptText(I18n.t("enrollment.search", "تسجيل الحضور"));
+        pageTitleLabel.setText(I18n.t("enrollment.title", "تسجيل الحضور"));
         table.setColumnResizePolicy(
                 TableView.UNCONSTRAINED_RESIZE_POLICY
         );
         buildColumns();
 
-        Label title = new Label(I18n.t("enrollment.title"));
+        Label title = new Label(I18n.t("enrollment.title", "تسجيل الحضور"));
         title.getStyleClass().add("page-title");
         countLabel.getStyleClass().add("stat-caption");
 
-        Button add = new Button("+  " + I18n.t("enrollment.add"));
+        Button add = new Button("+  " + I18n.t("enrollment.add", "تسجيل الحضور"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
-        Button wizard = new Button(I18n.t("ewizard.title"));
+        Button wizard = new Button(I18n.t("ewizard.title", "تسجيل الحضور"));
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onNewEnrollmentWizard.run());
 
@@ -241,36 +241,36 @@ public class EnrollmentsView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Inscription, String> date = new TableColumn<>(I18n.t("enrollment.table.date"));
+        TableColumn<Inscription, String> date = new TableColumn<>(I18n.t("enrollment.table.date", "تسجيل الحضور"));
         date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getDateInscription() == null ? "—" : d.getValue().getDateInscription().format(DATE_FORMAT)));
         date.setPrefWidth(100);
 
-        TableColumn<Inscription, Inscription> student = new TableColumn<>(I18n.t("enrollment.table.student"));
+        TableColumn<Inscription, Inscription> student = new TableColumn<>(I18n.t("enrollment.table.student", "تسجيل الحضور"));
         student.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         student.setCellFactory(col -> studentAvatarCell());
         student.setPrefWidth(220);
 
-        TableColumn<Inscription, String> classroom = new TableColumn<>(I18n.t("enrollment.table.classroom"));
+        TableColumn<Inscription, String> classroom = new TableColumn<>(I18n.t("enrollment.table.classroom", "تسجيل الحضور"));
         classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
         classroom.setCellFactory(col -> dashIfBlankCell());
         classroom.setPrefWidth(130);
 
-        TableColumn<Inscription, String> session = new TableColumn<>(I18n.t("enrollment.table.session"));
+        TableColumn<Inscription, String> session = new TableColumn<>(I18n.t("enrollment.table.session", "تسجيل الحضور"));
         session.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getSession() == null ? "—" : sessionLabel(d.getValue().getSession())));
         session.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         session.setPrefWidth(130);
 
-        TableColumn<Inscription, String> status = new TableColumn<>(I18n.t("enrollment.table.status"));
+        TableColumn<Inscription, String> status = new TableColumn<>(I18n.t("enrollment.table.status", "تسجيل الحضور"));
         status.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getStatus() == null ? "—" : enrollmentStatusLabel(d.getValue().getStatus())));
         status.setCellFactory(col -> statusCell());
         status.setPrefWidth(110);
 
         // NEW: one pill per enrolled course
-        TableColumn<Inscription, Inscription> courses = new TableColumn<>(I18n.t("enrollment.table.courses"));
+        TableColumn<Inscription, Inscription> courses = new TableColumn<>(I18n.t("enrollment.table.courses", "تسجيل الحضور"));
         courses.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         courses.setCellFactory(col -> coursesSummaryCell());
         courses.setPrefWidth(240);
@@ -280,17 +280,17 @@ public class EnrollmentsView {
 
     private String sessionLabel(SessionName session) {
         return switch (session.name()) {
-            case "MATINEE" -> I18n.t("session.matinee");
-            case "JOURNEE_COMPLETE" -> I18n.t("session.journee_complete");
-            case "PERISCOLAIRE" -> I18n.t("session.periscolaire");
+            case "MATINEE" -> I18n.t("session.matinee", "تسجيل الحضور");
+            case "JOURNEE_COMPLETE" -> I18n.t("session.journee_complete", "تسجيل الحضور");
+            case "PERISCOLAIRE" -> I18n.t("session.periscolaire", "تسجيل الحضور");
             default -> session.name();
         };
     }
 
     private String enrollmentStatusLabel(EnrollmentStatus status) {
         return switch (status.name()) {
-            case "ACTIVE" -> I18n.t("status.active");
-            case "INACTIVE" -> I18n.t("status.inactive");
+            case "ACTIVE" -> I18n.t("status.active", "تسجيل الحضور");
+            case "INACTIVE" -> I18n.t("status.inactive", "تسجيل الحضور");
             default -> status.name();
         };
     }
@@ -458,13 +458,13 @@ public class EnrollmentsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("field.student"), studentField);
-        FormFactory.addRow(grid, 1, I18n.t("field.classroom"), classroomField);
-        FormFactory.addRow(grid, 2, I18n.t("field.session"), sessionField);
-        FormFactory.addRow(grid, 3, I18n.t("field.status"), statusField);
+        FormFactory.addRow(grid, 0, I18n.t("field.student", "تسجيل الحضور"), studentField);
+        FormFactory.addRow(grid, 1, I18n.t("field.classroom", "تسجيل الحضور"), classroomField);
+        FormFactory.addRow(grid, 2, I18n.t("field.session", "تسجيل الحضور"), sessionField);
+        FormFactory.addRow(grid, 3, I18n.t("field.status", "تسجيل الحضور"), statusField);
 
         // --- Cours: built as its own block, not through the 2-col grid row ---
-        Label coursesLabel = new Label(I18n.t("enrollment.table.courses"));
+        Label coursesLabel = new Label(I18n.t("enrollment.table.courses", "تسجيل الحضور"));
         coursesLabel.getStyleClass().add("field-label"); // match your other field labels' style
 
         ScrollPane coursesScroll = new ScrollPane(coursesBox);
@@ -475,23 +475,23 @@ public class EnrollmentsView {
         VBox coursesBlock = new VBox(6, coursesLabel, coursesScroll);
         // -----------------------------------------------------------------
 
-        HBox totalCostRow = new HBox(8, new Label(I18n.t("enrollment.cost")), totalCostValue);
+        HBox totalCostRow = new HBox(8, new Label(I18n.t("enrollment.cost", "تسجيل الحضور")), totalCostValue);
         totalCostRow.setAlignment(Pos.CENTER_LEFT);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button cancel = new Button(I18n.t("wizard.cancel"));
+        Button cancel = new Button(I18n.t("wizard.cancel", "تسجيل الحضور"));
         cancel.getStyleClass().add("secondary-button");
         cancel.setOnAction(e -> closeForm());
 
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label(I18n.t("enrollment.details")), grid, coursesBlock, totalCostRow, actions);
+        VBox panel = new VBox(12, new Label(I18n.t("enrollment.details", "تسجيل الحضور")), grid, coursesBlock, totalCostRow, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
@@ -603,6 +603,6 @@ public class EnrollmentsView {
             }));
         }
         countLabel.setText(rows.size() + " " + I18n.t(
-                rows.size() == 1 ? "enrollment.count_singular" : "enrollment.count_plural"));
+                rows.size() == 1 ? "enrollment.count_singular" : "enrollment.count_plural", "تسجيل الحضور"));
     }
 }

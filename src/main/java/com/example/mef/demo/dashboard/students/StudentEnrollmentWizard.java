@@ -52,8 +52,8 @@ public class StudentEnrollmentWizard {
 
     /** Loads classrooms/courses in the background, then renders step 1. */
     public void show(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("wizard.title"));
-        contentPane.setCenter(new Label(I18n.t("table.loading")));
+        pageTitleLabel.setText(I18n.t("wizard.title", "تسجيل الحضور"));
+        contentPane.setCenter(new Label(I18n.t("table.loading", "تسجيل الحضور")));
 
         AsyncTasks.run(
                 () -> {
@@ -72,42 +72,42 @@ public class StudentEnrollmentWizard {
 
     private void buildWizard(BorderPane contentPane, Label pageTitleLabel, WizardData data) {
         // Step 1 — Student info
-        TextField firstName   = FormFactory.textField(I18n.t("field.first_name"));
-        TextField lastName    = FormFactory.textField(I18n.t("field.last_name"));
+        TextField firstName   = FormFactory.textField(I18n.t("field.first_name", "تسجيل الحضور"));
+        TextField lastName    = FormFactory.textField(I18n.t("field.last_name", "تسجيل الحضور"));
         ComboBox<String> gender = FormFactory.comboBox(List.of("Fille", "Garçon", "Autre"));
         DatePicker birthDate  = new DatePicker();
-        birthDate.setPromptText(I18n.t("field.date_of_birth"));
+        birthDate.setPromptText(I18n.t("field.date_of_birth", "تسجيل الحضور"));
         ComboBox<String> classroom = FormFactory.comboBox(data.classrooms());
         classroom.setEditable(true);
         ComboBox<String> bloodGroup = FormFactory.comboBox(List.of("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"));
 
         GridPane studentForm = FormFactory.sectionGrid();
-        FormFactory.addRow(studentForm, 0, I18n.t("field.last_name"),     lastName);
-        FormFactory.addRow(studentForm, 1, I18n.t("field.first_name"),    firstName);
-        FormFactory.addRow(studentForm, 2, I18n.t("field.gender"),        gender);
-        FormFactory.addRow(studentForm, 3, I18n.t("field.date_of_birth"), birthDate);
-        FormFactory.addRow(studentForm, 4, I18n.t("field.classroom"),     classroom);
-        FormFactory.addRow(studentForm, 5, I18n.t("field.blood_group"),   bloodGroup);
+        FormFactory.addRow(studentForm, 0, I18n.t("field.last_name", "تسجيل الحضور"),     lastName);
+        FormFactory.addRow(studentForm, 1, I18n.t("field.first_name", "تسجيل الحضور"),    firstName);
+        FormFactory.addRow(studentForm, 2, I18n.t("field.gender", "تسجيل الحضور"),        gender);
+        FormFactory.addRow(studentForm, 3, I18n.t("field.date_of_birth", "تسجيل الحضور"), birthDate);
+        FormFactory.addRow(studentForm, 4, I18n.t("field.classroom", "تسجيل الحضور"),     classroom);
+        FormFactory.addRow(studentForm, 5, I18n.t("field.blood_group", "تسجيل الحضور"),   bloodGroup);
 
         // Step 2 — Guardian info
-        TextField guardianFirstName = FormFactory.textField(I18n.t("field.first_name"));
-        TextField guardianLastName  = FormFactory.textField(I18n.t("field.last_name"));
+        TextField guardianFirstName = FormFactory.textField(I18n.t("field.first_name", "تسجيل الحضور"));
+        TextField guardianLastName  = FormFactory.textField(I18n.t("field.last_name", "تسجيل الحضور"));
         ComboBox<String> relationship = FormFactory.comboBox(List.of("Mère", "Père", "Tuteur", "Autre"));
-        TextField phone = FormFactory.textField(I18n.t("field.phone"));
-        TextField email = FormFactory.textField(I18n.t("field.email"));
+        TextField phone = FormFactory.textField(I18n.t("field.phone", "تسجيل الحضور"));
+        TextField email = FormFactory.textField(I18n.t("field.email", "تسجيل الحضور"));
 
         GridPane guardianForm = FormFactory.sectionGrid();
-        FormFactory.addRow(guardianForm, 0, I18n.t("field.last_name"),    guardianLastName);
-        FormFactory.addRow(guardianForm, 1, I18n.t("field.first_name"),   guardianFirstName);
-        FormFactory.addRow(guardianForm, 2, I18n.t("field.relationship"), relationship);
-        FormFactory.addRow(guardianForm, 3, I18n.t("field.phone"),        phone);
-        FormFactory.addRow(guardianForm, 4, I18n.t("field.email"),        email);
+        FormFactory.addRow(guardianForm, 0, I18n.t("field.last_name", "تسجيل الحضور"),    guardianLastName);
+        FormFactory.addRow(guardianForm, 1, I18n.t("field.first_name", "تسجيل الحضور"),   guardianFirstName);
+        FormFactory.addRow(guardianForm, 2, I18n.t("field.relationship", "تسجيل الحضور"), relationship);
+        FormFactory.addRow(guardianForm, 3, I18n.t("field.phone", "تسجيل الحضور"),        phone);
+        FormFactory.addRow(guardianForm, 4, I18n.t("field.email", "تسجيل الحضور"),        email);
 
         // Step 3 — Payment
         ComboBox<String> course = FormFactory.comboBox(data.courses());
         course.setEditable(true);
-        CheckBox firstPayment = new CheckBox(I18n.t("wizard.payment"));
-        TextField amount  = FormFactory.textField(I18n.t("field.amount"));
+        CheckBox firstPayment = new CheckBox(I18n.t("wizard.payment", "تسجيل الحضور"));
+        TextField amount  = FormFactory.textField(I18n.t("field.amount", "تسجيل الحضور"));
         ComboBox<String> method   = FormFactory.comboBox(List.of("Cash", "Virement", "Carte", "Chèque"));
         ComboBox<String> category = FormFactory.comboBox(List.of("Scolarité", "Cours", "Transport", "Autre"));
         amount.setDisable(true);
@@ -119,22 +119,22 @@ public class StudentEnrollmentWizard {
             category.setDisable(!sel);
         });
         GridPane courseForm = FormFactory.sectionGrid();
-        FormFactory.addRow(courseForm, 0, I18n.t("field.course"), course);
+        FormFactory.addRow(courseForm, 0, I18n.t("field.course", "تسجيل الحضور"), course);
         GridPane paymentForm = FormFactory.sectionGrid();
-        FormFactory.addRow(paymentForm, 0, I18n.t("field.amount"),   amount);
-        FormFactory.addRow(paymentForm, 1, I18n.t("field.method"),   method);
-        FormFactory.addRow(paymentForm, 2, I18n.t("field.category"), category);
+        FormFactory.addRow(paymentForm, 0, I18n.t("field.amount", "تسجيل الحضور"),   amount);
+        FormFactory.addRow(paymentForm, 1, I18n.t("field.method", "تسجيل الحضور"),   method);
+        FormFactory.addRow(paymentForm, 2, I18n.t("field.category", "تسجيل الحضور"), category);
 
         // Nav buttons
-        Button enroll   = new Button(I18n.t("wizard.enroll"));
+        Button enroll   = new Button(I18n.t("wizard.enroll", "تسجيل الحضور"));
         enroll.getStyleClass().add("success-button");
         enroll.setVisible(false);
         enroll.setManaged(false);
-        Button clear    = new Button(I18n.t("action.clear"));
+        Button clear    = new Button(I18n.t("action.clear", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
-        Button previous = new Button(I18n.t("wizard.previous"));
+        Button previous = new Button(I18n.t("wizard.previous", "تسجيل الحضور"));
         previous.getStyleClass().add("secondary-button");
-        Button next     = new Button(I18n.t("wizard.next"));
+        Button next     = new Button(I18n.t("wizard.next", "تسجيل الحضور"));
         next.getStyleClass().add("primary-button");
         HBox actions = new HBox(10, previous, next, enroll, clear);
         actions.setAlignment(Pos.CENTER_LEFT);
@@ -199,11 +199,11 @@ public class StudentEnrollmentWizard {
                         },
                         err -> {
                             enroll.setDisable(false);
-                            DialogUtil.error(I18n.t("wizard.enroll"), err.getMessage());
+                            DialogUtil.error(I18n.t("wizard.enroll", "تسجيل الحضور"), err.getMessage());
                         }
                 );
             } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("wizard.enroll"), e.getMessage());
+                DialogUtil.error(I18n.t("wizard.enroll", "تسجيل الحضور"), e.getMessage());
             }
         });
 
@@ -216,9 +216,9 @@ public class StudentEnrollmentWizard {
         HBox.setHgrow(detailCard, Priority.ALWAYS);
 
         List<String> stepTitles = List.of(
-                I18n.t("wizard.student"),
-                I18n.t("wizard.guardian"),
-                I18n.t("wizard.payment")
+                I18n.t("wizard.student", "تسجيل الحضور"),
+                I18n.t("wizard.guardian", "تسجيل الحضور"),
+                I18n.t("wizard.payment", "تسجيل الحضور")
         );
         List<Node> stepContent = List.of(
                 studentForm,
@@ -228,7 +228,7 @@ public class StudentEnrollmentWizard {
         List<Button> stepButtons = new ArrayList<>();
         VBox stepList = new VBox(8);
         stepList.getStyleClass().add("workflow-list");
-        Label stepListTitle = new Label(I18n.t("wizard.enrollment"));
+        Label stepListTitle = new Label(I18n.t("wizard.enrollment", "تسجيل الحضور"));
         stepListTitle.getStyleClass().add("workflow-list-title");
         stepList.getChildren().add(stepListTitle);
 
@@ -267,7 +267,7 @@ public class StudentEnrollmentWizard {
                 activeStep[0]++;
                 renderStep[0].run();
             } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("wizard.next"), e.getMessage());
+                DialogUtil.error(I18n.t("wizard.next", "تسجيل الحضور"), e.getMessage());
             }
         });
 
@@ -284,17 +284,17 @@ public class StudentEnrollmentWizard {
     private void showEnrollSuccessCard(BorderPane contentPane, Label pageTitleLabel, String studentName) {
         Label icon = new Label("✅");
         icon.setStyle("-fx-font-size: 40px;");
-        Label title = new Label(I18n.t("wizard.success"));
+        Label title = new Label(I18n.t("wizard.success", "تسجيل الحضور"));
         title.getStyleClass().add("success-card-title");
         Label body = new Label(studentName);
         body.getStyleClass().add("success-card-body");
         body.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #065F46;");
 
-        Button newOne = new Button("➕  " + I18n.t("action.new_student"));
+        Button newOne = new Button("➕  " + I18n.t("action.new_student", "تسجيل الحضور"));
         newOne.getStyleClass().add("primary-button");
         newOne.setOnAction(e -> show(contentPane, pageTitleLabel));
 
-        Button goToList = new Button("📋  " + I18n.t("nav.students"));
+        Button goToList = new Button("📋  " + I18n.t("nav.students", "تسجيل الحضور"));
         goToList.getStyleClass().add("secondary-button");
         goToList.setOnAction(e -> onShowModule.accept(registry.byTable("students")));
 
@@ -316,7 +316,7 @@ public class StudentEnrollmentWizard {
     private void requireField(TextField field, String labelKey) {
         if (field.getText() == null || field.getText().isBlank()) {
             field.getStyleClass().add("field-error");
-            throw new IllegalArgumentException(I18n.t(labelKey) + " est requis.");
+            throw new IllegalArgumentException(I18n.t(labelKey, "تسجيل الحضور") + " est requis.");
         }
         field.getStyleClass().remove("field-error");
     }
@@ -324,14 +324,14 @@ public class StudentEnrollmentWizard {
     private void requireDate(DatePicker picker, String labelKey) {
         if (picker.getValue() == null) {
             picker.getStyleClass().add("field-error");
-            throw new IllegalArgumentException(I18n.t(labelKey) + " est requis.");
+            throw new IllegalArgumentException(I18n.t(labelKey, "تسجيل الحضور") + " est requis.");
         }
         picker.getStyleClass().remove("field-error");
     }
 
     private void requireCombo(ComboBox<String> cb, String labelKey) {
         if (FormFactory.value(cb).isBlank()) {
-            throw new IllegalArgumentException(I18n.t(labelKey) + " est requis.");
+            throw new IllegalArgumentException(I18n.t(labelKey, "تسجيل الحضور") + " est requis.");
         }
     }
 

@@ -31,7 +31,7 @@ public class BackupRestorePanel {
     /** Opens a save dialog, then backs up the database to the chosen file. */
     public void backup(Window owner) {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle(I18n.t("backup.choose_location"));
+        chooser.setTitle(I18n.t("backup.choose_location", "تسجيل الحضور"));
         chooser.setInitialFileName("rawdati_backup_" + LocalDate.now() + ".dump");
         chooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("PostgreSQL Dump", "*.dump"));
@@ -40,28 +40,28 @@ public class BackupRestorePanel {
 
         AsyncTasks.run(
                 () -> backupRestoreService.backup(target),
-                () -> DialogUtil.info(I18n.t("backup.title"), I18n.t("backup.success")),
-                err -> DialogUtil.error(I18n.t("backup.title"), err.getMessage())
+                () -> DialogUtil.info(I18n.t("backup.title", "تسجيل الحضور"), I18n.t("backup.success", "تسجيل الحضور")),
+                err -> DialogUtil.error(I18n.t("backup.title", "تسجيل الحضور"), err.getMessage())
         );
     }
 
     /** Opens an open dialog (with confirmation), then restores the database from the chosen file. */
     public void restore(Window owner) {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle(I18n.t("restore.choose_file"));
+        chooser.setTitle(I18n.t("restore.choose_file", "تسجيل الحضور"));
         chooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("PostgreSQL Dump", "*.dump"));
         File source = chooser.showOpenDialog(owner);
         if (source == null) return;
 
-        if (!DialogUtil.confirm(I18n.t("restore.title"), I18n.t("restore.confirm_overwrite"))) {
+        if (!DialogUtil.confirm(I18n.t("restore.title", "تسجيل الحضور"), I18n.t("restore.confirm_overwrite", "تسجيل الحضور"))) {
             return;
         }
 
         AsyncTasks.run(
                 () -> backupRestoreService.restore(source),
-                () -> DialogUtil.info(I18n.t("restore.title"), I18n.t("restore.success")),
-                err -> DialogUtil.error(I18n.t("restore.title"), err.getMessage())
+                () -> DialogUtil.info(I18n.t("restore.title", "تسجيل الحضور"), I18n.t("restore.success", "تسجيل الحضور")),
+                err -> DialogUtil.error(I18n.t("restore.title", "تسجيل الحضور"), err.getMessage())
         );
     }
 }

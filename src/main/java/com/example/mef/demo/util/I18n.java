@@ -112,7 +112,7 @@ public final class I18n {
      * Returns the translated string for the given key.
      * Falls back to the key itself if not found.
      */
-    public static String t(String key) {
+    public static String t(String key, String تسجيل_الحضور) {
         try {
             return bundle.getString(key);
         } catch (Exception e) {

@@ -101,10 +101,10 @@ public class WeeklyOccupancyGrid {
             new ComboBox<>();
 
     private final Button addSlotButton =
-            new Button("＋ " + I18n.t("classroom.occupancy.add"));
+            new Button("＋ " + I18n.t("classroom.occupancy.add", "تسجيل الحضور"));
 
     private final Button clearDayButton =
-            new Button(I18n.t("classroom.occupancy.clear_day"));
+            new Button(I18n.t("classroom.occupancy.clear_day", "تسجيل الحضور"));
 
     private final VBox editor =
             new VBox(8);
@@ -155,7 +155,7 @@ public class WeeklyOccupancyGrid {
         root.getStyleClass().add("weekly-occupancy");
 
         Label title =
-                new Label(I18n.t("classroom.occupancy.title"));
+                new Label(I18n.t("classroom.occupancy.title", "تسجيل الحضور"));
 
         title.setStyle(
                 "-fx-font-size: 14px;" +
@@ -241,10 +241,10 @@ public class WeeklyOccupancyGrid {
         endTimeBox.setPrefWidth(100);
 
         Label fromLabel =
-                new Label(I18n.t("classroom.occupancy.from"));
+                new Label(I18n.t("classroom.occupancy.from", "تسجيل الحضور"));
 
         Label toLabel =
-                new Label(I18n.t("classroom.occupancy.to"));
+                new Label(I18n.t("classroom.occupancy.to", "تسجيل الحضور"));
 
         addSlotButton.getStyleClass()
                 .add("primary-button");
@@ -310,7 +310,7 @@ public class WeeklyOccupancyGrid {
                 new VBox(5);
 
         Label slotsTitle =
-                new Label(I18n.t("classroom.occupancy.slots"));
+                new Label(I18n.t("classroom.occupancy.slots", "تسجيل الحضور"));
 
         slotsTitle.setStyle(
                 "-fx-font-weight: bold;" +
@@ -416,7 +416,7 @@ public class WeeklyOccupancyGrid {
         }
 
         selectedDayLabel.setText(
-                I18n.t("classroom.occupancy.for_day").replace("{0}", dayName(day))
+                I18n.t("classroom.occupancy.for_day", "تسجيل الحضور").replace("{0}", dayName(day))
         );
 
         TimeSlot first =
@@ -537,7 +537,7 @@ public class WeeklyOccupancyGrid {
 
                 Label empty =
                         new Label(
-                                I18n.t("classroom.occupancy.none")
+                                I18n.t("classroom.occupancy.none", "تسجيل الحضور")
                         );
 
                 empty.setStyle(
@@ -1046,13 +1046,13 @@ public class WeeklyOccupancyGrid {
 
     private String dayName(DayOfWeek day) {
         return switch (day) {
-            case MONDAY -> I18n.t("day.mon");
-            case TUESDAY -> I18n.t("day.tue");
-            case WEDNESDAY -> I18n.t("day.wed");
-            case THURSDAY -> I18n.t("day.thu");
-            case FRIDAY -> I18n.t("day.fri");
-            case SATURDAY -> I18n.t("day.sat");
-            case SUNDAY -> I18n.t("day.sun");
+            case MONDAY -> I18n.t("day.mon", "تسجيل الحضور");
+            case TUESDAY -> I18n.t("day.tue", "تسجيل الحضور");
+            case WEDNESDAY -> I18n.t("day.wed", "تسجيل الحضور");
+            case THURSDAY -> I18n.t("day.thu", "تسجيل الحضور");
+            case FRIDAY -> I18n.t("day.fri", "تسجيل الحضور");
+            case SATURDAY -> I18n.t("day.sat", "تسجيل الحضور");
+            case SUNDAY -> I18n.t("day.sun", "تسجيل الحضور");
         };
     }
 
@@ -1085,7 +1085,7 @@ public class WeeklyOccupancyGrid {
                 );
 
         alert.setTitle(
-                I18n.t("classroom.occupancy.title")
+                I18n.t("classroom.occupancy.title", "تسجيل الحضور")
         );
 
         alert.setHeaderText(null);

@@ -53,15 +53,15 @@ public class GuardiansView {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
     }
 
-    private final TextField searchField = FormFactory.textField(I18n.t("guardian.search"));
+    private final TextField searchField = FormFactory.textField(I18n.t("guardian.search", "تسجيل الحضور"));
     private final Label countLabel = new Label();
 
-    private final TextField firstNameField = FormFactory.textField(I18n.t("field.first_name"));
-    private final TextField lastNameField = FormFactory.textField(I18n.t("field.last_name"));
-    private final TextField phoneField = FormFactory.textField(I18n.t("field.phone"));
-    private final TextField emailField = FormFactory.textField(I18n.t("field.email"));
-    private final TextField relationField = FormFactory.textField(I18n.t("guardian.relation_hint"));
-    private final TextField addressField = FormFactory.textField(I18n.t("field.address"));
+    private final TextField firstNameField = FormFactory.textField(I18n.t("field.first_name", "تسجيل الحضور"));
+    private final TextField lastNameField = FormFactory.textField(I18n.t("field.last_name", "تسجيل الحضور"));
+    private final TextField phoneField = FormFactory.textField(I18n.t("field.phone", "تسجيل الحضور"));
+    private final TextField emailField = FormFactory.textField(I18n.t("field.email", "تسجيل الحضور"));
+    private final TextField relationField = FormFactory.textField(I18n.t("guardian.relation_hint", "تسجيل الحضور"));
+    private final TextField addressField = FormFactory.textField(I18n.t("field.address", "تسجيل الحضور"));
     private final ComboBox<Student> studentField = new ComboBox<>();
 
     private BorderPane layout;
@@ -102,17 +102,17 @@ public class GuardiansView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("guardian.title"));
+        pageTitleLabel.setText(I18n.t("guardian.title", "تسجيل الحضور"));
         table.setColumnResizePolicy(
                 TableView.UNCONSTRAINED_RESIZE_POLICY
         );
         buildColumns();
 
-        Label title = new Label(I18n.t("guardian.title"));
+        Label title = new Label(I18n.t("guardian.title", "تسجيل الحضور"));
         title.getStyleClass().add("page-title");
         countLabel.getStyleClass().add("stat-caption");
 
-        Button add = new Button("+  " + I18n.t("guardian.add"));
+        Button add = new Button("+  " + I18n.t("guardian.add", "تسجيل الحضور"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
@@ -145,29 +145,29 @@ public class GuardiansView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Guardian, Guardian> guardian = new TableColumn<>(I18n.t("guardian.title").toUpperCase());
+        TableColumn<Guardian, Guardian> guardian = new TableColumn<>(I18n.t("guardian.title", "تسجيل الحضور").toUpperCase());
         guardian.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         guardian.setCellFactory(col -> guardianCell());
         guardian.setPrefWidth(240);
 
-        TableColumn<Guardian, String> relation = new TableColumn<>(I18n.t("field.relationship").toUpperCase());
+        TableColumn<Guardian, String> relation = new TableColumn<>(I18n.t("field.relationship", "تسجيل الحضور").toUpperCase());
         relation.setCellValueFactory(d -> new ReadOnlyStringWrapper(translateRelation(d.getValue().getRelation())));
         relation.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
         relation.setPrefWidth(110);
 
-        TableColumn<Guardian, String> student = new TableColumn<>(I18n.t("field.student").toUpperCase());
+        TableColumn<Guardian, String> student = new TableColumn<>(I18n.t("field.student", "تسجيل الحضور").toUpperCase());
         student.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getStudent() == null ? "—" :
                         d.getValue().getStudent().getFirstName() + " " + d.getValue().getStudent().getLastName()));
         student.setCellFactory(col -> dashIfBlankCell());
         student.setPrefWidth(160);
 
-        TableColumn<Guardian, String> phone = new TableColumn<>(I18n.t("field.phone").toUpperCase());
+        TableColumn<Guardian, String> phone = new TableColumn<>(I18n.t("field.phone", "تسجيل الحضور").toUpperCase());
         phone.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getPhoneNumber()));
         phone.setCellFactory(col -> dashIfBlankCell());
         phone.setPrefWidth(130);
 
-        TableColumn<Guardian, String> email = new TableColumn<>(I18n.t("field.email").toUpperCase());
+        TableColumn<Guardian, String> email = new TableColumn<>(I18n.t("field.email", "تسجيل الحضور").toUpperCase());
         email.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getEmail()));
         email.setCellFactory(col -> dashIfBlankCell());
         email.setPrefWidth(160);
@@ -223,44 +223,44 @@ public class GuardiansView {
             return "—";
         }
         return switch (relation.trim().toLowerCase(Locale.ROOT)) {
-            case "mère", "mere", "mother", "الأم" -> I18n.t("guardian.relation.mother");
-            case "père", "pere", "father", "الأب" -> I18n.t("guardian.relation.father");
-            case "tuteur", "tutrice", "guardian", "ولي الأمر" -> I18n.t("guardian.relation.guardian");
+            case "mère", "mere", "mother", "الأم" -> I18n.t("guardian.relation.mother", "تسجيل الحضور");
+            case "père", "pere", "father", "الأب" -> I18n.t("guardian.relation.father", "تسجيل الحضور");
+            case "tuteur", "tutrice", "guardian", "ولي الأمر" -> I18n.t("guardian.relation.guardian", "تسجيل الحضور");
             default -> relation;
         };
     }
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("field.first_name"), firstNameField);
-        FormFactory.addRow(grid, 1, I18n.t("field.last_name"), lastNameField);
-        FormFactory.addRow(grid, 2, I18n.t("field.relationship"), relationField);
-        FormFactory.addRow(grid, 3, I18n.t("field.phone"), phoneField);
-        FormFactory.addRow(grid, 4, I18n.t("field.email"), emailField);
-        FormFactory.addRow(grid, 5, I18n.t("field.address"), addressField);
-        FormFactory.addRow(grid, 6, I18n.t("field.student"), studentField);
+        FormFactory.addRow(grid, 0, I18n.t("field.first_name", "تسجيل الحضور"), firstNameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.last_name", "تسجيل الحضور"), lastNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.relationship", "تسجيل الحضور"), relationField);
+        FormFactory.addRow(grid, 3, I18n.t("field.phone", "تسجيل الحضور"), phoneField);
+        FormFactory.addRow(grid, 4, I18n.t("field.email", "تسجيل الحضور"), emailField);
+        FormFactory.addRow(grid, 5, I18n.t("field.address", "تسجيل الحضور"), addressField);
+        FormFactory.addRow(grid, 6, I18n.t("field.student", "تسجيل الحضور"), studentField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button cancel = new Button(I18n.t("wizard.cancel"));
+        Button cancel = new Button(I18n.t("wizard.cancel", "تسجيل الحضور"));
         cancel.getStyleClass().add("secondary-button");
         cancel.setOnAction(e -> closeForm());
 
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
         // Shows every child linked to this same tuteur (there's one Guardian row per
         // child, so a tuteur with several kids appears as several rows sharing the
         // same identity — this groups them back together).
-        Button viewChildren = new Button("👨‍👩‍👧  " + I18n.t("guardian.view_children"));
+        Button viewChildren = new Button("👨‍👩‍👧  " + I18n.t("guardian.view_children", "تسجيل الحضور"));
         viewChildren.getStyleClass().add("link-button");
         viewChildren.setOnAction(e -> showChildrenDialog());
 
         HBox actions = new HBox(8, save, cancel, delete);
-        VBox panel = new VBox(12, new Label(I18n.t("guardian.details")), grid, viewChildren, actions);
+        VBox panel = new VBox(12, new Label(I18n.t("guardian.details", "تسجيل الحضور")), grid, viewChildren, actions);
         panel.getStyleClass().add("side-panel");
         panel.setPrefWidth(320);
         return panel;
@@ -285,7 +285,7 @@ public class GuardiansView {
         AsyncTasks.run(
                 studentService::findAll,
                 list -> studentField.setItems(FXCollections.observableArrayList(list)),
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_students_failed") + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("guardian.load_students_failed", "تسجيل الحضور") + err.getMessage())
         );
     }
 
@@ -318,7 +318,7 @@ public class GuardiansView {
 
     private void save() {
         if (firstNameField.getText().isBlank() || lastNameField.getText().isBlank() || relationField.getText().isBlank()) {
-            DialogUtil.error(I18n.t("guardian.required_title"), I18n.t("guardian.required_message"));
+            DialogUtil.error(I18n.t("guardian.required_title", "تسجيل الحضور"), I18n.t("guardian.required_message", "تسجيل الحضور"));
             return;
         }
         Guardian guardian = selected != null ? selected : new Guardian();
@@ -333,18 +333,18 @@ public class GuardiansView {
         AsyncTasks.run(
                 () -> guardianService.save(guardian, studentId),
                 saved -> { closeForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.save_failed") + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("guardian.save_failed", "تسجيل الحضور") + err.getMessage())
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm(I18n.t("dialog.confirm"), I18n.t("guardian.delete_confirm"))) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm", "تسجيل الحضور"), I18n.t("guardian.delete_confirm", "تسجيل الحضور"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> guardianService.delete(id),
                 () -> { closeForm(); reload(); },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.delete_failed") + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("guardian.delete_failed", "تسجيل الحضور") + err.getMessage())
         );
     }
 
@@ -355,7 +355,7 @@ public class GuardiansView {
      */
     private void showChildrenDialog() {
         if (selected == null) {
-            DialogUtil.info(I18n.t("guardian.children_dialog_title"), I18n.t("guardian.select_first"));
+            DialogUtil.info(I18n.t("guardian.children_dialog_title", "تسجيل الحضور"), I18n.t("guardian.select_first", "تسجيل الحضور"));
             return;
         }
         String tutorFirstName = normalize(selected.getFirstName());
@@ -376,7 +376,7 @@ public class GuardiansView {
                             .toList();
                     openChildrenDialog(selected, sameTutor);
                 },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_failed") + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("guardian.load_failed", "تسجيل الحضور") + err.getMessage())
         );
     }
 
@@ -393,11 +393,11 @@ public class GuardiansView {
         String tutorName = ((tutor.getFirstName() == null ? "" : tutor.getFirstName()) + " "
                 + (tutor.getLastName() == null ? "" : tutor.getLastName())).trim();
 
-        Label title = new Label(I18n.t("guardian.children_of").replace("{0}", tutorName));
+        Label title = new Label(I18n.t("guardian.children_of", "تسجيل الحضور").replace("{0}", tutorName));
         title.getStyleClass().add("workflow-title");
 
         Label count = new Label(sameTutorRows.size() + " " + I18n.t(
-                sameTutorRows.size() == 1 ? "guardian.child_singular" : "guardian.child_plural"));
+                sameTutorRows.size() == 1 ? "guardian.child_singular" : "guardian.child_plural", "تسجيل الحضور"));
         count.getStyleClass().add("stat-caption");
 
         VBox listBox = new VBox(8);
@@ -407,7 +407,7 @@ public class GuardiansView {
                 .toList();
 
         if (children.isEmpty()) {
-            Label none = new Label(I18n.t("guardian.no_children"));
+            Label none = new Label(I18n.t("guardian.no_children", "تسجيل الحضور"));
             none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
             listBox.getChildren().add(none);
         } else {
@@ -421,7 +421,7 @@ public class GuardiansView {
         scroll.setPrefViewportHeight(320);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-        Button close = new Button(I18n.t("action.close"));
+        Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
         close.getStyleClass().add("secondary-button");
 
         VBox root = new VBox(14, title, count, scroll, close);
@@ -435,7 +435,7 @@ public class GuardiansView {
         if (owner != null) {
             dialog.initOwner(owner);
         }
-        dialog.setTitle(I18n.t("guardian.children_dialog_title"));
+        dialog.setTitle(I18n.t("guardian.children_dialog_title", "تسجيل الحضور"));
         dialog.setScene(new Scene(root));
         close.setOnAction(e -> dialog.close());
         dialog.showAndWait();
@@ -478,9 +478,9 @@ public class GuardiansView {
                 list -> {
                     rows.setAll(list);
                     countLabel.setText(list.size() + " " + I18n.t(
-                            list.size() == 1 ? "guardian.count_singular" : "guardian.count_plural"));
+                            list.size() == 1 ? "guardian.count_singular" : "guardian.count_plural", "تسجيل الحضور"));
                 },
-                err -> DialogUtil.error(I18n.t("dialog.error"), I18n.t("guardian.load_failed") + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "تسجيل الحضور"), I18n.t("guardian.load_failed", "تسجيل الحضور") + err.getMessage())
         );
     }
 }

@@ -15,12 +15,13 @@ public final class TeacherAvailabilityDialog {
     public record Result(String schedule) {
     }
 
-    public static Optional<Result> show(Window owner, String currentSchedule) {
+    public static Optional<Result> show(Window owner, String currentSchedule, java.util.List<com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock> blocks) {
         return SchedulePickerDialog.show(
                 owner,
                 currentSchedule,
-                I18n.t("availability.teacher_title"),
-                I18n.t("availability.hint")
+                I18n.t("availability.teacher_title", "تسجيل الحضور"),
+                I18n.t("availability.hint", "تسجيل الحضور"),
+                blocks
         ).map(Result::new);
     }
 }

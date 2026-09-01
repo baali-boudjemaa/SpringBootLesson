@@ -11,6 +11,7 @@ import com.example.mef.demo.Services.ClassroomService.ClassStudentAttendance;
 import com.example.mef.demo.Services.ClassroomService.RoomConflict;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.RoomService;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.enums.Category;
@@ -87,6 +88,9 @@ public class ClassroomsView {
 
     private final List<Classroom> allClassrooms = new ArrayList<>();
 
+    @Autowired
+    private SettingService settingService;
+
     /** Stored so card-level actions (e.g. "Voir les élèves") can open dialogs owned by the main window. */
     private BorderPane rootContentPane;
 
@@ -100,17 +104,19 @@ public class ClassroomsView {
     private static final List<String> TIMETABLE_DAYS = List.of(
             "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche");
 
-    /** Fixed hourly rows 8h–18h with a lunch-break band 12h–14h, matching the standard school timetable layout. */
-    private static final List<TimetableRow> TIMETABLE_ROWS = List.of(
-            new TimetableRow(8 * 60, 9 * 60, "8h", "9h", false),
-            new TimetableRow(9 * 60, 10 * 60, "9h", "10h", false),
-            new TimetableRow(10 * 60, 11 * 60, "10h", "11h", false),
-            new TimetableRow(11 * 60, 12 * 60, "11h", "12h", false),
-            new TimetableRow(12 * 60, 14 * 60, "", "", true),
-            new TimetableRow(14 * 60, 15 * 60, "14h", "15h", false),
-            new TimetableRow(15 * 60, 16 * 60, "15h", "16h", false),
-            new TimetableRow(16 * 60, 17 * 60, "16h", "17h", false),
-            new TimetableRow(17 * 60, 18 * 60, "17h", "18h", false));
+    private List<TimetableRow> generateTimetableRows() {
+        String dayStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START_DEFAULT);
+        String dayEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END_DEFAULT);
+        String breakStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START_DEFAULT);
+        String breakEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END_DEFAULT);
+        
+        List<com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock> blocks = com.example.mef.demo.dashboard.common.TimeSlots.generateBlocks(dayStart, breakStart, breakEnd, dayEnd);
+        return blocks.stream().map(b -> {
+            String startLabel = b.isBreak() ? "" : (b.startMinutes() / 60) + "h" + (b.startMinutes() % 60 == 0 ? "" : String.format("%02d", b.startMinutes() % 60));
+            String endLabel = b.isBreak() ? "" : (b.endMinutes() / 60) + "h" + (b.endMinutes() % 60 == 0 ? "" : String.format("%02d", b.endMinutes() % 60));
+            return new TimetableRow(b.startMinutes(), b.endMinutes(), startLabel, endLabel, b.isBreak());
+        }).toList();
+    }
 
     public void render(BorderPane contentPane) {
         this.rootContentPane = contentPane;
@@ -118,14 +124,14 @@ public class ClassroomsView {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
 
-        TextField searchField = FormFactory.textField(I18n.t("classroom.search"));
+        TextField searchField = FormFactory.textField(I18n.t("classroom.search", "تسجيل الحضور"));
         searchField.getStyleClass().add("filter-field");
         Label countLabel = new Label();
         countLabel.getStyleClass().add("stat-caption");
 
-        TextField nameField = FormFactory.textField(I18n.t("classroom.name"));
-        TextField ageGroupField = FormFactory.textField(I18n.t("classroom.age_group"));
-        TextField capacityField = FormFactory.textField(I18n.t("classroom.max_capacity"));
+        TextField nameField = FormFactory.textField(I18n.t("classroom.name", "تسجيل الحضور"));
+        TextField ageGroupField = FormFactory.textField(I18n.t("classroom.age_group", "تسجيل الحضور"));
+        TextField capacityField = FormFactory.textField(I18n.t("classroom.max_capacity", "تسجيل الحضور"));
         ComboBox<Category> categoryField = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
         categoryField.setMaxWidth(Double.MAX_VALUE);
         categoryField.setValue(Category.CRECHE);
@@ -149,19 +155,19 @@ public class ClassroomsView {
         List<CheckBox> roomChecks = new ArrayList<>();
 
         GridPane form = FormFactory.sectionGrid();
-        FormFactory.addRow(form, 0, I18n.t("field.name"), nameField);
-        FormFactory.addRow(form, 1, I18n.t("classroom.age_group"), ageGroupField);
-        FormFactory.addRow(form, 2, I18n.t("field.capacity"), capacityField);
-        FormFactory.addRow(form, 3, I18n.t("classroom.category"), categoryField);
+        FormFactory.addRow(form, 0, I18n.t("field.name", "تسجيل الحضور"), nameField);
+        FormFactory.addRow(form, 1, I18n.t("classroom.age_group", "تسجيل الحضور"), ageGroupField);
+        FormFactory.addRow(form, 2, I18n.t("field.capacity", "تسجيل الحضور"), capacityField);
+        FormFactory.addRow(form, 3, I18n.t("classroom.category", "تسجيل الحضور"), categoryField);
 
         // A section's room-use times come from its course schedules.  They are
         // displayed through «Voir l'emploi du temps», not entered manually here.
-        FormFactory.addRow(form, 5, I18n.t("classroom.rooms"));
+        FormFactory.addRow(form, 5, I18n.t("classroom.rooms", "تسجيل الحضور"));
         FormFactory.addRow(form, 6, roomsScroll);
 
-        Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
-        Button cancel = new Button(I18n.t("action.clear"));  cancel.getStyleClass().add("secondary-button");
-        Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
+        Button save   = new Button(I18n.t("action.save", "تسجيل الحضور"));   save.getStyleClass().add("primary-button");
+        Button cancel = new Button(I18n.t("action.clear", "تسجيل الحضور"));  cancel.getStyleClass().add("secondary-button");
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, cancel, delete);
 
         Classroom[] selected = new Classroom[]{null};
@@ -178,7 +184,7 @@ public class ClassroomsView {
         formScroll.setMinWidth(320);
         formScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-        Label detailsTitle = new Label(I18n.t("table.details"));
+        Label detailsTitle = new Label(I18n.t("table.details", "تسجيل الحضور"));
         detailsTitle.getStyleClass().add("side-panel-title");
         detailsTitle.setMaxWidth(Double.MAX_VALUE);
         detailsTitle.setAlignment(Pos.CENTER);
@@ -204,7 +210,7 @@ public class ClassroomsView {
                     roomsBox.getChildren().clear();
                     roomChecks.clear();
                     if (rooms.isEmpty()) {
-                        Label none = new Label(I18n.t("classroom.rooms_none"));
+                        Label none = new Label(I18n.t("classroom.rooms_none", "تسجيل الحضور"));
                         none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 12px;");
                         roomsBox.getChildren().add(none);
                         return;
@@ -218,7 +224,7 @@ public class ClassroomsView {
                         roomsBox.getChildren().add(cb);
                     }
                 },
-                err -> DialogUtil.error(I18n.t("classroom.rooms"), err.getMessage())
+                err -> DialogUtil.error(I18n.t("classroom.rooms", "تسجيل الحضور"), err.getMessage())
         );
 
         Runnable clearForm = () -> {
@@ -262,7 +268,7 @@ public class ClassroomsView {
                 });
                 cardGrid.getChildren().add(card);
             }
-            countLabel.setText(filtered.size() + " " + I18n.t(filtered.size() > 1 ? "classroom.section_plural" : "classroom.section_singular"));
+            countLabel.setText(filtered.size() + " " + I18n.t(filtered.size() > 1 ? "classroom.section_plural" : "classroom.section_singular", "تسجيل الحضور"));
         };
 
         reload[0] = () -> AsyncTasks.run(
@@ -281,12 +287,12 @@ public class ClassroomsView {
 
         save.setOnAction(e -> {
             try {
-                if (nameField.getText().isBlank()) throw new IllegalArgumentException(I18n.t("classroom.name_required"));
+                if (nameField.getText().isBlank()) throw new IllegalArgumentException(I18n.t("classroom.name_required", "تسجيل الحضور"));
                 int capacity;
                 try {
                     capacity = Integer.parseInt(capacityField.getText().trim());
                 } catch (NumberFormatException ex) {
-                    throw new IllegalArgumentException(I18n.t("classroom.capacity_number"));
+                    throw new IllegalArgumentException(I18n.t("classroom.capacity_number", "تسجيل الحضور"));
                 }
 
                 Classroom c = selected[0] != null ? selected[0] : Classroom.builder().build();
@@ -304,7 +310,7 @@ public class ClassroomsView {
                     AsyncTasks.run(
                             () -> classroomService.save(c),
                             () -> { save.setDisable(false); reload[0].run(); clearForm.run(); closeForm.run(); },
-                            err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
+                            err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), err.getMessage()); }
                     );
                 };
 
@@ -321,35 +327,35 @@ public class ClassroomsView {
                                     .map(rc -> rc.roomName() + " — " + rc.otherClassroomName()
                                             + " (" + rc.day() + " " + rc.timeRange() + ")")
                                     .collect(Collectors.joining("\n"));
-                            if (DialogUtil.confirm(I18n.t("classroom.rooms_conflict_title"),
-                                    I18n.t("classroom.rooms_conflict_confirm") + "\n\n" + details)) {
+                            if (DialogUtil.confirm(I18n.t("classroom.rooms_conflict_title", "تسجيل الحضور"),
+                                    I18n.t("classroom.rooms_conflict_confirm", "تسجيل الحضور") + "\n\n" + details)) {
                                 doSave.run();
                             }
                         },
-                        err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
+                        err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), err.getMessage()); }
                 );
             } catch (RuntimeException ex) {
-                DialogUtil.error(I18n.t("action.save"), ex.getMessage());
+                DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), ex.getMessage());
             }
         });
 
         delete.setOnAction(e -> {
             if (selected[0] == null) {
-                DialogUtil.info(I18n.t("action.delete"), I18n.t("classroom.select_before_delete"));
+                DialogUtil.info(I18n.t("action.delete", "تسجيل الحضور"), I18n.t("classroom.select_before_delete", "تسجيل الحضور"));
                 return;
             }
-            if (DialogUtil.confirm(I18n.t("action.delete"), I18n.t("classroom.delete_confirm"))) {
+            if (DialogUtil.confirm(I18n.t("action.delete", "تسجيل الحضور"), I18n.t("classroom.delete_confirm", "تسجيل الحضور"))) {
                 String id = selected[0].getId();
                 delete.setDisable(true);
                 AsyncTasks.run(
                         () -> classroomService.delete(id),
                         () -> { delete.setDisable(false); reload[0].run(); clearForm.run(); closeForm.run(); },
-                        err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete"), err.getMessage()); }
+                        err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete", "تسجيل الحضور"), err.getMessage()); }
                 );
             }
         });
 
-        Button addNew = new Button("+  " + I18n.t("classroom.new_section"));
+        Button addNew = new Button("+  " + I18n.t("classroom.new_section", "تسجيل الحضور"));
         addNew.getStyleClass().add("primary-button");
         addNew.setOnAction(e -> {
             clearForm.run();
@@ -360,7 +366,7 @@ public class ClassroomsView {
         loadRooms.run();
         reload[0].run();
 
-        Label title = new Label(I18n.t("classroom.title"));
+        Label title = new Label(I18n.t("classroom.title", "تسجيل الحضور"));
         title.getStyleClass().add("page-title");
         HBox headerRow = new HBox(12, title);
         HBox.setHgrow(title, Priority.ALWAYS);
@@ -394,19 +400,19 @@ public class ClassroomsView {
 
     private String categoryLabel(Category category) {
         return switch (category) {
-            case CRECHE -> I18n.t("category.creche");
-            case PREPARATOIRE -> I18n.t("category.preparatoire");
-            case SOUTIEN -> I18n.t("category.soutien");
+            case CRECHE -> I18n.t("category.creche", "تسجيل الحضور");
+            case PREPARATOIRE -> I18n.t("category.preparatoire", "تسجيل الحضور");
+            case SOUTIEN -> I18n.t("category.soutien", "تسجيل الحضور");
         };
     }
 
     private String attendanceStatusLabel(ClassStudentAttendance row) {
-        if (row.status() == null) return I18n.t("attendance.unmarked");
+        if (row.status() == null) return I18n.t("attendance.unmarked", "تسجيل الحضور");
         return switch (row.status()) {
-            case PRESENT -> I18n.t("status.present");
-            case ABSENT -> I18n.t("status.absent");
-            case LATE -> I18n.t("status.late");
-            case EXCUSED -> I18n.t("attendance.excused");
+            case PRESENT -> I18n.t("status.present", "تسجيل الحضور");
+            case ABSENT -> I18n.t("status.absent", "تسجيل الحضور");
+            case LATE -> I18n.t("status.late", "تسجيل الحضور");
+            case EXCUSED -> I18n.t("attendance.excused", "تسجيل الحضور");
         };
     }
 
@@ -423,11 +429,11 @@ public class ClassroomsView {
         meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         int enrolled = classroomService.countStudentsInClassroom(c.getId());
-        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " " + I18n.t("classroom.places"));
+        Label capacity = new Label(enrolled + "/" + c.getCapacity() + " " + I18n.t("classroom.places", "تسجيل الحضور"));
         capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
 
         // Explicit action, in addition to the double-click-to-open behavior on the card itself.
-        Button viewStudentsBtn = new Button("👁  " + I18n.t("classroom.view_students"));
+        Button viewStudentsBtn = new Button("👁  " + I18n.t("classroom.view_students", "تسجيل الحضور"));
         viewStudentsBtn.getStyleClass().add("link-button");
         viewStudentsBtn.setOnAction(e -> showClassStudentsDialog(rootContentPane, c));
         // Consume the click so it doesn't also bubble up to the card's own
@@ -435,18 +441,18 @@ public class ClassroomsView {
         viewStudentsBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
         // Same pattern, for the courses taught in this classroom.
-        Button viewCoursesBtn = new Button("📚  " + I18n.t("classroom.view_courses"));
+        Button viewCoursesBtn = new Button("📚  " + I18n.t("classroom.view_courses", "تسجيل الحضور"));
         viewCoursesBtn.getStyleClass().add("link-button");
         viewCoursesBtn.setOnAction(e -> showClassCoursesDialog(c));
         viewCoursesBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
         // Same pattern, for the weekly time schedule of this classroom.
-        Button viewScheduleBtn = new Button("🗓  " + I18n.t("classroom.view_schedule"));
+        Button viewScheduleBtn = new Button("🗓  " + I18n.t("classroom.view_schedule", "تسجيل الحضور"));
         viewScheduleBtn.getStyleClass().add("link-button");
         viewScheduleBtn.setOnAction(e -> showClassScheduleDialog(c));
         viewScheduleBtn.addEventFilter(MouseEvent.MOUSE_CLICKED, javafx.event.Event::consume);
 
-        Label hint = new Label(I18n.t("classroom.double_click_hint"));
+        Label hint = new Label(I18n.t("classroom.double_click_hint", "تسجيل الحضور"));
         hint.setStyle("-fx-font-size: 10px; -fx-text-fill: #94A3B8;");
 
         VBox card = new VBox(6, name, meta, capacity);
@@ -468,13 +474,13 @@ public class ClassroomsView {
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.initOwner(contentPane.getScene().getWindow());
-        dialog.setTitle(I18n.t("classroom.students_title").replace("{0}", classroom.getName()));
+        dialog.setTitle(I18n.t("classroom.students_title", "تسجيل الحضور").replace("{0}", classroom.getName()));
         dialog.setMinWidth(460);
         dialog.setMinHeight(420);
 
         ListView<ClassStudentAttendance> listView = new ListView<>();
         listView.setPrefSize(420, 280);
-        listView.setPlaceholder(new Label(I18n.t("classroom.students_empty")));
+        listView.setPlaceholder(new Label(I18n.t("classroom.students_empty", "تسجيل الحضور")));
         listView.setCellFactory(lv -> new ListCell<>() {
             @Override protected void updateItem(ClassStudentAttendance row, boolean empty) {
                 super.updateItem(row, empty);
@@ -507,10 +513,10 @@ public class ClassroomsView {
                     reportArea.setVisible(false);
                     reportArea.setManaged(false);
 
-                    Button reportBtn = new Button("📋  " + I18n.t("classroom.generate_report"));
+                    Button reportBtn = new Button("📋  " + I18n.t("classroom.generate_report", "تسجيل الحضور"));
                     reportBtn.getStyleClass().add("primary-button");
 
-                    Button copyBtn = new Button("📋  " + I18n.t("action.copy"));
+                    Button copyBtn = new Button("📋  " + I18n.t("action.copy", "تسجيل الحضور"));
                     copyBtn.getStyleClass().add("secondary-button");
                     copyBtn.setVisible(false);
                     copyBtn.setManaged(false);
@@ -531,7 +537,7 @@ public class ClassroomsView {
                         reportArea.setText(buildClassReportText(classroom, report));
                     });
 
-                    Button closeBtn = new Button(I18n.t("action.close"));
+                    Button closeBtn = new Button(I18n.t("action.close", "تسجيل الحضور"));
                     closeBtn.getStyleClass().add("secondary-button");
                     closeBtn.setOnAction(ev -> dialog.close());
 
@@ -554,7 +560,7 @@ public class ClassroomsView {
      * pattern used for the enrolled-students dialog in {@code CoursesView}.
      */
     private void showClassCoursesDialog(Classroom classroom) {
-        Label title = new Label(I18n.t("classroom.courses_title").replace("{0}", classroom.getName()));
+        Label title = new Label(I18n.t("classroom.courses_title", "تسجيل الحضور").replace("{0}", classroom.getName()));
         title.getStyleClass().add("workflow-title");
 
         Label loading = new Label("Chargement...");
@@ -570,7 +576,7 @@ public class ClassroomsView {
         if (owner != null) {
             dialog.initOwner(owner);
         }
-        dialog.setTitle(I18n.t("classroom.courses_dialog_title"));
+        dialog.setTitle(I18n.t("classroom.courses_dialog_title", "تسجيل الحضور"));
         dialog.setScene(new Scene(root));
 
         AsyncTasks.run(
@@ -584,12 +590,12 @@ public class ClassroomsView {
 
                     root.getChildren().remove(loading);
 
-                    Label count = new Label(I18n.t("classroom.course_count").replace("{0}", String.valueOf(matching.size())));
+                    Label count = new Label(I18n.t("classroom.course_count", "تسجيل الحضور").replace("{0}", String.valueOf(matching.size())));
                     count.getStyleClass().add("stat-caption");
 
                     VBox listBox = new VBox(8);
                     if (matching.isEmpty()) {
-                        Label none = new Label(I18n.t("classroom.courses_empty"));
+                        Label none = new Label(I18n.t("classroom.courses_empty", "تسجيل الحضور"));
                         none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px;");
                         listBox.getChildren().add(none);
                     } else {
@@ -603,7 +609,7 @@ public class ClassroomsView {
                     scroll.setPrefViewportHeight(320);
                     scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-                    Button close = new Button(I18n.t("action.close"));
+                    Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(ev -> dialog.close());
 
@@ -613,7 +619,7 @@ public class ClassroomsView {
                     root.getChildren().remove(loading);
                     Label errLabel = new Label("Erreur : " + err.getMessage());
                     errLabel.setStyle("-fx-text-fill: #B91C1C;");
-                    Button close = new Button(I18n.t("action.close"));
+                    Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(ev -> dialog.close());
                     root.getChildren().addAll(errLabel, close);
@@ -638,7 +644,7 @@ public class ClassroomsView {
      * horizontal scrollbar/column-clipping can happen at all.
      */
     private void showClassScheduleDialog(Classroom classroom) {
-        Label title = new Label(I18n.t("classroom.schedule_heading").replace("{0}", classroom.getName()));
+        Label title = new Label(I18n.t("classroom.schedule_heading", "تسجيل الحضور").replace("{0}", classroom.getName()));
         title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         Label loading = new Label("Chargement...");
@@ -659,7 +665,7 @@ public class ClassroomsView {
             dialog.initOwner(owner);
         }
 
-        dialog.setTitle(I18n.t("classroom.schedule_title").replace("{0}", classroom.getName()));
+        dialog.setTitle(I18n.t("classroom.schedule_title", "تسجيل الحضور").replace("{0}", classroom.getName()));
         dialog.setMinWidth(820);
         dialog.setMinHeight(480);
         dialog.setResizable(true);
@@ -676,7 +682,8 @@ public class ClassroomsView {
 
                     root.getChildren().remove(loading);
 
-                    GridPane grid = buildTimetableGrid(matching);
+                    List<TimetableRow> timetableRows = generateTimetableRows();
+                    GridPane grid = buildTimetableGrid(matching, timetableRows);
 
                     ScrollPane scroll = new ScrollPane(grid);
                     scroll.setFitToWidth(false);
@@ -688,7 +695,7 @@ public class ClassroomsView {
 
                     VBox.setVgrow(scroll, Priority.ALWAYS);
 
-                    Button print = new Button("🖨  " + I18n.t("classroom.generate_pdf"));
+                    Button print = new Button("🖨  " + I18n.t("classroom.generate_pdf", "تسجيل الحضور"));
                     print.getStyleClass().add("primary-button");
                     print.setOnAction(event -> {
                         print.setDisable(true);
@@ -712,7 +719,7 @@ public class ClassroomsView {
                         );
                     });
 
-                    Button close = new Button(I18n.t("action.close"));
+                    Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(event -> dialog.close());
 
@@ -725,7 +732,7 @@ public class ClassroomsView {
                     Label errorLabel = new Label("Erreur : " + error.getMessage());
                     errorLabel.setStyle("-fx-text-fill: #B91C1C;");
 
-                    Button close = new Button(I18n.t("action.close"));
+                    Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
                     close.getStyleClass().add("secondary-button");
                     close.setOnAction(event -> dialog.close());
 
@@ -736,7 +743,7 @@ public class ClassroomsView {
         dialog.showAndWait();
     }
 
-    private GridPane buildTimetableGrid(List<Course> courses) {
+    private GridPane buildTimetableGrid(List<Course> courses, List<TimetableRow> timetableRows) {
         List<CourseSlotEntry> entries = collectSlotEntries(courses);
 
         GridPane grid = new GridPane();
@@ -790,8 +797,8 @@ public class ClassroomsView {
             grid.add(cell, d + 1, 0);
         }
 
-        for (int r = 0; r < TIMETABLE_ROWS.size(); r++) {
-            TimetableRow row = TIMETABLE_ROWS.get(r);
+        for (int r = 0; r < timetableRows.size(); r++) {
+            TimetableRow row = timetableRows.get(r);
             int gridRow = r + 1;
 
             RowConstraints rowConstraints = new RowConstraints();
@@ -799,8 +806,15 @@ public class ClassroomsView {
             grid.getRowConstraints().add(rowConstraints);
 
             if (row.isBreak()) {
-                Region breakBand = new Region();
-                breakBand.setStyle("-fx-background-color: #CFE8E4;");
+                Label breakLabel = new Label(I18n.t("schedule.lunch_break", "تسجيل الحضور"));
+                breakLabel.setStyle("-fx-text-fill: #94A3B8; "
+                        + "-fx-font-size: 11px; "
+                        + "-fx-font-style: italic; "
+                        + "-fx-font-weight: bold;");
+                StackPane breakBand = new StackPane(breakLabel);
+                breakBand.setStyle("-fx-background-color: #F8FAFC; "
+                        + "-fx-border-color: transparent transparent #CBD5E1 transparent; "
+                        + "-fx-border-width: 0 0 1 0;");
                 grid.add(breakBand, 0, gridRow, TIMETABLE_DAYS.size() + 1, 1);
                 continue;
             }
@@ -817,8 +831,8 @@ public class ClassroomsView {
         }
 
         for (int d = 0; d < TIMETABLE_DAYS.size(); d++) {
-            for (int r = 0; r < TIMETABLE_ROWS.size(); r++) {
-                if (TIMETABLE_ROWS.get(r).isBreak()) {
+            for (int r = 0; r < timetableRows.size(); r++) {
+                if (timetableRows.get(r).isBreak()) {
                     continue;
                 }
 
@@ -839,8 +853,8 @@ public class ClassroomsView {
                 int firstRow = -1;
                 int rowSpan = 0;
 
-                for (int r = 0; r < TIMETABLE_ROWS.size(); r++) {
-                    TimetableRow row = TIMETABLE_ROWS.get(r);
+                for (int r = 0; r < timetableRows.size(); r++) {
+                    TimetableRow row = timetableRows.get(r);
 
                     if (row.isBreak()) {
                         continue;
@@ -916,13 +930,13 @@ public class ClassroomsView {
 
     private String localizedDay(String raw) {
         return switch (dayIndexOf(raw)) {
-            case 0 -> I18n.t("day.mon");
-            case 1 -> I18n.t("day.tue");
-            case 2 -> I18n.t("day.wed");
-            case 3 -> I18n.t("day.thu");
-            case 4 -> I18n.t("day.fri");
-            case 5 -> I18n.t("day.sat");
-            case 6 -> I18n.t("day.sun");
+            case 0 -> I18n.t("day.mon", "تسجيل الحضور");
+            case 1 -> I18n.t("day.tue", "تسجيل الحضور");
+            case 2 -> I18n.t("day.wed", "تسجيل الحضور");
+            case 3 -> I18n.t("day.thu", "تسجيل الحضور");
+            case 4 -> I18n.t("day.fri", "تسجيل الحضور");
+            case 5 -> I18n.t("day.sat", "تسجيل الحضور");
+            case 6 -> I18n.t("day.sun", "تسجيل الحضور");
             default -> raw == null ? "" : raw;
         };
     }
@@ -1084,10 +1098,12 @@ public class ClassroomsView {
             // The header now touches the timetable grid.
             float headerY = gridTop;
 
-            int hourRowCount = (int) TIMETABLE_ROWS.stream()
+            List<TimetableRow> timetableRows = generateTimetableRows();
+
+            int hourRowCount = (int) timetableRows.stream()
                     .filter(row -> !row.isBreak())
                     .count();
-            int breakRowCount = TIMETABLE_ROWS.size() - hourRowCount;
+            int breakRowCount = timetableRows.size() - hourRowCount;
             float breakRowHeight = gridHeight
                     / (hourRowCount + breakRowCount * 0.4f) * 0.4f;
             float hourRowHeight = (gridHeight - breakRowHeight * breakRowCount) / hourRowCount;
@@ -1122,7 +1138,7 @@ public class ClassroomsView {
                 float y = gridTop;
                 List<float[]> rowBounds = new ArrayList<>();
 
-                for (TimetableRow row : TIMETABLE_ROWS) {
+                for (TimetableRow row : timetableRows) {
                     float rowHeight = row.isBreak() ? breakRowHeight : hourRowHeight;
                     float top = y;
                     float bottom = y - rowHeight;
@@ -1176,8 +1192,8 @@ public class ClassroomsView {
                         int firstRow = -1;
                         int lastRow = -1;
 
-                        for (int r = 0; r < TIMETABLE_ROWS.size(); r++) {
-                            TimetableRow row = TIMETABLE_ROWS.get(r);
+                        for (int r = 0; r < timetableRows.size(); r++) {
+                            TimetableRow row = timetableRows.get(r);
                             if (row.isBreak()) {
                                 continue;
                             }

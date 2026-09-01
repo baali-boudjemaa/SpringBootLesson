@@ -71,8 +71,7 @@ public class PaymentsView {
     }
 
     private final TextField searchField = FormFactory.textField("");
-    private final ComboBox<String> statusFilter = new ComboBox<>(
-            FXCollections.observableArrayList("Tous", "PAYÉ", "EN ATTENTE", "EN RETARD"));
+    private final ComboBox<String> statusFilter = new ComboBox<>();
     private final DatePicker dateFrom = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 1, 1));
     private final DatePicker dateTo = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 12, 31));
 
@@ -104,7 +103,13 @@ public class PaymentsView {
         this.paymentService = paymentService;
         this.enrollmentService = enrollmentService;
         this.monthlyBillingService = monthlyBillingService;
-        statusFilter.setValue("Tous");
+        statusFilter.getItems().addAll(
+            I18n.t("payment.filter.all", "Tous"),
+            I18n.t("status.paid", "PAYÉ"),
+            I18n.t("status.pending", "EN ATTENTE"),
+            I18n.t("status.overdue", "EN RETARD")
+        );
+        statusFilter.setValue(I18n.t("payment.filter.all", "Tous"));
         inscriptionField.setMaxWidth(Double.MAX_VALUE);
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
@@ -136,35 +141,35 @@ public class PaymentsView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        searchField.setPromptText(I18n.t("payment.search"));
-        amountField.setPromptText(I18n.t("field.amount"));
-        categoryField.setPromptText(I18n.t("field.category"));
-        pageTitleLabel.setText(I18n.t("payment.title"));
+        searchField.setPromptText(I18n.t("payment.search", "تسجيل الحضور"));
+        amountField.setPromptText(I18n.t("field.amount", "تسجيل الحضور"));
+        categoryField.setPromptText(I18n.t("field.category", "تسجيل الحضور"));
+        pageTitleLabel.setText(I18n.t("payment.title", "تسجيل الحضور"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label(I18n.t("payment.subtitle"));
+        Label subtitle = new Label(I18n.t("payment.subtitle", "تسجيل الحضور"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
         statusFilter.getStyleClass().add("filter-field");
         statusFilter.setPrefWidth(140);
 
-        Button addBtn = new Button("+  " + I18n.t("payment.add"));
+        Button addBtn = new Button("+  " + I18n.t("payment.add", "تسجيل الحضور"));
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> startCreate());
 
         HBox filters = new HBox(10,
-                labeledFilter(I18n.t("payment.from"), dateFrom),
-                labeledFilter(I18n.t("payment.to"), dateTo),
+                labeledFilter(I18n.t("payment.from", "تسجيل الحضور"), dateFrom),
+                labeledFilter(I18n.t("payment.to", "تسجيل الحضور"), dateTo),
                 statusFilter,
                 searchField
         );
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        Button duesBtn = new Button("Échéances");
+        Button duesBtn = new Button(I18n.t("payment.dues_btn", "Échéances"));
         duesBtn.getStyleClass().add("secondary-button");
         duesBtn.setOnAction(e -> showMonthlyDues());
 
@@ -239,34 +244,32 @@ public class PaymentsView {
 
     private void buildColumns() {
         table.getColumns().clear();
-
-        TableColumn<Payment, String> date = new TableColumn<>("DATE");
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        TableColumn<Payment, String> date = new TableColumn<>(I18n.t("payment.col.date", "DATE"));
         date.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getDatePay() == null ? "—" : d.getValue().getDatePay().format(DATE_FORMAT)));
-        date.setPrefWidth(100);
 
-        TableColumn<Payment, String> student = new TableColumn<>("ÉLÈVE");
+        TableColumn<Payment, String> student = new TableColumn<>(I18n.t("payment.col.student", "ÉLÈVE"));
         student.setCellValueFactory(d -> new ReadOnlyStringWrapper(studentLabel(d.getValue())));
-        student.setPrefWidth(150);
 
-        TableColumn<Payment, String> inscription = new TableColumn<>("INSCRIPTION");
+        TableColumn<Payment, String> inscription = new TableColumn<>(I18n.t("payment.col.inscription", "INSCRIPTION"));
         inscription.setCellValueFactory(d -> new ReadOnlyStringWrapper(inscriptionLabel(d.getValue())));
 
-        TableColumn<Payment, String> amount = new TableColumn<>("MONTANT");
+        TableColumn<Payment, String> amount = new TableColumn<>(I18n.t("payment.col.amount", "MONTANT"));
         amount.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatAmount(d.getValue().getAmount())));
 
-        TableColumn<Payment, String> method = new TableColumn<>("MÉTHODE");
+        TableColumn<Payment, String> method = new TableColumn<>(I18n.t("payment.col.method", "MÉTHODE"));
         method.setCellValueFactory(d -> new ReadOnlyStringWrapper(methodLabel(d.getValue().getPaymentMethod())));
 
-        TableColumn<Payment, PaymentStatus> status = new TableColumn<>("STATUT");
+        TableColumn<Payment, PaymentStatus> status = new TableColumn<>(I18n.t("payment.col.status", "STATUT"));
         status.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue().getStatus()));
         status.setCellFactory(col -> statusCell());
 
-        TableColumn<Payment, Payment> actions = new TableColumn<>("ACTION");
+        TableColumn<Payment, Payment> actions = new TableColumn<>(I18n.t("payment.col.actions", "ACTION"));
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
-        actions.setPrefWidth(110);
         actions.setMaxWidth(120);
+        actions.setMinWidth(100);
 
         table.getColumns().addAll(List.of(date, student, inscription, amount, method, status, actions));
     }
@@ -297,9 +300,9 @@ public class PaymentsView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", "Voir");
-                Button edit = iconBtn("fth-edit-2", "Modifier");
-                Button del  = iconBtn("fth-trash-2", "Supprimer");
+                Button view = iconBtn("fth-eye", I18n.t("action.view", "Voir"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit", "Modifier"));
+                Button del  = iconBtn("fth-trash-2", I18n.t("action.delete", "Supprimer"));
                 del.getStyleClass().add("icon-action-danger");
 
                 view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
@@ -355,18 +358,18 @@ public class PaymentsView {
     private static String methodLabel(PaymentType type) {
         if (type == null) return "—";
         return switch (type) {
-            case CASH -> "Espèces";
-            case CARD -> "Carte";
-            case TRANSFER -> "Virement";
+            case CASH -> I18n.t("payment_method.cash", "Espèces");
+            case CARD -> I18n.t("payment_method.card", "Carte");
+            case TRANSFER -> I18n.t("payment_method.transfer", "Virement");
         };
     }
 
     private static String statusLabel(PaymentStatus status) {
         if (status == null) return "—";
         return switch (status) {
-            case PAID -> "PAYÉ";
-            case PENDING -> "EN ATTENTE";
-            case OVERDUE -> "EN RETARD";
+            case PAID -> I18n.t("status.paid", "PAYÉ");
+            case PENDING -> I18n.t("status.pending", "EN ATTENTE");
+            case OVERDUE -> I18n.t("status.overdue", "EN RETARD");
         };
     }
 
@@ -392,23 +395,23 @@ public class PaymentsView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("nav.enrollments") + " *", inscriptionField);
-        FormFactory.addRow(grid, 1, I18n.t("field.amount") + " *", amountField);
-        FormFactory.addRow(grid, 2, I18n.t("field.category"), categoryField);
-        FormFactory.addRow(grid, 3, I18n.t("field.method"), methodField);
-        FormFactory.addRow(grid, 4, I18n.t("field.status"), statusField);
-        FormFactory.addRow(grid, 5, I18n.t("payment.date"), paymentDateField);
-        FormFactory.addRow(grid, 6, "Échéance mensuelle couverte", billingDueDateField);
+        FormFactory.addRow(grid, 0, I18n.t("nav.enrollments", "تسجيل الحضور") + " *", inscriptionField);
+        FormFactory.addRow(grid, 1, I18n.t("field.amount", "تسجيل الحضور") + " *", amountField);
+        FormFactory.addRow(grid, 2, I18n.t("field.category", "تسجيل الحضور"), categoryField);
+        FormFactory.addRow(grid, 3, I18n.t("field.method", "تسجيل الحضور"), methodField);
+        FormFactory.addRow(grid, 4, I18n.t("field.status", "تسجيل الحضور"), statusField);
+        FormFactory.addRow(grid, 5, I18n.t("payment.date", "تسجيل الحضور"), paymentDateField);
+        FormFactory.addRow(grid, 6, I18n.t("payment.billing_due_date", "Échéance mensuelle couverte"), billingDueDateField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button clear = new Button("+ " + I18n.t("action.new"));
+        Button clear = new Button("+ " + I18n.t("action.new", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
 
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -426,7 +429,7 @@ public class PaymentsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel(I18n.t("payment.details"), form, this::closeForm, 480);
+            floatingForm = new FloatingPanel(I18n.t("payment.details", "تسجيل الحضور"), form, this::closeForm, 480);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {
@@ -478,11 +481,11 @@ public class PaymentsView {
                     if (due == null || inscriptionField.getValue() == null
                             || !inscription.getId().equals(inscriptionField.getValue().getId())) return;
                     amountField.setText(String.valueOf(due.remainingAmount()));
-                    categoryField.setText("Scolarité");
+                    categoryField.setText(I18n.t("payment.default_category", "Scolarité"));
                     statusField.setValue(due.isPaid() ? PaymentStatus.PAID : PaymentStatus.PENDING);
                     billingDueDateField.setValue(due.dueDate());
                 },
-                err -> DialogUtil.error("Échéance mensuelle", "Impossible de charger l'échéance : " + err.getMessage()));
+                err -> DialogUtil.error(I18n.t("payment.dues.title", "Échéances mensuelles"), I18n.t("payment.error.load_due", "Impossible de charger l'échéance") + " : " + err.getMessage()));
     }
 
     private void clearForm() {
@@ -499,20 +502,20 @@ public class PaymentsView {
 
     private void save() {
         if (inscriptionField.getValue() == null || amountField.getText().isBlank()) {
-            DialogUtil.error("Champs requis", "L'inscription et le montant sont obligatoires.");
+            DialogUtil.error(I18n.t("dialog.required_fields", "Champs requis"), I18n.t("payment.error.required_fields", "L'inscription et le montant sont obligatoires."));
             return;
         }
         double amount;
         try {
             amount = Double.parseDouble(amountField.getText().trim().replace(",", "."));
         } catch (NumberFormatException ex) {
-            DialogUtil.error("Valeur invalide", "Le montant doit être un nombre.");
+            DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.invalid_amount", "Le montant doit être un nombre."));
             return;
         }
 
         Payment payment = selected != null ? selected : new Payment();
         payment.setAmount(amount);
-        payment.setLabel(categoryField.getText().isBlank() ? "Scolarité" : categoryField.getText().trim());
+        payment.setLabel(categoryField.getText().isBlank() ? I18n.t("payment.default_category", "Scolarité") : categoryField.getText().trim());
         payment.setPaymentMethod(methodField.getValue() == null ? PaymentType.CASH : methodField.getValue());
         payment.setStatus(statusField.getValue() == null ? PaymentStatus.PAID : statusField.getValue());
         payment.setDatePay(paymentDateField.getValue() == null
@@ -523,19 +526,26 @@ public class PaymentsView {
 
         AsyncTasks.run(
                 () -> paymentService.save(payment, inscriptionId),
-                saved -> { clearForm(); closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de l'enregistrement : " + err.getMessage())
+                saved -> { 
+                    clearForm(); 
+                    closeForm(); 
+                    reload(); 
+                    if (DialogUtil.confirm(I18n.t("payment.confirm.print_title", "Paiement enregistré"), I18n.t("payment.confirm.print", "Le paiement a été enregistré avec succès.\nVoulez-vous imprimer un reçu ?"))) {
+                        printPaymentReceipt(saved);
+                    }
+                },
+                err -> DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.save", "Échec de l'enregistrement") + " : " + err.getMessage())
         );
     }
 
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm("Confirmer", "Supprimer ce paiement ?")) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm", "Confirmer"), I18n.t("payment.confirm.delete", "Supprimer ce paiement ?"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> paymentService.delete(id),
                 () -> { clearForm(); closeForm(); reload(); },
-                err -> DialogUtil.error("Erreur", "Échec de la suppression : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.delete", "Échec de la suppression") + " : " + err.getMessage())
         );
     }
 
@@ -547,7 +557,7 @@ public class PaymentsView {
                     applyFilters();
                     refreshBillingAlert();
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement : " + err.getMessage())
+                err -> DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.load", "Échec du chargement") + " : " + err.getMessage())
         );
     }
 
@@ -563,7 +573,7 @@ public class PaymentsView {
                         String name = studentLabel(p).toLowerCase();
                         if (!name.contains(needle)) return false;
                     }
-                    if (statusVal != null && !"Tous".equals(statusVal)) {
+                    if (statusVal != null && !I18n.t("payment.filter.all", "Tous").equals(statusVal)) {
                         if (!statusLabel(p.getStatus()).equals(statusVal)) return false;
                     }
                     if (from != null && p.getDatePay() != null && p.getDatePay().toLocalDate().isBefore(from)) {
@@ -583,8 +593,8 @@ public class PaymentsView {
 
     private void updateFooter(List<Payment> data) {
         double total = data.stream().mapToDouble(p -> p.getAmount() == null ? 0 : p.getAmount()).sum();
-        footerCountLabel.setText("Total des paiements : " + data.size());
-        footerTotalLabel.setText("Total Montant : " + formatAmount(total));
+        footerCountLabel.setText(java.text.MessageFormat.format(I18n.t("payment.footer.count", "Total des paiements : {0}"), data.size()));
+        footerTotalLabel.setText(java.text.MessageFormat.format(I18n.t("payment.footer.total", "Total Montant : {0}"), formatAmount(total)));
     }
 
     private void updateSummaryCards(List<Payment> data) {
@@ -598,10 +608,10 @@ public class PaymentsView {
         double overdueAmount = overdue.stream().mapToDouble(p -> p.getAmount() == null ? 0 : p.getAmount()).sum();
 
         summaryCards.getChildren().addAll(
-                summaryCard("fth-credit-card", String.valueOf(data.size()), "Total Paiements", "#059669", "#D1FAE5"),
-                summaryCard("fth-dollar-sign", formatAmount(totalAmount), "Montant Total", "#2563EB", "#DBEAFE"),
-                summaryCard("fth-clock", pending.size() + " · " + formatAmount(pendingAmount), "En Attente", "#D97706", "#FEF3C7"),
-                summaryCard("fth-alert-circle", overdue.size() + " · " + formatAmount(overdueAmount), "En Retard", "#DC2626", "#FEE2E2")
+                summaryCard("fth-credit-card", String.valueOf(data.size()), I18n.t("payment.card.total", "Total Paiements"), "#059669", "#D1FAE5"),
+                summaryCard("fth-dollar-sign", formatAmount(totalAmount), I18n.t("payment.card.amount", "Montant Total"), "#2563EB", "#DBEAFE"),
+                summaryCard("fth-clock", pending.size() + " · " + formatAmount(pendingAmount), I18n.t("payment.card.pending", "En Attente"), "#D97706", "#FEF3C7"),
+                summaryCard("fth-alert-circle", overdue.size() + " · " + formatAmount(overdueAmount), I18n.t("payment.card.overdue", "En Retard"), "#DC2626", "#FEE2E2")
         );
         for (var n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
     }
@@ -631,35 +641,213 @@ public class PaymentsView {
     private void refreshBillingAlert() {
         AsyncTasks.run(
                 () -> new BillingOverview(monthlyBillingService.findOpenDues(), monthlyBillingService.findDueWithinDays(7)),
-                overview -> billingAlertLabel.setText(overview.overdue().size() + " en retard · "
-                        + overview.upcoming().size() + " à échéance dans les 7 prochains jours"),
-                err -> billingAlertLabel.setText("Échéances mensuelles indisponibles : " + err.getMessage()));
+                overview -> billingAlertLabel.setText(java.text.MessageFormat.format(I18n.t("payment.billing_alert", "{0} en retard · {1} à échéance dans les 7 prochains jours"), overview.overdue().size(), overview.upcoming().size())),
+                err -> billingAlertLabel.setText(I18n.t("payment.billing_alert_error", "Échéances mensuelles indisponibles") + " : " + err.getMessage()));
     }
 
     private void showMonthlyDues() {
         AsyncTasks.run(
                 () -> new BillingOverview(monthlyBillingService.findOpenDues(), monthlyBillingService.findDueWithinDays(7)),
-                overview -> DialogUtil.info("Échéances mensuelles", formatDues(overview)),
-                err -> DialogUtil.error("Échéances mensuelles", err.getMessage()));
+                this::showMonthlyDuesTable,
+                err -> DialogUtil.error(I18n.t("payment.dues.title", "Échéances mensuelles"), err.getMessage()));
     }
 
-    private String formatDues(BillingOverview overview) {
-        StringBuilder out = new StringBuilder("EN RETARD\n");
-        appendDues(out, overview.overdue());
-        out.append("\nÀ ÉCHÉANCE DANS 7 JOURS\n");
-        appendDues(out, overview.upcoming());
-        return out.toString();
-    }
+    private void showMonthlyDuesTable(BillingOverview overview) {
+        javafx.scene.control.Dialog<Void> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle(I18n.t("payment.dues.title", "Échéances mensuelles"));
+        dialog.setHeaderText(I18n.t("payment.dues.header", "Liste des étudiants avec des paiements en retard ou à échéance."));
 
-    private void appendDues(StringBuilder out, List<MonthlyBillingService.Due> dues) {
-        if (dues.isEmpty()) { out.append("Aucun élève.\n"); return; }
-        for (MonthlyBillingService.Due due : dues) {
-            out.append(MonthlyBillingService.studentName(due.inscription()))
-                    .append(" — ").append(due.dueDate().format(DATE_FORMAT))
-                    .append(" — ").append(formatAmount(due.remainingAmount())).append('\n');
+        TableView<MonthlyBillingService.Due> duesTable = new TableView<>();
+        TableStyleKit.applyTheme(duesTable, "payments-dues");
+        duesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<MonthlyBillingService.Due, String> studentCol = new TableColumn<>(I18n.t("payment.col.student", "ÉLÈVE"));
+        studentCol.setCellValueFactory(d -> new ReadOnlyStringWrapper(MonthlyBillingService.studentName(d.getValue().inscription())));
+        studentCol.setPrefWidth(220);
+
+        TableColumn<MonthlyBillingService.Due, String> dateCol = new TableColumn<>(I18n.t("payment.dues.col.due_date", "DATE D'ÉCHÉANCE"));
+        dateCol.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().dueDate().format(DATE_FORMAT)));
+        dateCol.setPrefWidth(140);
+
+        TableColumn<MonthlyBillingService.Due, String> amountCol = new TableColumn<>(I18n.t("payment.col.amount", "MONTANT"));
+        amountCol.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatAmount(d.getValue().remainingAmount())));
+        amountCol.setPrefWidth(120);
+
+        TableColumn<MonthlyBillingService.Due, String> statusCol = new TableColumn<>(I18n.t("payment.col.status", "STATUT"));
+        statusCol.setCellValueFactory(d -> new ReadOnlyStringWrapper(
+                d.getValue().isOverdue(LocalDate.now()) ? I18n.t("payment.dues.status.overdue", "En retard") : I18n.t("payment.dues.status.upcoming", "À échéance")
+        ));
+        statusCol.setPrefWidth(120);
+
+        TableColumn<MonthlyBillingService.Due, MonthlyBillingService.Due> actionsCol = new TableColumn<>(I18n.t("payment.col.actions", "ACTIONS"));
+        actionsCol.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
+        actionsCol.setPrefWidth(200);
+        actionsCol.setCellFactory(col -> new TableCell<>() {
+            private final Button payBtn = new Button(I18n.t("payment.dues.pay_btn", "Payer"));
+            private final Button suspendBtn = new Button(I18n.t("payment.dues.suspend_btn", "Suspendre"));
+            private final HBox pane = new HBox(8, payBtn, suspendBtn);
+
+            {
+                payBtn.getStyleClass().add("primary-button");
+                suspendBtn.getStyleClass().add("danger-button");
+                pane.setAlignment(Pos.CENTER_LEFT);
+
+                payBtn.setOnAction(e -> {
+                    MonthlyBillingService.Due due = getItem();
+                    if (due == null) return;
+                    
+                    Payment payment = new Payment();
+                    payment.setInscription(due.inscription());
+                    payment.setAmount(due.remainingAmount());
+                    payment.setLabel(I18n.t("payment.default_category", "Scolarité"));
+                    payment.setPaymentMethod(PaymentType.CASH);
+                    payment.setStatus(PaymentStatus.PAID);
+                    payment.setDatePay(LocalDateTime.now());
+                    payment.setBillingDueDate(due.dueDate());
+                    
+                    AsyncTasks.run(
+                        () -> paymentService.save(payment, due.inscription().getId()),
+                        savedPayment -> {
+                            getTableView().getItems().remove(due);
+                            refreshBillingAlert();
+                            reload(); // reload main table
+                            
+                            if (DialogUtil.confirm(I18n.t("payment.confirm.print_title", "Paiement enregistré"), I18n.t("payment.confirm.print", "Le paiement a été enregistré avec succès.\nVoulez-vous imprimer un reçu ?"))) {
+                                printPaymentReceipt(savedPayment);
+                            }
+                            if (getTableView().getItems().isEmpty()) {
+                                dialog.close();
+                            }
+                        },
+                        err -> DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.save", "Échec de l'enregistrement") + " : " + err.getMessage())
+                    );
+                });
+
+                suspendBtn.setOnAction(e -> {
+                    MonthlyBillingService.Due due = getItem();
+                    if (due == null) return;
+                    boolean confirm = DialogUtil.confirm(I18n.t("payment.suspend.confirm_title", "Confirmer la suspension"),
+                            java.text.MessageFormat.format(I18n.t("payment.suspend.confirm", "Êtes-vous sûr de vouloir suspendre l'élève {0} ?"), MonthlyBillingService.studentName(due.inscription())));
+                    if (confirm) {
+                        Inscription inscription = due.inscription();
+                        inscription.setStatus(com.example.mef.demo.enums.EnrollmentStatus.DROPPED);
+                        java.util.List<String> courseIds = inscription.getCourses() != null ?
+                                inscription.getCourses().stream().map(c -> c.getId()).toList() : null;
+                        AsyncTasks.run(() -> enrollmentService.save(
+                                inscription,
+                                inscription.getStudent() != null ? inscription.getStudent().getId() : null,
+                                inscription.getClassroom() != null ? inscription.getClassroom().getId() : null,
+                                inscription.getAnneeScolaire() != null ? inscription.getAnneeScolaire().getId() : null,
+                                courseIds),
+                                saved -> {
+                                    getTableView().getItems().remove(due);
+                                    refreshBillingAlert();
+                                },
+                                err -> DialogUtil.error(I18n.t("dialog.error", "Erreur"), I18n.t("payment.error.suspend", "Impossible de suspendre l'élève") + " : " + err.getMessage()));
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(MonthlyBillingService.Due item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty || item == null ? null : pane);
+            }
+        });
+
+        duesTable.getColumns().addAll(List.of(studentCol, dateCol, amountCol, statusCol, actionsCol));
+
+        List<MonthlyBillingService.Due> allDues = new java.util.ArrayList<>();
+        allDues.addAll(overview.overdue());
+        allDues.addAll(overview.upcoming());
+        duesTable.setItems(FXCollections.observableArrayList(allDues));
+        duesTable.setPrefSize(950, 450);
+
+        dialog.getDialogPane().setContent(duesTable);
+        dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CLOSE);
+
+        if (table.getScene() != null && !table.getScene().getStylesheets().isEmpty()) {
+            dialog.getDialogPane().getStylesheets().addAll(table.getScene().getStylesheets());
+            dialog.getDialogPane().getStyleClass().add("app-dialog");
         }
+
+        dialog.showAndWait();
     }
 
     private record BillingOverview(List<MonthlyBillingService.Due> overdue,
                                    List<MonthlyBillingService.Due> upcoming) { }
+
+    private void printPaymentReceipt(Payment payment) {
+        javafx.print.PrinterJob job = javafx.print.PrinterJob.createPrinterJob();
+        if (job == null) {
+            DialogUtil.error(I18n.t("payment.print.title", "Impression"), I18n.t("payment.print.no_printer", "Aucune imprimante trouvée."));
+            return;
+        }
+
+        boolean accepted = job.showPrintDialog(table.getScene().getWindow());
+        if (!accepted) return;
+
+        VBox receipt = new VBox(15);
+        receipt.setPadding(new Insets(30));
+        receipt.setStyle("-fx-background-color: white; -fx-font-family: 'Arial';");
+        if (I18n.isRTL()) {
+            receipt.setNodeOrientation(javafx.geometry.NodeOrientation.RIGHT_TO_LEFT);
+            receipt.setStyle(receipt.getStyle() + " -fx-font-family: 'NotoNaskhArabic';");
+        }
+
+        Label title = new Label(I18n.t("payment.receipt.title", "REÇU DE PAIEMENT"));
+        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+
+        Inscription inscription = payment.getInscription();
+        com.example.mef.demo.Model.Student s = inscription.getStudent();
+        String studentName = s != null ? s.getFirstName() + " " + s.getLastName() : "—";
+        
+        VBox detailsBox = new VBox(8);
+        detailsBox.setStyle("-fx-font-size: 14px;");
+        detailsBox.getChildren().addAll(
+            new Label(I18n.t("payment.receipt.student", "Élève") + " : " + studentName),
+            new Label(I18n.t("payment.receipt.date", "Date") + " : " + (payment.getDatePay() != null ? payment.getDatePay().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—")),
+            new Label(I18n.t("payment.receipt.amount", "Montant") + " : " + formatAmount(payment.getAmount())),
+            new Label(I18n.t("payment.receipt.method", "Méthode") + " : " + methodLabel(payment.getPaymentMethod()))
+        );
+        
+        VBox coursesBox = new VBox(8);
+        coursesBox.setStyle("-fx-font-size: 14px;");
+        coursesBox.getChildren().add(new Label(I18n.t("payment.receipt.details", "Détails d'inscription") + " :"));
+        if (inscription.getClassroom() != null) {
+            coursesBox.getChildren().add(new Label(" - " + I18n.t("payment.receipt.class", "Classe") + " : " + inscription.getClassroom().getName()));
+        }
+        if (inscription.getSession() != null) {
+            coursesBox.getChildren().add(new Label(" - " + I18n.t("payment.receipt.session", "Session") + " : " + inscription.getSession().name()));
+        }
+        if (inscription.getCourses() != null && !inscription.getCourses().isEmpty()) {
+            coursesBox.getChildren().add(new Label(" - " + I18n.t("payment.receipt.courses", "Cours") + " :"));
+            for (com.example.mef.demo.Model.Course c : inscription.getCourses()) {
+                coursesBox.getChildren().add(new Label("   * " + c.getName()));
+            }
+        }
+        
+        receipt.getChildren().addAll(title, detailsBox, coursesBox);
+
+        javafx.print.Printer printer = job.getPrinter();
+        javafx.print.PageLayout pageLayout = printer.createPageLayout(
+                javafx.print.Paper.A4, 
+                javafx.print.PageOrientation.PORTRAIT, 
+                javafx.print.Printer.MarginType.DEFAULT
+        );
+
+        // Scale receipt to fit printable area width
+        double scale = Math.min(pageLayout.getPrintableWidth() / receipt.prefWidth(-1), 1.0);
+        if (scale < 1.0) {
+            receipt.getTransforms().add(new javafx.scene.transform.Scale(scale, scale));
+        }
+
+        boolean success = job.printPage(pageLayout, receipt);
+        if (success) {
+            job.endJob();
+            DialogUtil.info(I18n.t("payment.print.title", "Impression"), I18n.t("payment.print.success", "Le reçu a été imprimé avec succès."));
+        } else {
+            DialogUtil.error(I18n.t("payment.print.title", "Impression"), I18n.t("payment.print.failed", "L'impression a échoué."));
+        }
+    }
 }

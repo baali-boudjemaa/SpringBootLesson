@@ -45,33 +45,33 @@ public class RoomsView {
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
 
-        TextField nameField = FormFactory.textField(I18n.t("room.name"));
-        TextField locationField = FormFactory.textField(I18n.t("room.location"));
-        TextField capacityField = FormFactory.textField(I18n.t("room.capacity"));
-        CheckBox activeField = new CheckBox(I18n.t("room.active"));
+        TextField nameField = FormFactory.textField(I18n.t("room.name", "تسجيل الحضور"));
+        TextField locationField = FormFactory.textField(I18n.t("room.location", "تسجيل الحضور"));
+        TextField capacityField = FormFactory.textField(I18n.t("room.capacity", "تسجيل الحضور"));
+        CheckBox activeField = new CheckBox(I18n.t("room.active", "تسجيل الحضور"));
         activeField.setSelected(true);
         TextArea notesField = new TextArea();
-        notesField.setPromptText(I18n.t("room.notes"));
+        notesField.setPromptText(I18n.t("room.notes", "تسجيل الحضور"));
         notesField.setPrefRowCount(3);
         notesField.setWrapText(true);
 
         GridPane form = FormFactory.sectionGrid();
-        FormFactory.addRow(form, 0, I18n.t("room.name"), nameField);
-        FormFactory.addRow(form, 1, I18n.t("room.location"), locationField);
-        FormFactory.addRow(form, 2, I18n.t("room.capacity"), capacityField);
+        FormFactory.addRow(form, 0, I18n.t("room.name", "تسجيل الحضور"), nameField);
+        FormFactory.addRow(form, 1, I18n.t("room.location", "تسجيل الحضور"), locationField);
+        FormFactory.addRow(form, 2, I18n.t("room.capacity", "تسجيل الحضور"), capacityField);
         FormFactory.addRow(form, 3, "", activeField);
-        FormFactory.addRow(form, 4, I18n.t("room.notes"));
+        FormFactory.addRow(form, 4, I18n.t("room.notes", "تسجيل الحضور"));
         FormFactory.addRow(form, 5, notesField);
 
-        Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
-        Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
-        Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
+        Button save   = new Button(I18n.t("action.save", "تسجيل الحضور"));   save.getStyleClass().add("primary-button");
+        Button clear  = new Button(I18n.t("action.clear", "تسجيل الحضور"));  clear.getStyleClass().add("secondary-button");
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, clear, delete);
 
         // --- "Sections occupying this room" block -------------------------
-        Label occupantsTitle = new Label(I18n.t("room.occupied_by"));
+        Label occupantsTitle = new Label(I18n.t("room.occupied_by", "تسجيل الحضور"));
         occupantsTitle.getStyleClass().add("section-title");
-        Label occupantsHint = new Label(I18n.t("room.select_to_see_occupants"));
+        Label occupantsHint = new Label(I18n.t("room.select_to_see_occupants", "تسجيل الحضور"));
         occupantsHint.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 11px;");
         FlowPane occupantsBox = new FlowPane(8, 8);
         occupantsBox.setPadding(new Insets(2, 0, 2, 0));
@@ -84,12 +84,12 @@ public class RoomsView {
         java.util.function.Consumer<Room> loadOccupants = room -> {
             occupantsBox.getChildren().clear();
             if (room == null || room.getId() == null) {
-                occupantsHint.setText(I18n.t("room.select_to_see_occupants"));
+                occupantsHint.setText(I18n.t("room.select_to_see_occupants", "تسجيل الحضور"));
                 occupantsHint.setVisible(true);
                 occupantsHint.setManaged(true);
                 return;
             }
-            occupantsHint.setText(I18n.t("action.loading"));
+            occupantsHint.setText(I18n.t("action.loading", "تسجيل الحضور"));
             occupantsHint.setVisible(true);
             occupantsHint.setManaged(true);
             AsyncTasks.run(
@@ -97,7 +97,7 @@ public class RoomsView {
                     (List<Classroom> usedBy) -> {
                         occupantsBox.getChildren().clear();
                         if (usedBy.isEmpty()) {
-                            occupantsHint.setText(I18n.t("room.no_occupants"));
+                            occupantsHint.setText(I18n.t("room.no_occupants", "تسجيل الحضور"));
                             occupantsHint.setVisible(true);
                             occupantsHint.setManaged(true);
                             return;
@@ -157,20 +157,20 @@ public class RoomsView {
                         cardGrid.getChildren().add(card);
                     }
                 },
-                err -> DialogUtil.error(I18n.t("action.save"), err.getMessage())
+                err -> DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), err.getMessage())
         );
 
         clear.setOnAction(e -> clearForm.run());
 
         save.setOnAction(e -> {
             try {
-                if (nameField.getText().isBlank()) throw new IllegalArgumentException(I18n.t("room.name_required"));
+                if (nameField.getText().isBlank()) throw new IllegalArgumentException(I18n.t("room.name_required", "تسجيل الحضور"));
                 Integer capacity = null;
                 if (!capacityField.getText().isBlank()) {
                     try {
                         capacity = Integer.parseInt(capacityField.getText().trim());
                     } catch (NumberFormatException ex) {
-                        throw new IllegalArgumentException(I18n.t("room.capacity_invalid"));
+                        throw new IllegalArgumentException(I18n.t("room.capacity_invalid", "تسجيل الحضور"));
                     }
                 }
 
@@ -185,16 +185,16 @@ public class RoomsView {
                 AsyncTasks.run(
                         () -> roomService.save(r),
                         () -> { save.setDisable(false); reload[0].run(); clearForm.run(); },
-                        err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save"), err.getMessage()); }
+                        err -> { save.setDisable(false); DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), err.getMessage()); }
                 );
             } catch (RuntimeException ex) {
-                DialogUtil.error(I18n.t("action.save"), ex.getMessage());
+                DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), ex.getMessage());
             }
         });
 
         delete.setOnAction(e -> {
             if (selected[0] == null) {
-                DialogUtil.info(I18n.t("action.delete"), I18n.t("room.select_before_delete"));
+                DialogUtil.info(I18n.t("action.delete", "تسجيل الحضور"), I18n.t("room.select_before_delete", "تسجيل الحضور"));
                 return;
             }
             String id = selected[0].getId();
@@ -205,23 +205,23 @@ public class RoomsView {
                     (List<Classroom> usedBy) -> {
                         delete.setDisable(false);
                         String confirmMessage = usedBy.isEmpty()
-                                ? I18n.t("room.confirm_delete")
-                                : I18n.t("room.confirm_delete_in_use") + " ("
+                                ? I18n.t("room.confirm_delete", "تسجيل الحضور")
+                                : I18n.t("room.confirm_delete_in_use", "تسجيل الحضور") + " ("
                                 + usedBy.stream().map(Classroom::getName).collect(Collectors.joining(", ")) + ")";
-                        if (DialogUtil.confirm(I18n.t("action.delete"), name + " — " + confirmMessage)) {
+                        if (DialogUtil.confirm(I18n.t("action.delete", "تسجيل الحضور"), name + " — " + confirmMessage)) {
                             delete.setDisable(true);
                             AsyncTasks.run(
                                     () -> roomService.delete(id),
                                     () -> { delete.setDisable(false); reload[0].run(); clearForm.run(); },
-                                    err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete"), err.getMessage()); }
+                                    err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete", "تسجيل الحضور"), err.getMessage()); }
                             );
                         }
                     },
-                    err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete"), err.getMessage()); }
+                    err -> { delete.setDisable(false); DialogUtil.error(I18n.t("action.delete", "تسجيل الحضور"), err.getMessage()); }
             );
         });
 
-        Button addNew = new Button("➕  " + I18n.t("room.new"));
+        Button addNew = new Button("➕  " + I18n.t("room.new", "تسجيل الحضور"));
         addNew.getStyleClass().add("primary-button");
         addNew.setOnAction(e -> {
             clearForm.run();
@@ -236,7 +236,7 @@ public class RoomsView {
         divider.setStyle("-fx-background-color: #E2E8F0;");
 
         VBox formPanel = new VBox(14,
-                new Label(I18n.t("table.details")), form, actions,
+                new Label(I18n.t("table.details", "تسجيل الحضور")), form, actions,
                 divider, occupantsPanel);
         formPanel.getStyleClass().add("side-panel");
 
@@ -268,7 +268,7 @@ public class RoomsView {
         Label name = new Label(r.getName());
         name.getStyleClass().add("section-title");
 
-        Label status = new Label(r.isActive() ? I18n.t("room.status_active") : I18n.t("room.status_inactive"));
+        Label status = new Label(r.isActive() ? I18n.t("room.status_active", "تسجيل الحضور") : I18n.t("room.status_inactive", "تسجيل الحضور"));
         status.setStyle(r.isActive()
                 ? "-fx-background-color: #DCFCE7; -fx-text-fill: #15803D; -fx-font-size: 10px;"
                 + " -fx-background-radius: 999; -fx-padding: 2 8 2 8;"
@@ -286,8 +286,8 @@ public class RoomsView {
         meta.setStyle("-fx-text-fill: #64748B; -fx-font-size: 12px;");
 
         String capacityText = r.getCapacity() == null
-                ? I18n.t("room.capacity_unset")
-                : "👥  " + r.getCapacity() + " " + I18n.t("room.capacity_unit");
+                ? I18n.t("room.capacity_unset", "تسجيل الحضور")
+                : "👥  " + r.getCapacity() + " " + I18n.t("room.capacity_unit", "تسجيل الحضور");
         Label capacity = new Label(capacityText);
         capacity.setStyle("-fx-font-size: 12px; -fx-text-fill: #15803D; -fx-font-weight: bold;");
 

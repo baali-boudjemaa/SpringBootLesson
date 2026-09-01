@@ -64,7 +64,7 @@ public class ModuleTableView {
         TableView<Map<String, String>> table = new TableView<>();
         table.getStyleClass().addAll("data-table", module.table() + "-table");
         table.setFixedCellSize(38);
-        table.setPlaceholder(new Label(I18n.t("table.no_records")));
+        table.setPlaceholder(new Label(I18n.t("table.no_records", "تسجيل الحضور")));
         buildColumns(table, module);
 
         GridPane form = new GridPane();
@@ -73,9 +73,9 @@ public class ModuleTableView {
         form.getStyleClass().add("form-grid");
         Map<String, Node> editors = buildForm(module, form);
 
-        Button save   = new Button(I18n.t("action.save"));   save.getStyleClass().add("primary-button");
-        Button clear  = new Button(I18n.t("action.clear"));  clear.getStyleClass().add("secondary-button");
-        Button delete = new Button(I18n.t("action.delete")); delete.getStyleClass().add("danger-button");
+        Button save   = new Button(I18n.t("action.save", "تسجيل الحضور"));   save.getStyleClass().add("primary-button");
+        Button clear  = new Button(I18n.t("action.clear", "تسجيل الحضور"));  clear.getStyleClass().add("secondary-button");
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, clear, delete);
         actions.setAlignment(Pos.CENTER_LEFT);
 
@@ -83,7 +83,7 @@ public class ModuleTableView {
         FilteredList<Map<String, String>> filteredRows = new FilteredList<>(rows, row -> true);
         table.setItems(filteredRows);
 
-        TextField filter = FormFactory.textField(I18n.t("action.filter") + " " + I18n.t(module.titleKey()).toLowerCase());
+        TextField filter = FormFactory.textField(I18n.t("action.filter", "تسجيل الحضور") + " " + I18n.t(module.titleKey(), "تسجيل الحضور").toLowerCase());
         filter.getStyleClass().add("filter-field");
         filter.textProperty().addListener((obs, old, query) -> {
             String needle = query == null ? "" : query.trim().toLowerCase();
@@ -97,7 +97,7 @@ public class ModuleTableView {
         HBox.setHgrow(filter, Priority.ALWAYS);
 
         if ("students".equals(module.table())) {
-            Button newStudent = new Button("➕  " + I18n.t("action.new_student"));
+            Button newStudent = new Button("➕  " + I18n.t("action.new_student", "تسجيل الحضور"));
             newStudent.getStyleClass().add("primary-button");
             newStudent.setMinWidth(140);
             newStudent.setOnAction(event -> onNewStudent.run());
@@ -144,22 +144,22 @@ public class ModuleTableView {
                         () -> { save.setDisable(false); reload.run(); clear.fire(); },
                         err -> {
                             save.setDisable(false);
-                            DialogUtil.error(I18n.t("action.save"), err.getMessage());
+                            DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), err.getMessage());
                         }
                 );
             } catch (RuntimeException e) {
-                DialogUtil.error(I18n.t("action.save"), e.getMessage());
+                DialogUtil.error(I18n.t("action.save", "تسجيل الحضور"), e.getMessage());
             }
         });
 
         delete.setOnAction(event -> {
             Map<String, String> selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
-                DialogUtil.info(I18n.t("action.delete"), "Sélectionnez un enregistrement avant de supprimer.");
+                DialogUtil.info(I18n.t("action.delete", "تسجيل الحضور"), "Sélectionnez un enregistrement avant de supprimer.");
                 return;
             }
-            if (DialogUtil.confirm(I18n.t("action.delete"),
-                    "Supprimer cet enregistrement de " + I18n.t(module.titleKey()).toLowerCase() + " ?")) {
+            if (DialogUtil.confirm(I18n.t("action.delete", "تسجيل الحضور"),
+                    "Supprimer cet enregistrement de " + I18n.t(module.titleKey(), "تسجيل الحضور").toLowerCase() + " ?")) {
                 String id = selected.get("id");
                 delete.setDisable(true);
                 AsyncTasks.run(
@@ -167,7 +167,7 @@ public class ModuleTableView {
                         () -> { delete.setDisable(false); reload.run(); clear.fire(); },
                         err -> {
                             delete.setDisable(false);
-                            DialogUtil.error(I18n.t("action.delete"), err.getMessage());
+                            DialogUtil.error(I18n.t("action.delete", "تسجيل الحضور"), err.getMessage());
                         }
                 );
             }
@@ -175,7 +175,7 @@ public class ModuleTableView {
 
         reload.run();
 
-        VBox formPanel = new VBox(14, new Label(I18n.t("table.details")), form, actions);
+        VBox formPanel = new VBox(14, new Label(I18n.t("table.details", "تسجيل الحضور")), form, actions);
         formPanel.getStyleClass().add("side-panel");
         VBox tablePanel = new VBox(10, tableToolbar, table);
         VBox.setVgrow(table, Priority.ALWAYS);

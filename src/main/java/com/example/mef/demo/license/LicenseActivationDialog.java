@@ -16,12 +16,20 @@ public class LicenseActivationDialog {
     private final LicenseValidator licenseValidator;
     private final SettingsRepository settingsRepository;
 
-    private static final String LICENSE_KEY_SETTING = "license_key";
-    private static final String TRIAL_START_SETTING  = "trial_start_date";
+    private static final String LICENSE_KEY_SETTING    = "license_key";
+    private static final String TRIAL_START_SETTING    = "trial_start_date";
     private static final String LAST_SEEN_DATE_SETTING = "license_last_seen_date";
-    private static final int    TRIAL_DAYS            = 7;
+    private static final int    TRIAL_DAYS             = 7;
 
     private final Preferences preferences = Preferences.userNodeForPackage(LicenseActivationDialog.class);
+
+    /**
+     * One-shot startup cache for {@link #isUsable()}.
+     * Computed once on first call, then reused for the lifetime of the JVM session.
+     * Invalidated (reset to null) when {@link #activate(String)} is called so the
+     * result is refreshed after the user enters a valid key.
+     */
+    private Boolean cachedIsUsable = null;
 
     public LicenseActivationDialog(MachineIdentifier machineIdentifier,
                                    LicenseValidator licenseValidator,
@@ -84,7 +92,10 @@ public class LicenseActivationDialog {
                 .map(payload -> ChronoUnit.DAYS.between(LocalDate.now(), payload.expiresAt()));
     }
 
-    /** Validates and persists a license in both the database and user profile. */
+    /**
+     * Validates and persists a license in both the database and user profile.
+     * Invalidates the {@link #isUsable()} cache so the next call re-evaluates.
+     */
     public void activate(String activationKey) {
         String candidate = activationKey == null ? "" : activationKey.trim();
         if (!licenseValidator.isValid(machineIdentifier.getOrCreateMachineId(), candidate)) {
@@ -92,11 +103,21 @@ public class LicenseActivationDialog {
         }
         settingsRepository.set(LICENSE_KEY_SETTING, candidate);
         preferences.put(LICENSE_KEY_SETTING, candidate);
+        cachedIsUsable = null; // invalidate cache — next isUsable() call will re-check
     }
 
-    /** True if the app should be usable right now — licensed, or still within trial. */
+    /**
+     * True if the app should be usable right now — licensed, or still within trial.
+     *
+     * <p>The result is cached for the lifetime of the JVM session to avoid
+     * repeated DB queries at startup (JavaFxApplication.start → LoginController.initialize
+     * both call this method). The cache is cleared by {@link #activate(String)}.
+     */
     public boolean isUsable() {
-        return isAlreadyActivated() || getTrialDaysLeft() > 0;
+        if (cachedIsUsable == null) {
+            cachedIsUsable = isAlreadyActivated() || getTrialDaysLeft() > 0;
+        }
+        return cachedIsUsable;
     }
 
     private LocalDate earliestValidDate(String... values) {

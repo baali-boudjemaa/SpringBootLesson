@@ -16,6 +16,8 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Computes the monthly course dues without creating artificial unpaid payments. */
 @Service
@@ -44,8 +46,11 @@ public class MonthlyBillingService {
 
     public List<Due> findOpenDues() {
         LocalDate today = LocalDate.now();
+        List<Inscription> all = inscriptions.findAllWithDetails();
+        // Bulk-load all payments in a single query, then group by inscription ID.
+        Map<String, List<Payment>> paymentsByInscription = bulkPayments(all);
         List<Due> result = new ArrayList<>();
-        for (Inscription inscription : inscriptions.findAllWithDetails()) {
+        for (Inscription inscription : all) {
             if (inscription.getStatus() != EnrollmentStatus.ACTIVE) continue;
             LocalDate enrolled = billingStart(inscription);
             if (enrolled == null || enrolled.isAfter(today)) continue;
@@ -53,7 +58,7 @@ public class MonthlyBillingService {
             if (dueDate.isAfter(today)) dueDate = dueInMonth(inscription, YearMonth.from(today.minusMonths(1)));
             double amount = amountDueOn(inscription, dueDate);
             if (amount <= 0) continue;
-            double paid = paidFor(inscription, dueDate);
+            double paid = paidFor(inscription, dueDate, paymentsByInscription);
             Due due = new Due(inscription, dueDate, amount, paid);
             if (!due.isPaid()) result.add(due);
         }
@@ -63,8 +68,11 @@ public class MonthlyBillingService {
     public List<Due> findDueWithinDays(int days) {
         LocalDate today = LocalDate.now();
         LocalDate end = today.plusDays(days);
+        List<Inscription> all = inscriptions.findAllWithDetails();
+        // Bulk-load all payments in a single query, then group by inscription ID.
+        Map<String, List<Payment>> paymentsByInscription = bulkPayments(all);
         List<Due> result = new ArrayList<>();
-        for (Inscription inscription : inscriptions.findAllWithDetails()) {
+        for (Inscription inscription : all) {
             if (inscription.getStatus() != EnrollmentStatus.ACTIVE) continue;
             LocalDate enrolled = billingStart(inscription);
             if (enrolled == null) continue;
@@ -72,7 +80,7 @@ public class MonthlyBillingService {
             if (due.isBefore(today) || due.isAfter(end)) continue;
             double amount = amountDueOn(inscription, due);
             if (amount <= 0) continue;
-            Due item = new Due(inscription, due, amount, paidFor(inscription, due));
+            Due item = new Due(inscription, due, amount, paidFor(inscription, due, paymentsByInscription));
             if (!item.isPaid()) result.add(item);
         }
         return result.stream().sorted(Comparator.comparing(Due::dueDate).thenComparing(d -> studentName(d.inscription()))).toList();
@@ -86,7 +94,8 @@ public class MonthlyBillingService {
         LocalDate dueDate = dueInMonth(inscription, YearMonth.from(today));
         if (dueDate.isAfter(today)) dueDate = dueInMonth(inscription, YearMonth.from(today.minusMonths(1)));
         double amount = amountDueOn(inscription, dueDate);
-        return new Due(inscription, dueDate, amount, paidFor(inscription, dueDate));
+        Map<String, List<Payment>> paymentsByInscription = bulkPayments(List.of(inscription));
+        return new Due(inscription, dueDate, amount, paidFor(inscription, dueDate, paymentsByInscription));
     }
 
     private double amountDueOn(Inscription inscription, LocalDate dueDate) {
@@ -100,15 +109,34 @@ public class MonthlyBillingService {
         return records.stream().filter(s -> s.isActiveOn(dueDate)).mapToDouble(s -> fee(s.getCourse())).sum();
     }
 
-    private double paidFor(Inscription inscription, LocalDate dueDate) {
+    /**
+     * Computes the amount already paid for {@code dueDate} using a pre-fetched
+     * payment map to avoid N+1 queries.
+     */
+    private double paidFor(Inscription inscription, LocalDate dueDate,
+                           Map<String, List<Payment>> paymentsByInscription) {
         LocalDate nextDue = dueInMonth(inscription, YearMonth.from(dueDate).plusMonths(1));
-        return payments.findByInscriptionId(inscription.getId()).stream()
+        List<Payment> inscriptionPayments = paymentsByInscription
+                .getOrDefault(inscription.getId(), List.of());
+        return inscriptionPayments.stream()
                 .filter(p -> p.getStatus() == PaymentStatus.PAID)
                 .filter(p -> p.getBillingDueDate() != null
                         ? dueDate.equals(p.getBillingDueDate())
                         : p.getDatePay() != null && !p.getDatePay().toLocalDate().isBefore(dueDate)
                           && p.getDatePay().toLocalDate().isBefore(nextDue))
                 .mapToDouble(p -> p.getAmount() == null ? 0 : p.getAmount()).sum();
+    }
+
+    /**
+     * Loads all payments for the given inscriptions in a single SQL query and
+     * returns them grouped by inscription ID. This is the key to avoiding N+1
+     * selects in {@link #findOpenDues()} and {@link #findDueWithinDays(int)}.
+     */
+    private Map<String, List<Payment>> bulkPayments(List<Inscription> inscriptionList) {
+        List<String> ids = inscriptionList.stream().map(Inscription::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+        return payments.findByInscriptionIdIn(ids).stream()
+                .collect(Collectors.groupingBy(p -> p.getInscription().getId()));
     }
 
     private static LocalDate billingStart(Inscription inscription) {
@@ -126,8 +154,19 @@ public class MonthlyBillingService {
     }
 
     private double crecheMonthlyAmount(Inscription inscription, YearMonth month) {
+        String feeKey = EnrollmentSettingsKeys.CRECHE_DAY_BY_DAY_FEE;
+        if (inscription.getAttendancePlan() != null && inscription.getAttendancePlan() != com.example.mef.demo.enums.AttendancePlan.CUSTOM_DAYS) {
+            if (inscription.getSession() == com.example.mef.demo.enums.SessionName.MATINEE) {
+                feeKey = EnrollmentSettingsKeys.CRECHE_HALF_DAY_FEE;
+            } else if (inscription.getSession() == com.example.mef.demo.enums.SessionName.MATINEE_AVEC_REPAS) {
+                feeKey = EnrollmentSettingsKeys.CRECHE_HALF_DAY_LUNCH_FEE;
+            } else if (inscription.getSession() == com.example.mef.demo.enums.SessionName.JOURNEE_COMPLETE) {
+                feeKey = EnrollmentSettingsKeys.CRECHE_FULL_DAY_FEE;
+            }
+        }
+        
         double dailyFee;
-        try { dailyFee = Double.parseDouble(settings.get(EnrollmentSettingsKeys.CRECHE_DAILY_FEE, "0")); }
+        try { dailyFee = Double.parseDouble(settings.get(feeKey, "0")); }
         catch (NumberFormatException ex) { return 0; }
         if (dailyFee <= 0 || inscription.getAttendanceDays() == null) return 0;
         java.util.Set<java.time.DayOfWeek> days = java.util.Arrays.stream(inscription.getAttendanceDays().split(","))

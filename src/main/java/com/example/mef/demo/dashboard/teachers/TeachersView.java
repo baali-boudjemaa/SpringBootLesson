@@ -75,6 +75,7 @@ public class TeachersView {
     private final EmployeeService employeeService;
     private final CourseService courseService;
     private final TeacherPayrollService payrollService;
+    private final com.example.mef.demo.Services.SettingService settingService;
 
     // =========================================================
     // STATE
@@ -172,12 +173,14 @@ public class TeachersView {
     public TeachersView(
             EmployeeService employeeService,
             CourseService courseService,
-            TeacherPayrollService payrollService
+            TeacherPayrollService payrollService,
+            com.example.mef.demo.Services.SettingService settingService
     ) {
 
         this.employeeService = employeeService;
         this.courseService = courseService;
         this.payrollService = payrollService;
+        this.settingService = settingService;
 
         TableStyleKit.applyTheme(
                 table,
@@ -195,7 +198,7 @@ public class TeachersView {
         compensationTypeField.valueProperty().addListener((obs, old, type) -> updateCompensationFields());
 
         certificationsField.setPromptText(
-                I18n.t("teachers.form.certifications")
+                I18n.t("teachers.form.certifications", "تسجيل الحضور")
         );
 
         certificationsField.setPrefRowCount(3);
@@ -239,6 +242,12 @@ public class TeachersView {
         String originalSchedule =
                 currentAvailabilitySchedule;
 
+        String dayStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START_DEFAULT);
+        String dayEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END_DEFAULT);
+        String breakStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START_DEFAULT);
+        String breakEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END_DEFAULT);
+        java.util.List<com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock> blocks = com.example.mef.demo.dashboard.common.TimeSlots.generateBlocks(dayStart, breakStart, breakEnd, dayEnd);
+
         TeacherAvailabilityDialog.show(
 
                 availabilityButton.getScene() == null
@@ -247,7 +256,8 @@ public class TeachersView {
                         .getScene()
                         .getWindow(),
 
-                originalSchedule
+                originalSchedule,
+                blocks
 
         ).ifPresent(result -> {
 
@@ -327,7 +337,7 @@ public class TeachersView {
         if (currentWorkingDays == null
                 || currentWorkingDays.isBlank()) {
 
-            availabilityField.setText(I18n.t("teachers.form.no_availability"));
+            availabilityField.setText(I18n.t("teachers.form.no_availability", "تسجيل الحضور"));
 
             return;
         }
@@ -349,14 +359,14 @@ public class TeachersView {
     }
 
     private void refreshTranslations() {
-        searchField.setPromptText(I18n.t("teachers.search"));
-        firstNameField.setPromptText(I18n.t("field.first_name"));
-        lastNameField.setPromptText(I18n.t("field.last_name"));
-        emailField.setPromptText(I18n.t("field.email"));
-        phoneField.setPromptText(I18n.t("field.phone"));
-        certificationsField.setPromptText(I18n.t("teachers.form.certifications"));
-        availabilityButton.setText(I18n.t("teachers.form.choose"));
-        timetableButton.setText("📅 " + I18n.t("teachers.form.timetable"));
+        searchField.setPromptText(I18n.t("teachers.search", "تسجيل الحضور"));
+        firstNameField.setPromptText(I18n.t("field.first_name", "تسجيل الحضور"));
+        lastNameField.setPromptText(I18n.t("field.last_name", "تسجيل الحضور"));
+        emailField.setPromptText(I18n.t("field.email", "تسجيل الحضور"));
+        phoneField.setPromptText(I18n.t("field.phone", "تسجيل الحضور"));
+        certificationsField.setPromptText(I18n.t("teachers.form.certifications", "تسجيل الحضور"));
+        availabilityButton.setText(I18n.t("teachers.form.choose", "تسجيل الحضور"));
+        timetableButton.setText("📅 " + I18n.t("teachers.form.timetable", "تسجيل الحضور"));
         updateCompensationFields();
         updateAvailabilitySummary();
     }
@@ -381,13 +391,13 @@ public class TeachersView {
     ) {
 
         refreshTranslations();
-        pageTitleLabel.setText(I18n.t("teachers.title"));
+        pageTitleLabel.setText(I18n.t("teachers.title", "تسجيل الحضور"));
 
         // Recreate the columns on each render so they immediately follow a language change.
         initializeTeacherTable();
         tableInitialized = true;
 
-        Label subtitle = new Label(I18n.t("teachers.subtitle"));
+        Label subtitle = new Label(I18n.t("teachers.subtitle", "تسجيل الحضور"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
@@ -395,17 +405,21 @@ public class TeachersView {
         roleFilter.setPrefWidth(150);
 
         Button add =
-                new Button("+  " + I18n.t("teachers.add"));
+                new Button("+  " + I18n.t("teachers.add", "تسجيل الحضور"));
 
         add.getStyleClass().add("primary-button");
 
         add.setOnAction(e -> startCreate());
 
+        Button attendanceBtn = new Button("📋 " + I18n.t("teachers.attendance.record", "تسجيل الحضور"));
+        attendanceBtn.getStyleClass().add("secondary-button");
+        attendanceBtn.setOnAction(e -> TeacherAttendanceDialog.show(attendanceBtn.getScene().getWindow(), employeeService, payrollService));
+
         HBox filters = new HBox(10, roleFilter, searchField);
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        HBox toolbar = new HBox(12, filters, add);
+        HBox toolbar = new HBox(12, filters, attendanceBtn, add);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.getStyleClass().add("module-toolbar");
 
@@ -472,7 +486,7 @@ public class TeachersView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel(I18n.t("teachers.form.details"), form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("teachers.form.details", "تسجيل الحضور"), form, this::closeForm);
             floatingForm.setPrefWidth(450);
 
         }
@@ -511,12 +525,12 @@ public class TeachersView {
         GridPane grid =
                 FormFactory.sectionGrid();
 
-        FormFactory.addRow(grid, 0, I18n.t("field.first_name"), firstNameField);
-        FormFactory.addRow(grid, 1, I18n.t("field.last_name"), lastNameField);
-        FormFactory.addRow(grid, 2, I18n.t("field.email"), emailField);
-        FormFactory.addRow(grid, 3, I18n.t("field.phone"), phoneField);
-        FormFactory.addRow(grid, 4, I18n.t("teachers.form.role"), roleField);
-        FormFactory.addRow(grid, 5, I18n.t("teachers.form.certifications"), certificationsField);
+        FormFactory.addRow(grid, 0, I18n.t("field.first_name", "تسجيل الحضور"), firstNameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.last_name", "تسجيل الحضور"), lastNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.email", "تسجيل الحضور"), emailField);
+        FormFactory.addRow(grid, 3, I18n.t("field.phone", "تسجيل الحضور"), phoneField);
+        FormFactory.addRow(grid, 4, I18n.t("teachers.form.role", "تسجيل الحضور"), roleField);
+        FormFactory.addRow(grid, 5, I18n.t("teachers.form.certifications", "تسجيل الحضور"), certificationsField);
 
         HBox availabilityRow =
                 new HBox(6, availabilityField, availabilityButton);
@@ -525,33 +539,33 @@ public class TeachersView {
 
         HBox.setHgrow(availabilityField, Priority.ALWAYS);
 
-        FormFactory.addRow(grid, 6, I18n.t("teachers.form.availability"), availabilityRow);
-        FormFactory.addRow(grid, 7, I18n.t("teachers.payroll.type"), compensationTypeField);
-        FormFactory.addRow(grid, 8, I18n.t("teachers.payroll.monthly_salary"), monthlySalaryField);
-        FormFactory.addRow(grid, 9, I18n.t("teachers.payroll.lesson_rate"), lessonRateField);
-        FormFactory.addRow(grid, 10, I18n.t("teachers.payroll.day_deduction"), absenceDayDeductionField);
-        FormFactory.addRow(grid, 11, I18n.t("teachers.payroll.hour_deduction"), absenceHourDeductionField);
+        FormFactory.addRow(grid, 6, I18n.t("teachers.form.availability", "تسجيل الحضور"), availabilityRow);
+        FormFactory.addRow(grid, 7, I18n.t("teachers.payroll.type", "تسجيل الحضور"), compensationTypeField);
+        FormFactory.addRow(grid, 8, I18n.t("teachers.payroll.monthly_salary", "تسجيل الحضور"), monthlySalaryField);
+        FormFactory.addRow(grid, 9, I18n.t("teachers.payroll.lesson_rate", "تسجيل الحضور"), lessonRateField);
+        FormFactory.addRow(grid, 10, I18n.t("teachers.payroll.day_deduction", "تسجيل الحضور"), absenceDayDeductionField);
+        FormFactory.addRow(grid, 11, I18n.t("teachers.payroll.hour_deduction", "تسجيل الحضور"), absenceHourDeductionField);
 
         // -----------------------------------------------------
         // BUTTONS
         // -----------------------------------------------------
 
         Button save =
-                new Button(I18n.t("action.save"));
+                new Button(I18n.t("action.save", "تسجيل الحضور"));
 
         save.getStyleClass().add("primary-button");
 
         save.setOnAction(e -> save());
 
         Button clear =
-                new Button("+ " + I18n.t("action.new"));
+                new Button("+ " + I18n.t("action.new", "تسجيل الحضور"));
 
         clear.getStyleClass().add("secondary-button");
 
         clear.setOnAction(e -> startCreate());
 
         Button delete =
-                new Button(I18n.t("action.delete"));
+                new Button(I18n.t("action.delete", "تسجيل الحضور"));
 
         delete.getStyleClass().add("danger-button");
 
@@ -684,7 +698,7 @@ public class TeachersView {
                 }
                 Button view = iconBtn("fth-eye", "Voir");
                 Button edit = iconBtn("fth-edit-2", "Modifier");
-                Button payroll = iconBtn("fth-dollar-sign", I18n.t("teachers.payroll.title"));
+                Button payroll = iconBtn("fth-dollar-sign", I18n.t("teachers.payroll.title", "تسجيل الحضور"));
                 Button del = iconBtn("fth-trash-2", "Supprimer");
                 del.getStyleClass().add("icon-action-danger");
 
@@ -717,7 +731,7 @@ public class TeachersView {
     private void initializeTeacherTable() {
 
         TableColumn<Employee, String> number =
-                new TableColumn<>(I18n.t("teachers.table.number"));
+                new TableColumn<>(I18n.t("teachers.table.number", "تسجيل الحضور"));
 
         number.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -728,7 +742,7 @@ public class TeachersView {
         number.setPrefWidth(80);
 
         TableColumn<Employee, String> name =
-                new TableColumn<>(I18n.t("teachers.table.name"));
+                new TableColumn<>(I18n.t("teachers.table.name", "تسجيل الحضور"));
 
         name.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -741,7 +755,7 @@ public class TeachersView {
         name.setPrefWidth(160);
 
         TableColumn<Employee, String> role =
-                new TableColumn<>(I18n.t("teachers.table.role"));
+                new TableColumn<>(I18n.t("teachers.table.role", "تسجيل الحضور"));
 
         role.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -756,7 +770,7 @@ public class TeachersView {
         role.setPrefWidth(120);
 
         TableColumn<Employee, String> email =
-                new TableColumn<>(I18n.t("teachers.table.email"));
+                new TableColumn<>(I18n.t("teachers.table.email", "تسجيل الحضور"));
 
         email.setCellValueFactory(
                 d -> new ReadOnlyStringWrapper(
@@ -767,7 +781,7 @@ public class TeachersView {
         email.setPrefWidth(180);
 
         TableColumn<Employee, Employee> availability =
-                new TableColumn<>(I18n.t("teachers.table.availability"));
+                new TableColumn<>(I18n.t("teachers.table.availability", "تسجيل الحضور"));
 
         availability.setCellValueFactory(
                 d -> new ReadOnlyObjectWrapper<>(d.getValue())
@@ -778,7 +792,7 @@ public class TeachersView {
         availability.setPrefWidth(230);
 
         TableColumn<Employee, Employee> actions =
-                new TableColumn<>(I18n.t("teachers.table.actions"));
+                new TableColumn<>(I18n.t("teachers.table.actions", "تسجيل الحضور"));
 
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
@@ -913,7 +927,7 @@ public class TeachersView {
             employee.setAbsenceDayDeduction(nonNegative(absenceDayDeductionField));
             employee.setAbsenceHourDeduction(nonNegative(absenceHourDeductionField));
         } catch (NumberFormatException ex) {
-            DialogUtil.error(I18n.t("teachers.payroll.title"), I18n.t("teachers.payroll.invalid_amount"));
+            DialogUtil.error(I18n.t("teachers.payroll.title", "تسجيل الحضور"), I18n.t("teachers.payroll.invalid_amount", "تسجيل الحضور"));
             return;
         }
 
@@ -1029,7 +1043,7 @@ public class TeachersView {
 
     private void updateFooter(List<Employee> data) {
         footerCountLabel.setText(data.size() + " " + I18n.t(
-                data.size() > 1 ? "teachers.table.count_plural" : "teachers.table.count_singular"));
+                data.size() > 1 ? "teachers.table.count_plural" : "teachers.table.count_singular", "تسجيل الحضور"));
     }
 
     private void updateSummaryCards(List<Employee> data) {
@@ -1086,8 +1100,8 @@ public class TeachersView {
         if (selected == null) {
 
             DialogUtil.info(
-                    I18n.t("teachers.timetable.title"),
-                    I18n.t("teachers.timetable.select_teacher")
+                    I18n.t("teachers.timetable.title", "تسجيل الحضور"),
+                    I18n.t("teachers.timetable.select_teacher", "تسجيل الحضور")
             );
 
             return;
@@ -1105,7 +1119,7 @@ public class TeachersView {
         }
 
         dialog.setTitle(
-                I18n.t("teachers.timetable.title") + " — "
+                I18n.t("teachers.timetable.title", "تسجيل الحضور") + " — "
                         + safe(teacher.getFirstName())
                         + " "
                         + safe(teacher.getLastName())
@@ -1125,7 +1139,7 @@ public class TeachersView {
 
         Label title =
                 new Label(
-                        I18n.t("teachers.timetable.title") + " : "
+                        I18n.t("teachers.timetable.title", "تسجيل الحضور") + " : "
                                 + safe(teacher.getFirstName())
                                 + " "
                                 + safe(teacher.getLastName())
@@ -1138,7 +1152,7 @@ public class TeachersView {
         );
 
         Label subtitle =
-                new Label(I18n.t("teachers.timetable.weekly_planning"));
+                new Label(I18n.t("teachers.timetable.weekly_planning", "تسجيل الحضور"));
 
         subtitle.setStyle(
                 "-fx-font-size: 11px;" +
@@ -1149,19 +1163,19 @@ public class TeachersView {
 
         BorderPane timetableContainer = new BorderPane();
 
-        Label loading = new Label(I18n.t("teachers.timetable.loading"));
+        Label loading = new Label(I18n.t("teachers.timetable.loading", "تسجيل الحضور"));
 
         loading.setStyle("-fx-text-fill: #64748B;");
 
         timetableContainer.setCenter(loading);
 
-        Button printButton = new Button("🖨 " + I18n.t("teachers.timetable.print"));
+        Button printButton = new Button("🖨 " + I18n.t("teachers.timetable.print", "تسجيل الحضور"));
 
         printButton.getStyleClass().add("primary-button");
 
         printButton.setDisable(true);
 
-        Button closeButton = new Button(I18n.t("action.close"));
+        Button closeButton = new Button(I18n.t("action.close", "تسجيل الحضور"));
 
         closeButton.getStyleClass().add("secondary-button");
 
@@ -1207,7 +1221,7 @@ public class TeachersView {
                 err -> {
 
                     Label error =
-                            new Label(I18n.t("teachers.timetable.error") + " : " + safe(err.getMessage()));
+                            new Label(I18n.t("teachers.timetable.error", "تسجيل الحضور") + " : " + safe(err.getMessage()));
 
                     error.setWrapText(true);
 
@@ -1262,7 +1276,7 @@ public class TeachersView {
             grid.getColumnConstraints().add(dayColumn);
         }
 
-        addTimetableCell(grid, 0, 0, I18n.t("teachers.timetable.hour"), "#E2E8F0", "#1E293B", true);
+        addTimetableCell(grid, 0, 0, I18n.t("teachers.timetable.hour", "تسجيل الحضور"), "#E2E8F0", "#1E293B", true);
 
         for (int i = 0; i < DaysPicker.DAYS.size(); i++) {
 
@@ -1288,7 +1302,7 @@ public class TeachersView {
                             grid,
                             col,
                             row,
-                            col == 0 ? "12:00" : I18n.t("teachers.timetable.break"),
+                            col == 0 ? "12:00" : I18n.t("teachers.timetable.break", "تسجيل الحضور"),
                             "#DBEAFE",
                             "#1E40AF",
                             true
@@ -1441,7 +1455,7 @@ public class TeachersView {
 
         if (job == null) {
 
-            DialogUtil.error(I18n.t("teachers.timetable.print"), I18n.t("teachers.timetable.no_printer"));
+            DialogUtil.error(I18n.t("teachers.timetable.print", "تسجيل الحضور"), I18n.t("teachers.timetable.no_printer", "تسجيل الحضور"));
 
             return;
         }
@@ -1473,8 +1487,8 @@ public class TeachersView {
         if (width <= 0 || height <= 0) {
 
             DialogUtil.error(
-                    I18n.t("teachers.timetable.print"),
-                    I18n.t("teachers.timetable.print_size_error")
+                    I18n.t("teachers.timetable.print", "تسجيل الحضور"),
+                    I18n.t("teachers.timetable.print_size_error", "تسجيل الحضور")
             );
 
             job.endJob();
@@ -1505,13 +1519,13 @@ public class TeachersView {
 
             if (success) {
                 DialogUtil.info(
-                        I18n.t("teachers.timetable.print"),
-                        I18n.t("teachers.timetable.print_success")
+                        I18n.t("teachers.timetable.print", "تسجيل الحضور"),
+                        I18n.t("teachers.timetable.print_success", "تسجيل الحضور")
                 );
 
             } else {
 
-                DialogUtil.error(I18n.t("teachers.timetable.print"), I18n.t("teachers.timetable.print_failed"));
+                DialogUtil.error(I18n.t("teachers.timetable.print", "تسجيل الحضور"), I18n.t("teachers.timetable.print_failed", "تسجيل الحضور"));
             }
 
         } finally { job.endJob(); }
@@ -1587,37 +1601,37 @@ public class TeachersView {
 
         return switch (day) {
 
-            case "Lundi" -> I18n.t("day.mon");
-            case "Mardi" -> I18n.t("day.tue");
-            case "Mercredi" -> I18n.t("day.wed");
-            case "Jeudi" -> I18n.t("day.thu");
-            case "Vendredi" -> I18n.t("day.fri");
-            case "Samedi" -> I18n.t("day.sat");
-            case "Dimanche" -> I18n.t("day.sun");
+            case "Lundi" -> I18n.t("day.mon", "تسجيل الحضور");
+            case "Mardi" -> I18n.t("day.tue", "تسجيل الحضور");
+            case "Mercredi" -> I18n.t("day.wed", "تسجيل الحضور");
+            case "Jeudi" -> I18n.t("day.thu", "تسجيل الحضور");
+            case "Vendredi" -> I18n.t("day.fri", "تسجيل الحضور");
+            case "Samedi" -> I18n.t("day.sat", "تسجيل الحضور");
+            case "Dimanche" -> I18n.t("day.sun", "تسجيل الحضور");
             default -> day;
         };
     }
 
     private static String timetableDayLabel(String day) {
         return switch (day) {
-            case "Lundi" -> I18n.t("schedule.day.lundi");
-            case "Mardi" -> I18n.t("schedule.day.mardi");
-            case "Mercredi" -> I18n.t("schedule.day.mercredi");
-            case "Jeudi" -> I18n.t("schedule.day.jeudi");
-            case "Vendredi" -> I18n.t("schedule.day.vendredi");
-            case "Samedi" -> I18n.t("schedule.day.samedi");
-            case "Dimanche" -> I18n.t("schedule.day.dimanche");
+            case "Lundi" -> I18n.t("schedule.day.lundi", "تسجيل الحضور");
+            case "Mardi" -> I18n.t("schedule.day.mardi", "تسجيل الحضور");
+            case "Mercredi" -> I18n.t("schedule.day.mercredi", "تسجيل الحضور");
+            case "Jeudi" -> I18n.t("schedule.day.jeudi", "تسجيل الحضور");
+            case "Vendredi" -> I18n.t("schedule.day.vendredi", "تسجيل الحضور");
+            case "Samedi" -> I18n.t("schedule.day.samedi", "تسجيل الحضور");
+            case "Dimanche" -> I18n.t("schedule.day.dimanche", "تسجيل الحضور");
             default -> day;
         };
     }
 
     private static String employeeRoleLabel(EmployeeRole role) {
         return switch (role) {
-            case TEACHER -> I18n.t("employee_role.teacher");
-            case ASSISTANT -> I18n.t("employee_role.assistant");
-            case KITCHEN -> I18n.t("employee_role.kitchen");
-            case CLEANER -> I18n.t("employee_role.cleaner");
-            case ADMIN -> I18n.t("employee_role.admin");
+            case TEACHER -> I18n.t("employee_role.teacher", "تسجيل الحضور");
+            case ASSISTANT -> I18n.t("employee_role.assistant", "تسجيل الحضور");
+            case KITCHEN -> I18n.t("employee_role.kitchen", "تسجيل الحضور");
+            case CLEANER -> I18n.t("employee_role.cleaner", "تسجيل الحضور");
+            case ADMIN -> I18n.t("employee_role.admin", "تسجيل الحضور");
         };
     }
 

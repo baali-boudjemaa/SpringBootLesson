@@ -4,7 +4,6 @@ import com.example.mef.demo.license.LicenseActivationDialog;
 import com.example.mef.demo.license.MachineIdentifier;
 import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -63,9 +62,9 @@ public class LicenseCardBuilder {
             String bannerText;
             if (daysLeft > 0) {
                 String key = daysLeft > 1 ? "license.trial_remaining_other" : "license.trial_remaining_one";
-                bannerText = I18n.t(key).replace("{days}", String.valueOf(daysLeft));
+                bannerText = I18n.t(key, "تسجيل الحضور").replace("{days}", String.valueOf(daysLeft));
             } else {
-                bannerText = I18n.t("license.trial_expired");
+                bannerText = I18n.t("license.trial_expired", "تسجيل الحضور");
             }
             Label bannerBody = new Label(bannerText);
             bannerBody.setStyle("-fx-text-fill: #92400E;");
@@ -77,18 +76,18 @@ public class LicenseCardBuilder {
             banner.setPadding(new Insets(14, 18, 14, 18));
             banner.setStyle("-fx-background-color: #D1FAE5; -fx-background-radius: 8; "
                     + "-fx-border-color: #A7F3D0; -fx-border-radius: 8; -fx-border-width: 1;");
-            Label bannerBody = new Label(I18n.t("license.active_message"));
+            Label bannerBody = new Label(I18n.t("license.active_message", "تسجيل الحضور"));
             bannerBody.setStyle("-fx-text-fill: #065F46; -fx-font-weight: bold;");
             banner.getChildren().add(bannerBody);
 
             licenseActivationDialog.getDaysUntilExpiry().ifPresent(daysLeft -> {
                 String daysText;
                 if (daysLeft <= 0) {
-                    daysText = I18n.t("license.expires_today");
+                    daysText = I18n.t("license.expires_today", "تسجيل الحضور");
                 } else if (daysLeft == 1) {
-                    daysText = I18n.t("license.days_left_one");
+                    daysText = I18n.t("license.days_left_one", "تسجيل الحضور");
                 } else {
-                    daysText = I18n.t("license.days_left_other").replace("{days}", String.valueOf(daysLeft));
+                    daysText = I18n.t("license.days_left_other", "تسجيل الحضور").replace("{days}", String.valueOf(daysLeft));
                 }
                 Label daysLabel = new Label(daysText);
                 daysLabel.setStyle("-fx-text-fill: #065F46;");
@@ -99,9 +98,9 @@ public class LicenseCardBuilder {
         }
 
         // ── Step 1: machine ID ───────────────────────────────────
-        Label step1 = new Label(I18n.t("license.step1_title"));
+        Label step1 = new Label(I18n.t("license.step1_title", "تسجيل الحضور"));
         step1.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-        Label step1Caption = new Label(I18n.t("license.step1_caption"));
+        Label step1Caption = new Label(I18n.t("license.step1_caption", "تسجيل الحضور"));
         step1Caption.setStyle("-fx-text-fill: #64748B;");
 
         TextField idField = new TextField(machineId);
@@ -113,7 +112,7 @@ public class LicenseCardBuilder {
         Button copyBtn = new Button("📋");
         copyBtn.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; "
                 + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12;");
-        copyBtn.setTooltip(new Tooltip(I18n.t("license.copy_tooltip")));
+        copyBtn.setTooltip(new Tooltip(I18n.t("license.copy_tooltip", "تسجيل الحضور")));
         copyBtn.setOnAction(e -> {
             var clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
             var content = new javafx.scene.input.ClipboardContent();
@@ -126,17 +125,17 @@ public class LicenseCardBuilder {
         VBox step1Box = new VBox(8, step1, step1Caption, idRow);
 
         // ── Step 2: activation key ───────────────────────────────
-        Label step2 = new Label(I18n.t("license.step2_title"));
+        Label step2 = new Label(I18n.t("license.step2_title", "تسجيل الحضور"));
         step2.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
         TextField keyField = new TextField();
-        keyField.setPromptText(I18n.t("license.key_placeholder"));
+        keyField.setPromptText(I18n.t("license.key_placeholder", "تسجيل الحضور"));
         keyField.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; "
                 + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 10;");
         HBox.setHgrow(keyField, Priority.ALWAYS);
         keyField.setDisable(activated);
 
-        Button activateBtn = new Button(I18n.t("license.activate_button"));
+        Button activateBtn = new Button(I18n.t("license.activate_button", "تسجيل الحضور"));
         activateBtn.setStyle("-fx-background-color: #6D5EF5; -fx-text-fill: white; "
                 + "-fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 10 24;");
         activateBtn.setDisable(activated);
@@ -151,7 +150,7 @@ public class LicenseCardBuilder {
                 licenseActivationDialog.activate(candidate);
                 onActivated.run();
             } catch (IllegalArgumentException exception) {
-                errorLabel.setText(I18n.t("license.invalid_key"));
+                errorLabel.setText(I18n.t("license.invalid_key", "تسجيل الحضور"));
             }
         });
 

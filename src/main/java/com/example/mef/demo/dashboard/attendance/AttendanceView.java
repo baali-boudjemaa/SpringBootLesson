@@ -45,7 +45,7 @@ public class AttendanceView {
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
-        pageTitleLabel.setText(I18n.t("attendance.title"));
+        pageTitleLabel.setText(I18n.t("attendance.title", "تسجيل الحضور"));
         contentPane.setCenter(new Label("Chargement..."));
 
         AsyncTasks.run(
@@ -84,10 +84,10 @@ public class AttendanceView {
     private void buildUI(BorderPane contentPane, List<Classroom> classrooms, ClassAttendanceReport report) {
         report.students().forEach(row -> selectedStatuses.put(row.id(), row.status()));
 
-        Label title = new Label(I18n.t("attendance.title"));
+        Label title = new Label(I18n.t("attendance.title", "تسجيل الحضور"));
         title.setStyle("-fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: #0F172A;");
 
-        Label subtitle = new Label(I18n.t("attendance.subtitle"));
+        Label subtitle = new Label(I18n.t("attendance.subtitle", "تسجيل الحضور"));
         subtitle.setStyle("-fx-font-size: 15px; -fx-text-fill: #64748B;");
 
         Button previous = new Button("‹");
@@ -113,7 +113,7 @@ public class AttendanceView {
         datePicker.setMaxWidth(360);
         datePicker.setStyle("-fx-background-color: white; -fx-border-color: #E2E8F0; -fx-background-radius: 24; -fx-border-radius: 24; -fx-padding: 6 10;");
 
-        Button save = new Button("💾  " + I18n.t("attendance.save"));
+        Button save = new Button("💾  " + I18n.t("attendance.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> saveAttendance(contentPane, classrooms));
 
@@ -124,26 +124,26 @@ public class AttendanceView {
         header.setAlignment(Pos.CENTER_LEFT);
 
         HBox stats = new HBox(18,
-                statCard("✓", String.valueOf(report.present()), I18n.t("attendance.present"), "#10B981", "#ECFDF5"),
-                statCard("×", String.valueOf(report.absent()), I18n.t("attendance.absent"), "#F43F5E", "#FFF1F2"),
-                statCard("✉", String.valueOf(report.excused()), I18n.t("attendance.excused"), "#6366F1", "#EEF2FF"),
-                statCard("◌", String.valueOf(report.unmarked()), I18n.t("attendance.unmarked"), "#64748B", "#F1F5F9")
+                statCard("✓", String.valueOf(report.present()), I18n.t("attendance.present", "تسجيل الحضور"), "#10B981", "#ECFDF5"),
+                statCard("×", String.valueOf(report.absent()), I18n.t("attendance.absent", "تسجيل الحضور"), "#F43F5E", "#FFF1F2"),
+                statCard("✉", String.valueOf(report.excused()), I18n.t("attendance.excused", "تسجيل الحضور"), "#6366F1", "#EEF2FF"),
+                statCard("◌", String.valueOf(report.unmarked()), I18n.t("attendance.unmarked", "تسجيل الحضور"), "#64748B", "#F1F5F9")
         );
 
         for (Node card : stats.getChildren()) {
             HBox.setHgrow(card, Priority.ALWAYS);
         }
 
-        Label quickLabel = new Label(I18n.t("attendance.quick_fill"));
+        Label quickLabel = new Label(I18n.t("attendance.quick_fill", "تسجيل الحضور"));
         quickLabel.setStyle("-fx-text-fill: #64748B;");
 
-        Button allPresent = outlineButton("✓  " + I18n.t("attendance.all_present"), "#10B981");
+        Button allPresent = outlineButton("✓  " + I18n.t("attendance.all_present", "تسجيل الحضور"), "#10B981");
         allPresent.setOnAction(e -> {
             report.students().forEach(row -> selectedStatuses.put(row.id(), AttendanceStatus.PRESENT));
             buildUI(contentPane, classrooms, reportWithSelectedStatuses(report));
         });
 
-        Button allAbsent = outlineButton("×  " + I18n.t("attendance.all_absent"), "#F43F5E");
+        Button allAbsent = outlineButton("×  " + I18n.t("attendance.all_absent", "تسجيل الحضور"), "#F43F5E");
         allAbsent.setOnAction(e -> {
             report.students().forEach(row -> selectedStatuses.put(row.id(), AttendanceStatus.ABSENT));
             buildUI(contentPane, classrooms, reportWithSelectedStatuses(report));
@@ -153,7 +153,7 @@ public class AttendanceView {
         quickFill.setAlignment(Pos.CENTER_LEFT);
 
         HBox categoryTabs = new HBox(8);
-        Label categoryLabel = new Label(I18n.t("attendance.choose_category"));
+        Label categoryLabel = new Label(I18n.t("attendance.choose_category", "تسجيل الحضور"));
         categoryLabel.setStyle("-fx-text-fill: #64748B; -fx-padding: 8 4;");
         categoryTabs.getChildren().add(categoryLabel);
         for (Category category : Category.values()) {
@@ -172,10 +172,10 @@ public class AttendanceView {
                 .filter(classroom -> classroom.getCategory() == selectedCategory)
                 .toList();
         HBox classTabs = new HBox(8);
-        Label classLabel = new Label(I18n.t("attendance.choose_classroom"));
+        Label classLabel = new Label(I18n.t("attendance.choose_classroom", "تسجيل الحضور"));
         classLabel.setStyle("-fx-text-fill: #64748B; -fx-padding: 8 4;");
         classTabs.getChildren().add(classLabel);
-        Button allClasses = classTab(I18n.t("attendance.all_category_classes").replace("{0}", String.valueOf(report.students().size())), selectedClassroomId == null);
+        Button allClasses = classTab(I18n.t("attendance.all_category_classes", "تسجيل الحضور").replace("{0}", String.valueOf(report.students().size())), selectedClassroomId == null);
         allClasses.setOnAction(e -> {
             selectedClassroomId = null;
             loadReport(contentPane, classrooms);
@@ -194,9 +194,9 @@ public class AttendanceView {
         table.setHgap(12);
         table.setVgap(0);
         table.setStyle("-fx-background-color: white; -fx-border-color: #E2E8F0; -fx-background-radius: 12; -fx-border-radius: 12;");
-        table.add(headerLabel(I18n.t("attendance.table.child")), 0, 0);
-        table.add(headerLabel(I18n.t("attendance.table.status")), 1, 0);
-        table.add(headerLabel(I18n.t("attendance.table.arrival_time")), 2, 0);
+        table.add(headerLabel(I18n.t("attendance.table.child", "تسجيل الحضور")), 0, 0);
+        table.add(headerLabel(I18n.t("attendance.table.status", "تسجيل الحضور")), 1, 0);
+        table.add(headerLabel(I18n.t("attendance.table.arrival_time", "تسجيل الحضور")), 2, 0);
 
         int rowIndex = 1;
         for (ClassStudentAttendance student : report.students()) {
@@ -256,9 +256,9 @@ public class AttendanceView {
     private String categoryLabel(Category category) {
         if (category == null) return "—";
         return switch (category) {
-            case CRECHE -> I18n.t("category.creche");
-            case PREPARATOIRE -> I18n.t("category.preparatoire");
-            case SOUTIEN -> I18n.t("category.soutien");
+            case CRECHE -> I18n.t("category.creche", "تسجيل الحضور");
+            case PREPARATOIRE -> I18n.t("category.preparatoire", "تسجيل الحضور");
+            case SOUTIEN -> I18n.t("category.soutien", "تسجيل الحضور");
         };
     }
 
@@ -267,9 +267,9 @@ public class AttendanceView {
         box.setAlignment(Pos.CENTER_LEFT);
         box.setStyle("-fx-padding: 14 20; -fx-border-color: #E2E8F0 transparent transparent transparent;");
         box.getChildren().addAll(
-                statusButton("✓  " + I18n.t("attendance.present"), student, AttendanceStatus.PRESENT, contentPane, classrooms, report),
-                statusButton("×  " + I18n.t("attendance.absent"), student, AttendanceStatus.ABSENT, contentPane, classrooms, report),
-                statusButton("✉  " + I18n.t("attendance.excused"), student, AttendanceStatus.EXCUSED, contentPane, classrooms, report)
+                statusButton("✓  " + I18n.t("attendance.present", "تسجيل الحضور"), student, AttendanceStatus.PRESENT, contentPane, classrooms, report),
+                statusButton("×  " + I18n.t("attendance.absent", "تسجيل الحضور"), student, AttendanceStatus.ABSENT, contentPane, classrooms, report),
+                statusButton("✉  " + I18n.t("attendance.excused", "تسجيل الحضور"), student, AttendanceStatus.EXCUSED, contentPane, classrooms, report)
         );
         return box;
     }
@@ -289,7 +289,7 @@ public class AttendanceView {
     }
 
     private Label arrivalCell(ClassStudentAttendance student) {
-        Label label = new Label(selectedStatuses.get(student.id()) == AttendanceStatus.PRESENT ? I18n.t("attendance.now") : "—");
+        Label label = new Label(selectedStatuses.get(student.id()) == AttendanceStatus.PRESENT ? I18n.t("attendance.now", "تسجيل الحضور") : "—");
         label.setStyle("-fx-text-fill: #94A3B8; -fx-padding: 14 20; -fx-border-color: #E2E8F0 transparent transparent transparent;");
         return label;
     }
@@ -331,7 +331,7 @@ public class AttendanceView {
         AsyncTasks.run(
                 () -> classroomService.saveAttendance(selectedDate, selectedStatuses),
                 () -> {
-                    DialogUtil.info(I18n.t("attendance.title"), I18n.t("attendance.saved"));
+                    DialogUtil.info(I18n.t("attendance.title", "تسجيل الحضور"), I18n.t("attendance.saved", "تسجيل الحضور"));
                     loadReport(contentPane, classrooms);
                 },
                 err -> DialogUtil.error("Présence", err.getMessage())

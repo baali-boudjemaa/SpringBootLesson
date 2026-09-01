@@ -159,36 +159,36 @@ public class CoursesView {
     }
 
     private void refreshLocalizedControls() {
-        searchField.setPromptText(I18n.t("course.search"));
-        nameField.setPromptText(I18n.t("course.name_hint"));
-        scheduleField.setPromptText(I18n.t("course.schedule_none"));
-        scheduleButton.setText(I18n.t("course.choose_schedule"));
-        feeField.setPromptText(I18n.t("course.fee_hint"));
+        searchField.setPromptText(I18n.t("course.search", "تسجيل الحضور"));
+        nameField.setPromptText(I18n.t("course.name_hint", "تسجيل الحضور"));
+        scheduleField.setPromptText(I18n.t("course.schedule_none", "تسجيل الحضور"));
+        scheduleButton.setText(I18n.t("course.choose_schedule", "تسجيل الحضور"));
+        feeField.setPromptText(I18n.t("course.fee_hint", "تسجيل الحضور"));
 
         String selectedStatus = statusFilter.getValue();
-        ObservableList<String> statusOptions = FXCollections.observableArrayList(I18n.t("course.filter_all"));
+        ObservableList<String> statusOptions = FXCollections.observableArrayList(I18n.t("course.filter_all", "تسجيل الحضور"));
         for (CourseStatus status : CourseStatus.values()) {
             statusOptions.add(statusLabel(status));
         }
         statusFilter.setItems(statusOptions);
-        statusFilter.setValue(statusOptions.contains(selectedStatus) ? selectedStatus : I18n.t("course.filter_all"));
+        statusFilter.setValue(statusOptions.contains(selectedStatus) ? selectedStatus : I18n.t("course.filter_all", "تسجيل الحضور"));
     }
 
     public void render(BorderPane contentPane, Label pageTitleLabel) {
         refreshLocalizedControls();
-        pageTitleLabel.setText(I18n.t("course.title"));
+        pageTitleLabel.setText(I18n.t("course.title", "تسجيل الحضور"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label(I18n.t("course.subtitle"));
+        Label subtitle = new Label(I18n.t("course.subtitle", "تسجيل الحضور"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
         statusFilter.getStyleClass().add("filter-field");
         statusFilter.setPrefWidth(150);
 
-        Button addBtn = new Button("+  " + I18n.t("course.add"));
+        Button addBtn = new Button("+  " + I18n.t("course.add", "تسجيل الحضور"));
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> startCreate());
 
@@ -257,32 +257,32 @@ public class CoursesView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Course, String> name = new TableColumn<>(I18n.t("course.table.name"));
+        TableColumn<Course, String> name = new TableColumn<>(I18n.t("course.table.name", "تسجيل الحضور"));
         name.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getName()));
         name.setPrefWidth(170);
 
-        TableColumn<Course, String> teacher = new TableColumn<>(I18n.t("course.table.teacher"));
+        TableColumn<Course, String> teacher = new TableColumn<>(I18n.t("course.table.teacher", "تسجيل الحضور"));
         teacher.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getTeacher() == null ? "—" : teacherLabel(d.getValue().getTeacher())));
         teacher.setPrefWidth(150);
 
-        TableColumn<Course, String> classroom = new TableColumn<>(I18n.t("course.table.classroom"));
+        TableColumn<Course, String> classroom = new TableColumn<>(I18n.t("course.table.classroom", "تسجيل الحضور"));
         classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
 
-        TableColumn<Course, String> fee = new TableColumn<>(I18n.t("course.table.fee"));
+        TableColumn<Course, String> fee = new TableColumn<>(I18n.t("course.table.fee", "تسجيل الحضور"));
         fee.setCellValueFactory(d -> new ReadOnlyStringWrapper(formatFee(d.getValue().getMonthlyFee())));
 
-        TableColumn<Course, CourseStatus> status = new TableColumn<>(I18n.t("course.table.status"));
+        TableColumn<Course, CourseStatus> status = new TableColumn<>(I18n.t("course.table.status", "تسجيل الحضور"));
         status.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue().getStatus()));
         status.setCellFactory(col -> statusTableCell());
 
-        TableColumn<Course, Course> schedule = new TableColumn<>(I18n.t("course.table.schedule"));
+        TableColumn<Course, Course> schedule = new TableColumn<>(I18n.t("course.table.schedule", "تسجيل الحضور"));
         schedule.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         schedule.setCellFactory(col -> scheduleCell());
         schedule.setPrefWidth(240);
 
-        TableColumn<Course, Course> actions = new TableColumn<>(I18n.t("course.table.actions"));
+        TableColumn<Course, Course> actions = new TableColumn<>(I18n.t("course.table.actions", "تسجيل الحضور"));
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
         actions.setPrefWidth(110);
@@ -317,9 +317,9 @@ public class CoursesView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", I18n.t("course.view_students"));
-                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit"));
-                Button del = iconBtn("fth-trash-2", I18n.t("action.delete"));
+                Button view = iconBtn("fth-eye", I18n.t("course.view_students", "تسجيل الحضور"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit", "تسجيل الحضور"));
+                Button del = iconBtn("fth-trash-2", I18n.t("action.delete", "تسجيل الحضور"));
                 del.getStyleClass().add("icon-action-danger");
 
                 // "Voir" now opens the enrolled-students dialog instead of the edit form —
@@ -456,12 +456,18 @@ public class CoursesView {
                             .filter(c -> selected == null || selected.getId() == null
                                     || !selected.getId().equals(c.getId()))
                             .toList();
+                    String dayStart = settingService.get(ScheduleSettingsKeys.DAY_START, ScheduleSettingsKeys.DAY_START_DEFAULT);
+                    String dayEnd = settingService.get(ScheduleSettingsKeys.DAY_END, ScheduleSettingsKeys.DAY_END_DEFAULT);
+                    String breakStart = settingService.get(ScheduleSettingsKeys.REST_START, ScheduleSettingsKeys.REST_START_DEFAULT);
+                    String breakEnd = settingService.get(ScheduleSettingsKeys.REST_END, ScheduleSettingsKeys.REST_END_DEFAULT);
+                    List<TimeSlots.TimeBlock> blocks = TimeSlots.generateBlocks(dayStart, breakStart, breakEnd, dayEnd);
+                    
                     SchedulePickerDialog.show(
                                     scheduleButton.getScene() == null ? null : scheduleButton.getScene().getWindow(),
                                     scheduleField.getText(),
-                                    I18n.t("schedule.title"),
-                                    I18n.t("schedule.hint"),
-                                    teacher, others)
+                                    I18n.t("schedule.title", "تسجيل الحضور"),
+                                    I18n.t("schedule.hint", "تسجيل الحضور"),
+                                    teacher, others, blocks)
                             .ifPresent(scheduleField::setText);
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement des cours : " + err.getMessage())
@@ -533,22 +539,22 @@ public class CoursesView {
 
     private VBox buildForm() {
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("field.name"), nameField);
-        FormFactory.addRow(grid, 1, I18n.t("field.teacher"), teacherField);
-        FormFactory.addRow(grid, 2, I18n.t("field.classroom"), classroomField);
+        FormFactory.addRow(grid, 0, I18n.t("field.name", "تسجيل الحضور"), nameField);
+        FormFactory.addRow(grid, 1, I18n.t("field.teacher", "تسجيل الحضور"), teacherField);
+        FormFactory.addRow(grid, 2, I18n.t("field.classroom", "تسجيل الحضور"), classroomField);
         HBox scheduleRow = new HBox(8, scheduleField, scheduleButton);
         HBox.setHgrow(scheduleField, Priority.ALWAYS);
-        FormFactory.addRow(grid, 3, I18n.t("field.schedule"), scheduleRow);
-        FormFactory.addRow(grid, 4, I18n.t("course.table.fee"), feeField);
-        FormFactory.addRow(grid, 5, I18n.t("field.status"), statusField);
+        FormFactory.addRow(grid, 3, I18n.t("field.schedule", "تسجيل الحضور"), scheduleRow);
+        FormFactory.addRow(grid, 4, I18n.t("course.table.fee", "تسجيل الحضور"), feeField);
+        FormFactory.addRow(grid, 5, I18n.t("field.status", "تسجيل الحضور"), statusField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
-        Button clear = new Button("+ " + I18n.t("action.new"));
+        Button clear = new Button("+ " + I18n.t("action.new", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -567,7 +573,7 @@ public class CoursesView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel(I18n.t("course.details"), form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("course.details", "تسجيل الحضور"), form, this::closeForm);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
         if (wasAdded) {
@@ -707,8 +713,8 @@ public class CoursesView {
                 },
                 violations -> {
                     if (!violations.isEmpty()) {
-                        DialogUtil.error(I18n.t("schedule.validation.title"),
-                                I18n.t("schedule.validation.save_failed") + "\n\n" + String.join("\n", violations));
+                        DialogUtil.error(I18n.t("schedule.validation.title", "تسجيل الحضور"),
+                                I18n.t("schedule.validation.save_failed", "تسجيل الحضور") + "\n\n" + String.join("\n", violations));
                         return;
                     }
                     AsyncTasks.run(
@@ -758,7 +764,7 @@ public class CoursesView {
                             return false;
                         }
                     }
-                    if (statusVal != null && !I18n.t("course.filter_all").equals(statusVal)) {
+                    if (statusVal != null && !I18n.t("course.filter_all", "تسجيل الحضور").equals(statusVal)) {
                         if (!statusLabel(c.getStatus()).equals(statusVal)) return false;
                     }
                     return true;
@@ -772,8 +778,8 @@ public class CoursesView {
 
     private void updateFooter(List<Course> data) {
         double total = data.stream().mapToDouble(c -> c.getMonthlyFee() == null ? 0 : c.getMonthlyFee()).sum();
-        footerCountLabel.setText(I18n.t("course.total").replace("{0}", String.valueOf(data.size())));
-        footerTotalLabel.setText(I18n.t("course.monthly_income").replace("{0}", formatFee(total)));
+        footerCountLabel.setText(I18n.t("course.total", "تسجيل الحضور").replace("{0}", String.valueOf(data.size())));
+        footerTotalLabel.setText(I18n.t("course.monthly_income", "تسجيل الحضور").replace("{0}", formatFee(total)));
     }
 
     private void updateSummaryCards(List<Course> data) {
@@ -787,11 +793,11 @@ public class CoursesView {
         List<Course> withoutTeacher = data.stream().filter(c -> c.getTeacher() == null).toList();
 
         summaryCards.getChildren().addAll(
-                summaryCard("fth-book-open", String.valueOf(data.size()), I18n.t("course.total_summary"), "#0E7490", "#CFFAFE"),
-                summaryCard("fth-check-circle", String.valueOf(active.size()), I18n.t("course.active_summary"), "#15803D", "#DCFCE7"),
-                summaryCard("fth-dollar-sign", formatFee(totalFees), I18n.t("course.income_summary"), "#4338CA", "#EEF2FF"),
+                summaryCard("fth-book-open", String.valueOf(data.size()), I18n.t("course.total_summary", "تسجيل الحضور"), "#0E7490", "#CFFAFE"),
+                summaryCard("fth-check-circle", String.valueOf(active.size()), I18n.t("course.active_summary", "تسجيل الحضور"), "#15803D", "#DCFCE7"),
+                summaryCard("fth-dollar-sign", formatFee(totalFees), I18n.t("course.income_summary", "تسجيل الحضور"), "#4338CA", "#EEF2FF"),
                 summaryCard("fth-alert-circle", withoutSchedule.size() + " · " + withoutTeacher.size(),
-                        I18n.t("course.missing_summary"), "#D97706", "#FEF3C7")
+                        I18n.t("course.missing_summary", "تسجيل الحضور"), "#D97706", "#FEF3C7")
         );
         for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
     }
@@ -851,10 +857,10 @@ public class CoursesView {
     private String statusLabel(CourseStatus status) {
         if (status == null) return "—";
         return switch (status.name()) {
-            case "ACTIVE" -> I18n.t("course.status.active");
-            case "INACTIVE" -> I18n.t("course.status.inactive");
-            case "SUSPENDED" -> I18n.t("course.status.suspended");
-            case "ARCHIVED" -> I18n.t("course.status.archived");
+            case "ACTIVE" -> I18n.t("course.status.active", "تسجيل الحضور");
+            case "INACTIVE" -> I18n.t("course.status.inactive", "تسجيل الحضور");
+            case "SUSPENDED" -> I18n.t("course.status.suspended", "تسجيل الحضور");
+            case "ARCHIVED" -> I18n.t("course.status.archived", "تسجيل الحضور");
             default -> status.name();
         };
     }

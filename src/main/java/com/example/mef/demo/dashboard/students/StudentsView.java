@@ -128,12 +128,12 @@ public class StudentsView {
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onEnrollNew) {
         this.onEnrollNew = onEnrollNew;
         refreshTranslations();
-        pageTitleLabel.setText(I18n.t("students.title"));
+        pageTitleLabel.setText(I18n.t("students.title", "تسجيل الحضور"));
 
         buildColumns();
         wireRowDoubleClick();
 
-        Label subtitle = new Label(I18n.t("students.subtitle"));
+        Label subtitle = new Label(I18n.t("students.subtitle", "تسجيل الحضور"));
         subtitle.getStyleClass().add("page-subtitle");
 
         searchField.getStyleClass().add("filter-field");
@@ -144,15 +144,15 @@ public class StudentsView {
         categoryFilter.getStyleClass().add("filter-field");
         categoryFilter.setPrefWidth(140);
         dobField.getStyleClass().add("filter-field");
-        Button add = new Button("+  " + I18n.t("students.add"));
+        Button add = new Button("+  " + I18n.t("students.add", "تسجيل الحضور"));
         add.getStyleClass().add("primary-button");
         add.setOnAction(e -> startCreate());
 
-        Button wizard = new Button(I18n.t("students.enrollment_assistant"));
+        Button wizard = new Button(I18n.t("students.enrollment_assistant", "تسجيل الحضور"));
         wizard.getStyleClass().add("link-button");
         wizard.setOnAction(e -> this.onEnrollNew.run());
 
-        HBox filters = new HBox(10, genderFilter, categoryFilter, classFilter, searchField);
+        HBox filters = new HBox(10, categoryFilter, classFilter, genderFilter, searchField);
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
@@ -217,48 +217,56 @@ public class StudentsView {
     private void buildColumns() {
         table.getColumns().clear();
 
-        TableColumn<Student, Student> child = new TableColumn<>(I18n.t("students.table.child"));
+        // With CONSTRAINED_RESIZE_POLICY, only use setMinWidth/setMaxWidth — not setPrefWidth.
+        // setPrefWidth combined with a maxWidth on only one column leaves dead space on the right.
+
+        TableColumn<Student, Student> child = new TableColumn<>(I18n.t("students.table.child", "الطفل"));
         child.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         child.setCellFactory(col -> childCell());
-        child.setPrefWidth(240);
+        child.setMinWidth(200);
 
-        TableColumn<Student, String> age = new TableColumn<>(I18n.t("students.table.age"));
+        TableColumn<Student, String> age = new TableColumn<>(I18n.t("students.table.age", "العمر"));
         age.setCellValueFactory(d -> new ReadOnlyStringWrapper(ageLabel(d.getValue())));
         age.setCellFactory(col -> pillCell("#EEF2FF", "#4338CA"));
-        age.setPrefWidth(90);
+        age.setMinWidth(75);
+        age.setMaxWidth(110);
 
-        TableColumn<Student, String> section = new TableColumn<>(I18n.t("students.table.section"));
+        TableColumn<Student, String> section = new TableColumn<>(I18n.t("students.table.section", "القسم"));
         section.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 classroomNameByStudentId.get(d.getValue().getId())));
         section.setCellFactory(col -> dashIfBlankCell());
-        section.setPrefWidth(120);
+        section.setMinWidth(100);
+        section.setMaxWidth(160);
 
-        TableColumn<Student, String> category = new TableColumn<>(I18n.t("students.table.category"));
+        TableColumn<Student, String> category = new TableColumn<>(I18n.t("students.table.category", "الفئة"));
         category.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 categoryLabel(classroomCategoryByStudentId.get(d.getValue().getId()))));
         category.setCellFactory(col -> dashIfBlankCell());
-        category.setPrefWidth(110);
+        category.setMinWidth(90);
+        category.setMaxWidth(150);
 
-        TableColumn<Student, String> groupage = new TableColumn<>(I18n.t("students.table.blood_group"));
+        TableColumn<Student, String> groupage = new TableColumn<>(I18n.t("students.table.blood_group", "فصيلة الدم"));
         groupage.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 d.getValue().getBloodType() == null ? "" : d.getValue().getBloodType().getLabel()));
         groupage.setCellFactory(col -> bloodCell());
-        groupage.setPrefWidth(100);
+        groupage.setMinWidth(90);
+        groupage.setMaxWidth(130);
 
-        TableColumn<Student, String> inscription = new TableColumn<>(I18n.t("students.table.enrollment"));
+        TableColumn<Student, String> inscription = new TableColumn<>(I18n.t("students.table.enrollment", "التسجيل"));
         inscription.setCellValueFactory(d -> new ReadOnlyStringWrapper(
                 DateUtil.localizedShort(d.getValue().getEnrollmentDate())));
-        inscription.setPrefWidth(110);
+        inscription.setMinWidth(100);
+        inscription.setMaxWidth(150);
 
-        TableColumn<Student, String> notes = new TableColumn<>(I18n.t("students.table.medical_information"));
+        TableColumn<Student, String> notes = new TableColumn<>(I18n.t("students.table.medical_information", "المعلومات الطبية"));
         notes.setCellValueFactory(d -> new ReadOnlyStringWrapper(d.getValue().getNotes()));
         notes.setCellFactory(col -> dashIfBlankCell());
-        notes.setPrefWidth(160);
+        notes.setMinWidth(130);
 
-        TableColumn<Student, Student> actions = new TableColumn<>(I18n.t("students.table.actions"));
+        TableColumn<Student, Student> actions = new TableColumn<>(I18n.t("students.table.actions", "الإجراءات"));
         actions.setCellValueFactory(d -> new ReadOnlyObjectWrapper<>(d.getValue()));
         actions.setCellFactory(col -> actionCell());
-        actions.setPrefWidth(110);
+        actions.setMinWidth(100);
         actions.setMaxWidth(120);
 
         table.getColumns().addAll(List.of(child, age, section, category, groupage, inscription, notes, actions));
@@ -333,9 +341,9 @@ public class StudentsView {
                     setGraphic(null);
                     return;
                 }
-                Button view = iconBtn("fth-eye", I18n.t("action.view"));
-                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit"));
-                Button del = iconBtn("fth-trash-2", I18n.t("action.delete"));
+                Button view = iconBtn("fth-eye", I18n.t("action.view", "تسجيل الحضور"));
+                Button edit = iconBtn("fth-edit-2", I18n.t("action.edit", "تسجيل الحضور"));
+                Button del = iconBtn("fth-trash-2", I18n.t("action.delete", "تسجيل الحضور"));
                 del.getStyleClass().add("icon-action-danger");
 
                 view.setOnAction(e -> { table.getSelectionModel().select(item); selectRow(item); });
@@ -360,15 +368,15 @@ public class StudentsView {
     }
 
     private static String genderLabel(Sexe gender) {
-        return gender == Sexe.FEMALE ? I18n.t("gender.female") : gender == Sexe.MALE ? I18n.t("gender.male") : "—";
+        return gender == Sexe.FEMALE ? I18n.t("gender.female", "تسجيل الحضور") : gender == Sexe.MALE ? I18n.t("gender.male", "تسجيل الحضور") : "—";
     }
 
     private String categoryLabel(Category category) {
         if (category == null) return "";
         return switch (category) {
-            case CRECHE -> I18n.t("category.creche");
-            case PREPARATOIRE -> I18n.t("category.preparatoire");
-            case SOUTIEN -> I18n.t("category.soutien");
+            case CRECHE -> I18n.t("category.creche", "تسجيل الحضور");
+            case PREPARATOIRE -> I18n.t("category.preparatoire", "تسجيل الحضور");
+            case SOUTIEN -> I18n.t("category.soutien", "تسجيل الحضور");
         };
     }
 
@@ -387,9 +395,9 @@ public class StudentsView {
     private String ageLabel(Student s) {
         if (s.getDateOfBirth() == null) return "—";
         Period p = Period.between(s.getDateOfBirth().toLocalDate(), LocalDate.now());
-        if (p.getYears() > 0) return p.getYears() + " " + I18n.t("students.table.years");
-        if (p.getMonths() > 0) return p.getMonths() + " " + I18n.t("students.table.months");
-        return p.getDays() + " " + I18n.t("students.table.days");
+        if (p.getYears() > 0) return p.getYears() + " " + I18n.t("students.table.years", "تسجيل الحضور");
+        if (p.getMonths() > 0) return p.getMonths() + " " + I18n.t("students.table.months", "تسجيل الحضور");
+        return p.getDays() + " " + I18n.t("students.table.days", "تسجيل الحضور");
     }
 
     private VBox buildForm() {
@@ -397,25 +405,25 @@ public class StudentsView {
         enrollmentDateValue.getStyleClass().add("field-label");
 
         GridPane grid = FormFactory.sectionGrid();
-        FormFactory.addRow(grid, 0, I18n.t("students.form.number"), studentNumberValue);
-        FormFactory.addRow(grid, 1, I18n.t("field.first_name"), firstNameField);
-        FormFactory.addRow(grid, 2, I18n.t("field.last_name"), lastNameField);
-        FormFactory.addRow(grid, 3, I18n.t("field.gender"), genderField);
-        FormFactory.addRow(grid, 4, I18n.t("field.date_of_birth"), dobField);
-        FormFactory.addRow(grid, 5, I18n.t("students.form.enrollment_date"), enrollmentDateValue);
-        FormFactory.addRow(grid, 6, I18n.t("field.blood_group"), bloodTypeField);
-        FormFactory.addRow(grid, 7, I18n.t("field.medical_info"), medicalInfoField);
-        FormFactory.addRow(grid, 8, I18n.t("students.form.notes"), notesField);
+        FormFactory.addRow(grid, 0, I18n.t("students.form.number", "تسجيل الحضور"), studentNumberValue);
+        FormFactory.addRow(grid, 1, I18n.t("field.first_name", "تسجيل الحضور"), firstNameField);
+        FormFactory.addRow(grid, 2, I18n.t("field.last_name", "تسجيل الحضور"), lastNameField);
+        FormFactory.addRow(grid, 3, I18n.t("field.gender", "تسجيل الحضور"), genderField);
+        FormFactory.addRow(grid, 4, I18n.t("field.date_of_birth", "تسجيل الحضور"), dobField);
+        FormFactory.addRow(grid, 5, I18n.t("students.form.enrollment_date", "تسجيل الحضور"), enrollmentDateValue);
+        FormFactory.addRow(grid, 6, I18n.t("field.blood_group", "تسجيل الحضور"), bloodTypeField);
+        FormFactory.addRow(grid, 7, I18n.t("field.medical_info", "تسجيل الحضور"), medicalInfoField);
+        FormFactory.addRow(grid, 8, I18n.t("students.form.notes", "تسجيل الحضور"), notesField);
 
-        Button save = new Button(I18n.t("action.save"));
+        Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
         save.setOnAction(e -> save());
 
-        Button clear = new Button("+ " + I18n.t("action.new"));
+        Button clear = new Button("+ " + I18n.t("action.new", "تسجيل الحضور"));
         clear.getStyleClass().add("secondary-button");
         clear.setOnAction(e -> startCreate());
 
-        Button delete = new Button(I18n.t("action.delete"));
+        Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور"));
         delete.getStyleClass().add("danger-button");
         delete.setOnAction(e -> delete());
 
@@ -434,7 +442,7 @@ public class StudentsView {
 
     private void showFormPanel() {
         if (floatingForm == null) {
-            floatingForm = new FloatingPanel(I18n.t("students.form.details"), form, this::closeForm);
+            floatingForm = new FloatingPanel(I18n.t("students.form.details", "تسجيل الحضور"), form, this::closeForm);
             floatingForm.setPrefWidth(450);
         }
         boolean wasAdded = !overlay.getChildren().contains(floatingForm);
@@ -667,7 +675,7 @@ public class StudentsView {
 
     private void updateFooter(List<Student> data) {
         footerCountLabel.setText(data.size() + " " + I18n.t(
-                data.size() > 1 ? "students.table.count_plural" : "students.table.count_singular"));
+                data.size() > 1 ? "students.table.count_plural" : "students.table.count_singular", "تسجيل الحضور"));
     }
 
     private void updateSummaryCards(List<Student> data) {
@@ -688,11 +696,11 @@ public class StudentsView {
     }
 
     private void refreshTranslations() {
-        searchField.setPromptText(I18n.t("students.search"));
-        firstNameField.setPromptText(I18n.t("field.first_name"));
-        lastNameField.setPromptText(I18n.t("field.last_name"));
-        medicalInfoField.setPromptText(I18n.t("field.medical_info"));
-        notesField.setPromptText(I18n.t("students.form.notes"));
+        searchField.setPromptText(I18n.t("students.search", "تسجيل الحضور"));
+        firstNameField.setPromptText(I18n.t("field.first_name", "تسجيل الحضور"));
+        lastNameField.setPromptText(I18n.t("field.last_name", "تسجيل الحضور"));
+        medicalInfoField.setPromptText(I18n.t("field.medical_info", "تسجيل الحضور"));
+        notesField.setPromptText(I18n.t("students.form.notes", "تسجيل الحضور"));
     }
 
     private HBox summaryCard(String icon, String value, String label, String accent, String bg) {

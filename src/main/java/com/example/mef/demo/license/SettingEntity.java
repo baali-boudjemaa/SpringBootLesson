@@ -10,10 +10,10 @@ import jakarta.persistence.Table;
 public class SettingEntity {
 
     @Id
-    @Column(name = "key", nullable = false, updatable = false)
+    @Column(name = "\"key\"", nullable = false, updatable = false)
     private String key;
 
-    @Column(name = "value", length = 2000)
+    @Column(name = "\"value\"", length = 2000)
     private String value;
 
     protected SettingEntity() {
