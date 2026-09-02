@@ -7,10 +7,13 @@ import com.example.mef.demo.Model.Student;
 import com.example.mef.demo.Services.ClassroomService;
 import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.EnrollmentService;
+import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.Services.StudentService;
+import com.example.mef.demo.Services.EnrollmentSettingsKeys;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
 import com.example.mef.demo.dashboard.common.FormFactory;
 import com.example.mef.demo.dashboard.common.TableStyleKit;
+import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.enums.EnrollmentStatus;
 import com.example.mef.demo.enums.SessionName;
 import com.example.mef.demo.util.DialogUtil;
@@ -21,9 +24,11 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ScrollPane;
@@ -38,8 +43,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +63,15 @@ public class EnrollmentsView {
     private final StudentService studentService;
     private final ClassroomService classroomService;
     private final CourseService courseService;
+    private final SettingService settingService;
+
+    // Per-category age rules (نفس القيم المستخدمة في معالج التسجيل), loaded once in render().
+    private int crecheMinAge;
+    private int crecheMaxAge;
+    private int preparatoireMinAge;
+    private int preparatoireMaxAge;
+    private int soutienMinAge;
+    private int soutienMaxAge;
 
     private final ObservableList<Inscription> allRows = FXCollections.observableArrayList();
     private final ObservableList<Inscription> rows = FXCollections.observableArrayList();
@@ -69,12 +87,19 @@ public class EnrollmentsView {
     private final ComboBox<Student> studentField = new ComboBox<>();
     private final ComboBox<Classroom> classroomField = new ComboBox<>();
     private final ComboBox<SessionName> sessionField = new ComboBox<>(FXCollections.observableArrayList(SessionName.values()));
+    /** Label for {@link #sessionField}, kept as a field so both can be hidden together
+     *  for Soutien (دعم) classrooms, which have no notion of "نوع الحصة". */
+    private final Label sessionFieldLabel = new Label();
     private final ComboBox<EnrollmentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(EnrollmentStatus.values()));
 
     /** One checkable chip per Course; a student can attend any number of them at once. */
     private final FlowPane coursesBox = new FlowPane(8, 8);
     private final List<CheckBox> courseChecks = new ArrayList<>();
     private final Label totalCostValue = new Label("—");
+    /** "الدروس" block (label + chips) and the total-cost row, kept as fields so they can be
+     *  hidden together: only دعم (Soutien) classrooms have courses — حضانة/تحضيري never do. */
+    private VBox coursesBlock;
+    private HBox totalCostRow;
 
     /** Full course catalog as loaded from the server; buildCourseChips() renders a filtered subset of this. */
     private final List<Course> allCourses = new ArrayList<>();
@@ -85,11 +110,13 @@ public class EnrollmentsView {
     private Runnable onNewEnrollmentWizard;
 
     public EnrollmentsView(EnrollmentService enrollmentService, StudentService studentService,
-                           ClassroomService classroomService, CourseService courseService) {
+                           ClassroomService classroomService, CourseService courseService,
+                           SettingService settingService) {
         this.enrollmentService = enrollmentService;
         this.studentService = studentService;
         this.classroomService = classroomService;
         this.courseService = courseService;
+        this.settingService = settingService;
         studentField.setMaxWidth(Double.MAX_VALUE);
         classroomField.setMaxWidth(Double.MAX_VALUE);
         sessionField.setMaxWidth(Double.MAX_VALUE);
@@ -117,7 +144,7 @@ public class EnrollmentsView {
         classroomField.setConverter(new javafx.util.StringConverter<Classroom>() {
             @Override
             public String toString(Classroom c) {
-                return c == null ? "" : c.getName();
+                return c == null ? "" : classroomWithCategoryLabel(c);
             }
 
             @Override
@@ -131,10 +158,30 @@ public class EnrollmentsView {
         statusField.setCellFactory(cb -> enrollmentStatusListCell());
         statusField.setButtonCell(enrollmentStatusListCell());
 
-        // Whenever the selected classroom changes, rebuild the course chips
-        // to show only the courses that belong to that classroom.
-        classroomField.valueProperty().addListener((obs, oldClass, newClass) ->
-                buildCourseChips(filterCoursesForSelectedClassroom()));
+        // Whenever the selected classroom changes, rebuild the course chips to show only
+        // the courses that belong to that classroom, and show/hide two blocks that only
+        // apply to Soutien (دعم) classrooms: the "نوع الحصة" field (no session type outside
+        // Soutien) and the "الدروس" block (only Soutien classrooms have courses at all —
+        // حضانة and تحضيري never do).
+        classroomField.valueProperty().addListener((obs, oldClass, newClass) -> {
+            buildCourseChips(filterCoursesForSelectedClassroom());
+            boolean isSoutien = newClass != null && newClass.getCategory() == Category.SOUTIEN;
+            sessionFieldLabel.setVisible(!isSoutien);
+            sessionFieldLabel.setManaged(!isSoutien);
+            sessionField.setVisible(!isSoutien);
+            sessionField.setManaged(!isSoutien);
+            if (isSoutien) {
+                sessionField.setValue(null);
+            }
+            if (coursesBlock != null) {
+                coursesBlock.setVisible(isSoutien);
+                coursesBlock.setManaged(isSoutien);
+            }
+            if (totalCostRow != null) {
+                totalCostRow.setVisible(isSoutien);
+                totalCostRow.setManaged(isSoutien);
+            }
+        });
     }
 
     private ListCell<Student> studentCell() {
@@ -152,8 +199,48 @@ public class EnrollmentsView {
             @Override
             protected void updateItem(Classroom item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? "" : item.getName());
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    setText(classroomWithCategoryLabel(item));
+                    setGraphic(categoryDot(item.getCategory()));
+                    setContentDisplay(ContentDisplay.LEFT);
+                    setGraphicTextGap(8);
+                }
             }
+        };
+    }
+
+    private String categoryLabel(Category category) {
+        return switch (category) {
+            case CRECHE -> I18n.t("category.creche", "تسجيل الحضور");
+            case PREPARATOIRE -> I18n.t("category.preparatoire", "تسجيل الحضور");
+            case SOUTIEN -> I18n.t("category.soutien", "تسجيل الحضور");
+        };
+    }
+
+    /** "اسم القسم — نوع الفئة", used both in the table's "القسم" column and the form combo. */
+    private String classroomWithCategoryLabel(Classroom classroom) {
+        if (classroom == null) return "—";
+        return classroom.getCategory() == null
+                ? classroom.getName()
+                : classroom.getName() + "  —  " + categoryLabel(classroom.getCategory());
+    }
+
+    /** Small colored dot showing a classroom's category (نوع الفئة), used next to its name. */
+    private Node categoryDot(Category category) {
+        Circle dot = new Circle(4);
+        dot.setFill(Color.web(categoryColorHex(category)));
+        return dot;
+    }
+
+    private String categoryColorHex(Category category) {
+        if (category == null) return "#94A3B8"; // no category set → neutral grey
+        return switch (category) {
+            case CRECHE -> "#EC4899";        // pink — حضانة
+            case PREPARATOIRE -> "#2563EB";  // blue — تحضيري
+            case SOUTIEN -> "#10B981";       // green — دعم
         };
     }
 
@@ -252,10 +339,9 @@ public class EnrollmentsView {
         student.setPrefWidth(220);
 
         TableColumn<Inscription, String> classroom = new TableColumn<>(I18n.t("enrollment.table.classroom", "تسجيل الحضور"));
-        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(
-                d.getValue().getClassroom() == null ? "—" : d.getValue().getClassroom().getName()));
+        classroom.setCellValueFactory(d -> new ReadOnlyStringWrapper(classroomWithCategoryLabel(d.getValue().getClassroom())));
         classroom.setCellFactory(col -> dashIfBlankCell());
-        classroom.setPrefWidth(130);
+        classroom.setPrefWidth(170);
 
         TableColumn<Inscription, String> session = new TableColumn<>(I18n.t("enrollment.table.session", "تسجيل الحضور"));
         session.setCellValueFactory(d -> new ReadOnlyStringWrapper(
@@ -281,8 +367,8 @@ public class EnrollmentsView {
     private String sessionLabel(SessionName session) {
         return switch (session.name()) {
             case "MATINEE" -> I18n.t("session.matinee", "تسجيل الحضور");
+            case "MATINEE_AVEC_REPAS" -> I18n.t("session.matinee_avec_repas", "تسجيل الحضور");
             case "JOURNEE_COMPLETE" -> I18n.t("session.journee_complete", "تسجيل الحضور");
-            case "PERISCOLAIRE" -> I18n.t("session.periscolaire", "تسجيل الحضور");
             default -> session.name();
         };
     }
@@ -290,7 +376,8 @@ public class EnrollmentsView {
     private String enrollmentStatusLabel(EnrollmentStatus status) {
         return switch (status.name()) {
             case "ACTIVE" -> I18n.t("status.active", "تسجيل الحضور");
-            case "INACTIVE" -> I18n.t("status.inactive", "تسجيل الحضور");
+            case "COMPLETED" -> I18n.t("status.completed", "تسجيل الحضور");
+            case "DROPPED" -> I18n.t("status.dropped", "تسجيل الحضور");
             default -> status.name();
         };
     }
@@ -394,6 +481,24 @@ public class EnrollmentsView {
                     buildCourseChips(filterCoursesForSelectedClassroom());
                 },
                 err -> DialogUtil.error("Erreur", "Échec du chargement des cours : " + err.getMessage()));
+        AsyncTasks.run(
+                () -> new int[]{
+                        settingService.getInt(EnrollmentSettingsKeys.CRECHE_MIN_AGE, EnrollmentSettingsKeys.CRECHE_MIN_AGE_DEFAULT),
+                        settingService.getInt(EnrollmentSettingsKeys.CRECHE_MAX_AGE, EnrollmentSettingsKeys.CRECHE_MAX_AGE_DEFAULT),
+                        settingService.getInt(EnrollmentSettingsKeys.PREPARATOIRE_MIN_AGE, EnrollmentSettingsKeys.PREPARATOIRE_MIN_AGE_DEFAULT),
+                        settingService.getInt(EnrollmentSettingsKeys.PREPARATOIRE_MAX_AGE, EnrollmentSettingsKeys.PREPARATOIRE_MAX_AGE_DEFAULT),
+                        settingService.getInt(EnrollmentSettingsKeys.SOUTIEN_MIN_AGE, EnrollmentSettingsKeys.SOUTIEN_MIN_AGE_DEFAULT),
+                        settingService.getInt(EnrollmentSettingsKeys.SOUTIEN_MAX_AGE, EnrollmentSettingsKeys.SOUTIEN_MAX_AGE_DEFAULT),
+                },
+                ages -> {
+                    crecheMinAge = ages[0];
+                    crecheMaxAge = ages[1];
+                    preparatoireMinAge = ages[2];
+                    preparatoireMaxAge = ages[3];
+                    soutienMinAge = ages[4];
+                    soutienMaxAge = ages[5];
+                },
+                err -> DialogUtil.error("Erreur", "Échec du chargement des règles d'âge : " + err.getMessage()));
     }
 
     /** Returns only the courses belonging to the currently selected classroom, or all courses if none is selected. */
@@ -419,8 +524,8 @@ public class EnrollmentsView {
 
         if (courses.isEmpty()) {
             Label none = new Label(classroomField.getValue() == null
-                    ? "Aucun cours disponible."
-                    : "Aucun cours pour cette classe.");
+                    ? I18n.t("enrollment.no_courses_available", "تسجيل الحضور")
+                    : I18n.t("ewizard.no_courses_for_classroom", "تسجيل الحضور"));
             none.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 12px;");
             coursesBox.getChildren().add(none);
             updateTotalCost();
@@ -460,7 +565,10 @@ public class EnrollmentsView {
         GridPane grid = FormFactory.sectionGrid();
         FormFactory.addRow(grid, 0, I18n.t("field.student", "تسجيل الحضور"), studentField);
         FormFactory.addRow(grid, 1, I18n.t("field.classroom", "تسجيل الحضور"), classroomField);
-        FormFactory.addRow(grid, 2, I18n.t("field.session", "تسجيل الحضور"), sessionField);
+        sessionFieldLabel.setText(I18n.t("field.session", "تسجيل الحضور"));
+        grid.add(sessionFieldLabel, 0, 2);
+        grid.add(sessionField, 1, 2);
+        GridPane.setHgrow(sessionField, Priority.ALWAYS);
         FormFactory.addRow(grid, 3, I18n.t("field.status", "تسجيل الحضور"), statusField);
 
         // --- Cours: built as its own block, not through the 2-col grid row ---
@@ -473,10 +581,18 @@ public class EnrollmentsView {
         coursesScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         VBox coursesBlock = new VBox(6, coursesLabel, coursesScroll);
+        this.coursesBlock = coursesBlock;
+        // Hidden by default; the classroomField listener reveals this only for a
+        // selected دعم (Soutien) classroom.
+        coursesBlock.setVisible(false);
+        coursesBlock.setManaged(false);
         // -----------------------------------------------------------------
 
         HBox totalCostRow = new HBox(8, new Label(I18n.t("enrollment.cost", "تسجيل الحضور")), totalCostValue);
         totalCostRow.setAlignment(Pos.CENTER_LEFT);
+        this.totalCostRow = totalCostRow;
+        totalCostRow.setVisible(false);
+        totalCostRow.setManaged(false);
 
         Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
         save.getStyleClass().add("primary-button");
@@ -546,7 +662,12 @@ public class EnrollmentsView {
 
     private void save() {
         if (studentField.getValue() == null || classroomField.getValue() == null) {
-            DialogUtil.error("Champs requis", "L'élève et la classe sont obligatoires.");
+            DialogUtil.error(I18n.t("dialog.required_fields", "تسجيل الحضور"), I18n.t("enrollment.student_classroom_required", "تسجيل الحضور"));
+            return;
+        }
+        String ageError = checkAgeMatchesCategory(studentField.getValue(), classroomField.getValue());
+        if (ageError != null) {
+            DialogUtil.error(I18n.t("ewizard.title", "تسجيل الحضور"), ageError);
             return;
         }
         Inscription inscription = selected != null ? selected : new Inscription();
@@ -566,9 +687,60 @@ public class EnrollmentsView {
         );
     }
 
+    /**
+     * Mirrors the per-category age rules enforced in EnrollmentWizard (step 2), so that
+     * editing/creating an enrollment directly from this screen can't bypass them —
+     * e.g. an infant (رضيع) cannot be enrolled in a دعم (Soutien) classroom.
+     * Returns a translated error message, or null when the age is acceptable
+     * (including when the student has no date of birth on file, which we don't block on).
+     */
+    private String checkAgeMatchesCategory(Student student, Classroom classroom) {
+        if (student.getDateOfBirth() == null || classroom.getCategory() == null) {
+            return null;
+        }
+        LocalDate dob = student.getDateOfBirth().toLocalDate();
+        int age = Period.between(dob, LocalDate.now()).getYears();
+        Category cat = classroom.getCategory();
+        if (cat == Category.CRECHE) {
+            if (crecheMinAge > 0 && age < crecheMinAge) {
+                return I18n.t("ewizard.category_age_min", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.creche", "تسجيل الحضور"))
+                        .replace("{min}", String.valueOf(crecheMinAge));
+            }
+            if (crecheMaxAge > 0 && age > crecheMaxAge) {
+                return I18n.t("ewizard.category_age_max", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.creche", "تسجيل الحضور"))
+                        .replace("{max}", String.valueOf(crecheMaxAge));
+            }
+        } else if (cat == Category.PREPARATOIRE) {
+            if (preparatoireMinAge > 0 && age < preparatoireMinAge) {
+                return I18n.t("ewizard.category_age_min", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.preparatoire", "تسجيل الحضور"))
+                        .replace("{min}", String.valueOf(preparatoireMinAge));
+            }
+            if (preparatoireMaxAge > 0 && age >= preparatoireMaxAge) {
+                return I18n.t("ewizard.category_age_max_exclusive", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.preparatoire", "تسجيل الحضور"))
+                        .replace("{max}", String.valueOf(preparatoireMaxAge));
+            }
+        } else if (cat == Category.SOUTIEN) {
+            if (soutienMinAge > 0 && age <= soutienMinAge) {
+                return I18n.t("ewizard.category_age_min_exclusive", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.soutien", "تسجيل الحضور"))
+                        .replace("{min}", String.valueOf(soutienMinAge));
+            }
+            if (soutienMaxAge > 0 && age > soutienMaxAge) {
+                return I18n.t("ewizard.category_age_max", "تسجيل الحضور")
+                        .replace("{category}", I18n.t("category.soutien", "تسجيل الحضور"))
+                        .replace("{max}", String.valueOf(soutienMaxAge));
+            }
+        }
+        return null;
+    }
+
     private void delete() {
         if (selected == null) return;
-        if (!DialogUtil.confirm("Confirmer", "Supprimer cette inscription ?")) return;
+        if (!DialogUtil.confirm(I18n.t("dialog.confirm", "تسجيل الحضور"), I18n.t("enrollment.delete_confirm", "تسجيل الحضور"))) return;
         String id = selected.getId();
         AsyncTasks.run(
                 () -> enrollmentService.delete(id),

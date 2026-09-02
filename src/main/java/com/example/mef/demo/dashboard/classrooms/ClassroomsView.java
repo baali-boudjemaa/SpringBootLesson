@@ -13,7 +13,10 @@ import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.RoomService;
 import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
+import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
+import com.example.mef.demo.dashboard.common.TimeSlots;
+import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
 import com.example.mef.demo.util.I18n;
@@ -65,6 +68,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -109,7 +113,7 @@ public class ClassroomsView {
         String dayEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END_DEFAULT);
         String breakStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START_DEFAULT);
         String breakEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END_DEFAULT);
-        
+
         List<com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock> blocks = com.example.mef.demo.dashboard.common.TimeSlots.generateBlocks(dayStart, breakStart, breakEnd, dayEnd);
         return blocks.stream().map(b -> {
             String startLabel = b.isBreak() ? "" : (b.startMinutes() / 60) + "h" + (b.startMinutes() % 60 == 0 ? "" : String.format("%02d", b.startMinutes() % 60));
@@ -138,6 +142,82 @@ public class ClassroomsView {
         categoryField.setCellFactory(cb -> categoryCell());
         categoryField.setButtonCell(categoryCell());
 
+        // Days & hours the section receives students (ايام وساعات حضور القسم),
+        // picked through the same interactive weekly-grid dialog used for
+        // teacher availability. The grid allows different hours per cell, but
+        // since ScheduleValidator only enforces a single uniform daily window
+        // per classroom (attendanceDays + periodStartTime/periodEndTime), the
+        // selection is collapsed to that shape as soon as the dialog closes.
+        TextField attendanceSummaryField = FormFactory.textField(I18n.t("classroom.no_attendance_schedule", "تسجيل الحضور"));
+        attendanceSummaryField.setEditable(false);
+        attendanceSummaryField.setFocusTraversable(false);
+        HBox.setHgrow(attendanceSummaryField, Priority.ALWAYS);
+        Button attendanceButton = new Button(I18n.t("teachers.form.choose", "تسجيل الحضور"));
+        attendanceButton.getStyleClass().add("secondary-button");
+        HBox attendanceRow = new HBox(6, attendanceSummaryField, attendanceButton);
+        attendanceRow.setAlignment(Pos.CENTER_LEFT);
+        // Holds the classroom's current attendance window as "Lundi 08:00-17:00; Mardi 08:00-17:00; ..."
+        // (all selected days share one range) so the dialog can be reopened pre-filled.
+        String[] currentAttendanceSchedule = {""};
+
+        Runnable updateAttendanceSummary = () -> {
+            if (currentAttendanceSchedule[0] == null || currentAttendanceSchedule[0].isBlank()) {
+                attendanceSummaryField.setText(I18n.t("classroom.no_attendance_schedule", "تسجيل الحضور"));
+                return;
+            }
+            List<ScheduleValidator.Slot> slots = ScheduleValidator.parse(currentAttendanceSchedule[0]);
+            if (slots.isEmpty()) {
+                attendanceSummaryField.setText(I18n.t("classroom.no_attendance_schedule", "تسجيل الحضور"));
+                return;
+            }
+            String days = slots.stream().map(ScheduleValidator.Slot::day).distinct()
+                    .map(this::classroomDayLabel).collect(Collectors.joining("، "));
+            ScheduleValidator.Slot first = slots.get(0);
+            String hours = TimeSlots.slots(LocalTime.of(0, 0), LocalTime.of(0, 0)).isEmpty() ? "" : "";
+            String range = String.format("%02d:%02d–%02d:%02d",
+                    first.startMinutes() / 60, first.startMinutes() % 60,
+                    first.endMinutes() / 60, first.endMinutes() % 60);
+            attendanceSummaryField.setText(days + "  ·  " + range);
+        };
+
+        attendanceButton.setOnAction(e -> {
+            String dayStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_START_DEFAULT);
+            String dayEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END, com.example.mef.demo.Services.ScheduleSettingsKeys.DAY_END_DEFAULT);
+            String breakStart = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_START_DEFAULT);
+            String breakEnd = settingService.get(com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END, com.example.mef.demo.Services.ScheduleSettingsKeys.REST_END_DEFAULT);
+            List<com.example.mef.demo.dashboard.common.TimeSlots.TimeBlock> blocks =
+                    com.example.mef.demo.dashboard.common.TimeSlots.generateBlocks(dayStart, breakStart, breakEnd, dayEnd);
+
+            SchedulePickerDialog.show(
+                    attendanceButton.getScene() == null ? null : attendanceButton.getScene().getWindow(),
+                    currentAttendanceSchedule[0],
+                    I18n.t("availability.classroom_title", "تسجيل الحضور"),
+                    I18n.t("classroom.availability_hint", "تسجيل الحضور"),
+                    blocks
+            ).ifPresent(result -> {
+                List<ScheduleValidator.Slot> picked = ScheduleValidator.parse(result);
+                if (picked.isEmpty()) {
+                    currentAttendanceSchedule[0] = "";
+                } else {
+                    java.util.LinkedHashSet<String> days = new java.util.LinkedHashSet<>();
+                    int minStart = Integer.MAX_VALUE, maxEnd = Integer.MIN_VALUE;
+                    for (ScheduleValidator.Slot slot : picked) {
+                        days.add(slot.day());
+                        minStart = Math.min(minStart, slot.startMinutes());
+                        maxEnd = Math.max(maxEnd, slot.endMinutes());
+                    }
+                    String range = String.format("%02d:%02d-%02d:%02d",
+                            minStart / 60, minStart % 60, maxEnd / 60, maxEnd % 60);
+                    currentAttendanceSchedule[0] = days.stream()
+                            .map(d -> d + " " + range)
+                            .collect(Collectors.joining("; "));
+                }
+                updateAttendanceSummary.run();
+            });
+        });
+
+        updateAttendanceSummary.run();
+
         // Room picker: horizontal chip row that scrolls sideways (many-to-many).
         HBox roomsBox = new HBox(8);
         roomsBox.setAlignment(Pos.CENTER_LEFT);
@@ -160,10 +240,15 @@ public class ClassroomsView {
         FormFactory.addRow(form, 2, I18n.t("field.capacity", "تسجيل الحضور"), capacityField);
         FormFactory.addRow(form, 3, I18n.t("classroom.category", "تسجيل الحضور"), categoryField);
 
+        // Days & hours this section receives students (ايام وساعات حضور القسم).
+        FormFactory.addRow(form, 4, I18n.t("classroom.attendance_days", "تسجيل الحضور"));
+        form.add(attendanceDaysPicker.getNode(), 0, 5, 2, 1);
+        form.add(periodTimesBox, 0, 6, 2, 1);
+
         // A section's room-use times come from its course schedules.  They are
         // displayed through «Voir l'emploi du temps», not entered manually here.
-        FormFactory.addRow(form, 5, I18n.t("classroom.rooms", "تسجيل الحضور"));
-        FormFactory.addRow(form, 6, roomsScroll);
+        FormFactory.addRow(form, 7, I18n.t("classroom.rooms", "تسجيل الحضور"));
+        FormFactory.addRow(form, 8, roomsScroll);
 
         Button save   = new Button(I18n.t("action.save", "تسجيل الحضور"));   save.getStyleClass().add("primary-button");
         Button cancel = new Button(I18n.t("action.clear", "تسجيل الحضور"));  cancel.getStyleClass().add("secondary-button");
@@ -233,6 +318,9 @@ public class ClassroomsView {
             ageGroupField.setText("");
             capacityField.setText("");
             categoryField.setValue(Category.CRECHE);
+            attendanceDaysPicker.clear();
+            startTimeField.setValue(null);
+            endTimeField.setValue(null);
             roomChecks.forEach(cb -> cb.setSelected(false));
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
@@ -260,6 +348,9 @@ public class ClassroomsView {
                     ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
                     capacityField.setText(String.valueOf(c.getCapacity()));
                     categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
+                    attendanceDaysPicker.setValue(c.getAttendanceDays());
+                    startTimeField.setValue(c.getPeriodStartTime());
+                    endTimeField.setValue(c.getPeriodEndTime());
                     List<String> linkedRoomIds = c.getRooms() == null ? List.of()
                             : c.getRooms().stream().map(Room::getId).toList();
                     roomChecks.forEach(cb -> cb.setSelected(
@@ -300,6 +391,33 @@ public class ClassroomsView {
                 c.setAgeGroup(ageGroupField.getText().trim());
                 c.setCapacity(capacity);
                 c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
+
+                String attendanceDaysValue = attendanceDaysPicker.getValue();
+                c.setAttendanceDays(attendanceDaysValue == null || attendanceDaysValue.isBlank() ? null : attendanceDaysValue);
+
+                String startTimeValue = startTimeField.getEditor().getText();
+                String endTimeValue = endTimeField.getEditor().getText();
+                LocalTime start = null, end = null;
+                if (startTimeValue != null && !startTimeValue.isBlank()) {
+                    try {
+                        start = LocalTime.parse(startTimeValue.trim(), java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                    } catch (java.time.format.DateTimeParseException ex) {
+                        throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_time", "تسجيل الحضور"));
+                    }
+                }
+                if (endTimeValue != null && !endTimeValue.isBlank()) {
+                    try {
+                        end = LocalTime.parse(endTimeValue.trim(), java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                    } catch (java.time.format.DateTimeParseException ex) {
+                        throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_time", "تسجيل الحضور"));
+                    }
+                }
+                if (start != null && end != null && !start.isBefore(end)) {
+                    throw new IllegalArgumentException(I18n.t("classroom.period_time_order", "تسجيل الحضور"));
+                }
+                c.setPeriodStartTime(start == null ? null : startTimeValue.trim());
+                c.setPeriodEndTime(end == null ? null : endTimeValue.trim());
+
                 c.setRooms(roomChecks.stream()
                         .filter(CheckBox::isSelected)
                         .map(cb -> (Room) cb.getUserData())
@@ -414,6 +532,18 @@ public class ClassroomsView {
             case LATE -> I18n.t("status.late", "تسجيل الحضور");
             case EXCUSED -> I18n.t("attendance.excused", "تسجيل الحضور");
         };
+    }
+
+    /** Small "label above field" wrapper, used for the period start/end time pickers. */
+    private VBox labeledField(String labelText, javafx.scene.Node field) {
+        Label label = new Label(labelText);
+        label.setStyle("-fx-text-fill: #334155; -fx-font-size: 12px;");
+        VBox box = new VBox(4, label, field);
+        HBox.setHgrow(box, Priority.ALWAYS);
+        if (field instanceof javafx.scene.control.Control control) {
+            control.setMaxWidth(Double.MAX_VALUE);
+        }
+        return box;
     }
 
     private VBox buildClassroomCard(Classroom c) {

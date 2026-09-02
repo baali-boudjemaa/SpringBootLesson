@@ -1052,17 +1052,20 @@ public class EnrollmentWizard {
                     throw new IllegalArgumentException(I18n.t("field.last_name", "تسجيل الحضور") + " est requis.");
                 }
                 lastName.getStyleClass().remove("field-error");
-                if (minAge > 0) {
-                    if (dateOfBirth.getValue() == null) {
-                        dateOfBirth.getStyleClass().add("field-error");
-                        throw new IllegalArgumentException(I18n.t("field.date_of_birth", "تسجيل الحضور") + " est requis.");
-                    }
-                    dateOfBirth.getStyleClass().remove("field-error");
-                    int age = Period.between(dateOfBirth.getValue(), LocalDate.now()).getYears();
-                    if (age < minAge) {
-                        throw new IllegalArgumentException(I18n.t("ewizard.min_age", "تسجيل الحضور").replace("{0}", String.valueOf(minAge)));
-                    }
+                if (dateOfBirth.getValue() == null) {
+                    dateOfBirth.getStyleClass().add("field-error");
+                    throw new IllegalArgumentException(I18n.t("field.date_of_birth", "تسجيل الحضور") + " est requis.");
                 }
+                dateOfBirth.getStyleClass().remove("field-error");
+                // NOTE: the legacy global "enrollment.min_age" floor used to be enforced
+                // here, but it has no Settings-screen control anymore (only the
+                // per-category min/max ages in EnrollmentSettingsKeys.CRECHE_MIN_AGE /
+                // PREPARATOIRE_MIN_AGE / SOUTIEN_MIN_AGE are editable). Any stale value
+                // left over in the settings table (e.g. 1) silently blocked crèche
+                // registrations for children under that age even when the crèche
+                // category itself allows age 0. Age eligibility is now decided purely
+                // by the per-category rules enforced at step 2, once a classroom
+                // (and therefore a category) has been chosen.
             }
         }
         if (step == 1) {
