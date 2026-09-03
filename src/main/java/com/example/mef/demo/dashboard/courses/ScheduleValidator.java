@@ -158,15 +158,23 @@ public final class ScheduleValidator {
             }
 
             if (classroom != null) {
-                int periodStart = TimeSlots.toMinutes(classroom.getPeriodStartTime());
-                int periodEnd = TimeSlots.toMinutes(classroom.getPeriodEndTime());
-                if (periodStart >= 0 && slot.startMinutes() < periodStart) {
-                    errors.add("❌ " + slot.day() + " " + slot.range()
-                            + " : la séance est en dehors de la période de la classe (début à " + classroom.getPeriodStartTime() + ").");
-                }
-                if (periodEnd >= 0 && slot.endMinutes() > periodEnd) {
-                    errors.add("❌ " + slot.day() + " " + slot.range()
-                            + " : la séance est en dehors de la période de la classe (fin à " + classroom.getPeriodEndTime() + ").");
+                List<Slot> classHours = parse(classroom.getAttendanceSchedule());
+                if (!classHours.isEmpty()) {
+                    if (!isCoveredByAvailability(slot, classHours)) {
+                        errors.add("❌ " + localizedDay(slot.day()) + " " + slot.range() + " : "
+                                + I18n.t("schedule.validation.outside_class_period", "تسجيل الحضور"));
+                    }
+                } else {
+                    int periodStart = TimeSlots.toMinutes(classroom.getPeriodStartTime());
+                    int periodEnd = TimeSlots.toMinutes(classroom.getPeriodEndTime());
+                    if (periodStart >= 0 && slot.startMinutes() < periodStart) {
+                        errors.add("❌ " + slot.day() + " " + slot.range()
+                                + " : la séance est en dehors de la période de la classe (début à " + classroom.getPeriodStartTime() + ").");
+                    }
+                    if (periodEnd >= 0 && slot.endMinutes() > periodEnd) {
+                        errors.add("❌ " + slot.day() + " " + slot.range()
+                                + " : la séance est en dehors de la période de la classe (fin à " + classroom.getPeriodEndTime() + ").");
+                    }
                 }
                 if (!classDays.isEmpty() && !classDays.contains(slot.day())) {
                     errors.add("❌ " + localizedDay(slot.day()) + " : "

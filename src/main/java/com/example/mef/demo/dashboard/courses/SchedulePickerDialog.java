@@ -8,10 +8,12 @@ import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -32,9 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Modal "weekly timetable" picker: days across the top, dynamic rows down
- * the side. The user clicks cells to toggle them on/off; contiguous ticked 
- * cells on the same day are merged into a single time range on save.
+ * Modal weekly timetable picker. Press a cell then drag to paint a contiguous
+ * range (or click a day header to fill that column). Contiguous selected cells
+ * on the same day are merged into one time range on save.
  *
  * Produces (and parses back) the same compact string other pickers used,
  * e.g. "Lundi 08:00-10:00; Mercredi 14:00-16:00", stored verbatim in
@@ -58,7 +60,13 @@ public final class SchedulePickerDialog {
 
     /** Opens the same individual-cell picker with caller-provided teacher/course wording. */
     public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText, List<TimeBlock> blocks) {
-        return show(owner, currentSchedule, title, subtitleText, null, List.of(), blocks);
+        return show(owner, currentSchedule, title, subtitleText, null, List.of(), blocks, Set.of());
+    }
+
+    /** Same as {@link #show(Window, String, String, String, List)} with weekly closure days locked. */
+    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText,
+                                        List<TimeBlock> blocks, Set<String> closedDays) {
+        return show(owner, currentSchedule, title, subtitleText, null, List.of(), blocks, closedDays);
     }
 
     /**
@@ -70,7 +78,19 @@ public final class SchedulePickerDialog {
      */
     public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText,
                                         Employee teacher, List<Course> otherCourses, List<TimeBlock> blocks) {
+        return show(owner, currentSchedule, title, subtitleText, teacher, otherCourses, blocks, Set.of());
+    }
+
+    public static Optional<String> show(Window owner, String currentSchedule, String title, String subtitleText,
+                                        Employee teacher, List<Course> otherCourses, List<TimeBlock> blocks,
+                                        Set<String> closedDays) {
+        Set<String> closed = canonicalClosedDays(closedDays);
         Map<String, Set<Integer>> selected = initialSelection(currentSchedule, blocks);
+        for (String day : DAYS) {
+            if (closed.contains(day)) {
+                selected.get(day).clear();
+            }
+        }
         Map<String, Set<Integer>> unavailable = computeUnavailableBlocks(teacher, blocks);
         Map<String, Set<Integer>> occupied = computeOccupiedBlocks(teacher, otherCourses, unavailable, blocks);
 
@@ -86,7 +106,7 @@ public final class SchedulePickerDialog {
         subtitle.getStyleClass().add("timetable-subtitle");
         subtitle.setWrapText(true);
 
-        GridPane grid = buildGrid(selected, unavailable, occupied, blocks);
+        GridPane grid = buildGrid(selected, unavailable, occupied, blocks, closed);
         VBox card = new VBox(grid);
         card.getStyleClass().add("timetable-card");
 
@@ -122,6 +142,7 @@ public final class SchedulePickerDialog {
         Scene scene = new Scene(root);
         scene.getStylesheets().add(
                 Objects.requireNonNull(SchedulePickerDialog.class.getResource("/css/style.css")).toExternalForm());
+        installPaintHandlers(scene, selected, unavailable, occupied);
         dialog.setScene(scene);
         dialog.showAndWait();
 
@@ -199,15 +220,20 @@ public final class SchedulePickerDialog {
         return r;
     }
 
-    /** Builds the day-header + hour-row grid, wiring click handlers that flip {@code selected}. */
+    /** Click/drag handle stored on each selectable cell. */
+    private record CellHandle(String day, int blockIndex, int startMinutes, int endMinutes,
+                              StackPane cell, Label check, boolean closed) {}
+
+    /** Builds the day-header + hour-row grid. Cells are painted via {@link #installPaintHandlers}. */
     private static GridPane buildGrid(Map<String, Set<Integer>> selected,
                                       Map<String, Set<Integer>> unavailable,
                                       Map<String, Set<Integer>> occupied,
-                                      List<TimeBlock> blocks) {
+                                      List<TimeBlock> blocks,
+                                      Set<String> closedDays) {
         GridPane grid = new GridPane();
         grid.getStyleClass().add("timetable-grid");
 
-        javafx.scene.layout.ColumnConstraints hourCol = new javafx.scene.layout.ColumnConstraints(72);
+        javafx.scene.layout.ColumnConstraints hourCol = new javafx.scene.layout.ColumnConstraints(78);
         grid.getColumnConstraints().add(hourCol);
         for (int i = 0; i < DAYS.length; i++) {
             javafx.scene.layout.ColumnConstraints dayCol = new javafx.scene.layout.ColumnConstraints();
@@ -216,15 +242,30 @@ public final class SchedulePickerDialog {
             grid.getColumnConstraints().add(dayCol);
         }
 
-        // Row 0: day headers.
+        Map<String, List<CellHandle>> cellsByDay = new LinkedHashMap<>();
+        for (String day : DAYS) {
+            cellsByDay.put(day, new ArrayList<>());
+        }
+
+        // Row 0: day headers (click to fill / clear the whole day).
         grid.add(new StackPane(), 0, 0);
         for (int c = 0; c < DAYS.length; c++) {
-            Label header = new Label(dayLabel(DAYS[c]).toUpperCase());
+            String day = DAYS[c];
+            Label header = new Label(dayLabel(day).toUpperCase());
             header.getStyleClass().add("timetable-day-header");
             header.setMaxWidth(Double.MAX_VALUE);
             StackPane wrap = new StackPane(header);
             wrap.setPadding(new Insets(0, 4, 8, 4));
             GridPane.setHgrow(wrap, Priority.ALWAYS);
+            if (closedDays.contains(day)) {
+                header.getStyleClass().add("timetable-day-header-closed");
+                Tooltip.install(header, new Tooltip(I18n.t("schedule.closed_day_tooltip", "تسجيل الحضور")));
+            } else {
+                header.setCursor(Cursor.HAND);
+                Tooltip.install(header, new Tooltip(I18n.t("schedule.day_header_hint", "تسجيل الحضور")));
+                header.setOnMouseClicked(ev -> toggleDayColumn(
+                        day, cellsByDay.get(day), selected, unavailable, occupied));
+            }
             grid.add(wrap, c + 1, 0);
         }
 
@@ -236,18 +277,37 @@ public final class SchedulePickerDialog {
                 continue;
             }
 
-            int start = block.startMinutes();
-            int end = block.endMinutes();
-            grid.add(hourLabel(start, end), 0, row);
+            grid.add(hourLabel(block.startMinutes(), block.endMinutes()), 0, row);
+            RowConstraints hourRc = new RowConstraints(40);
+            hourRc.setMinHeight(40);
+            hourRc.setPrefHeight(40);
+            hourRc.setMaxHeight(40);
+            ensureRowConstraints(grid, row, hourRc);
 
             for (int c = 0; c < DAYS.length; c++) {
                 String day = DAYS[c];
                 int blockIndex = b;
                 Label check = new Label("✓");
                 check.getStyleClass().add("timetable-cell-check");
+                check.setMouseTransparent(true);
                 StackPane cell = new StackPane(check);
                 cell.getStyleClass().add("timetable-cell");
                 cell.setPrefSize(88, 40);
+                cell.setMinHeight(40);
+                cell.setMaxHeight(40);
+                CellHandle handle = new CellHandle(day, blockIndex, block.startMinutes(), block.endMinutes(),
+                        cell, check, closedDays.contains(day));
+                cell.setUserData(handle);
+                cellsByDay.get(day).add(handle);
+
+                if (handle.closed()) {
+                    cell.getStyleClass().add("timetable-cell-closed");
+                    cell.setCursor(Cursor.DEFAULT);
+                    check.setVisible(false);
+                    Tooltip.install(cell, new Tooltip(I18n.t("schedule.closed_day_tooltip", "تسجيل الحضور")));
+                    grid.add(cell, c + 1, row);
+                    continue;
+                }
                 cell.setCursor(Cursor.HAND);
                 boolean isSelected = selected.get(day).contains(blockIndex);
                 check.setVisible(isSelected);
@@ -261,36 +321,114 @@ public final class SchedulePickerDialog {
                     cell.getStyleClass().add("timetable-cell-occupied");
                     Tooltip.install(cell, new Tooltip(I18n.t("schedule.teacher_occupied", "تسجيل الحضور")));
                 }
-                cell.setOnMouseClicked(ev -> {
-                    Set<Integer> daySelection = selected.get(day);
-                    if (daySelection.contains(blockIndex)) {
-                        daySelection.remove(blockIndex);
-                        cell.getStyleClass().remove("timetable-cell-selected");
-                        check.setVisible(false);
-                        return;
-                    }
-                    if (unavailable.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error(I18n.t("schedule.unavailable_title", "تسجيل الحضور"),
-                                I18n.t("schedule.teacher_unavailable", "تسجيل الحضور") + " " + dayLabel(day) + " "
-                                        + fmtHour(block.startMinutes()) + " - " + fmtHour(block.endMinutes()) + ".");
-                        return;
-                    }
-                    if (occupied.getOrDefault(day, Set.of()).contains(blockIndex)) {
-                        DialogUtil.error(I18n.t("schedule.conflict_title", "تسجيل الحضور"),
-                                I18n.t("schedule.teacher_occupied", "تسجيل الحضور") + " " + dayLabel(day) + " "
-                                        + fmtHour(block.startMinutes()) + " - " + fmtHour(block.endMinutes()) + ".");
-                        return;
-                    }
-                    daySelection.add(blockIndex);
-                    cell.getStyleClass().add("timetable-cell-selected");
-                    check.setVisible(true);
-                });
                 grid.add(cell, c + 1, row);
             }
             row++;
         }
 
         return grid;
+    }
+
+    /**
+     * Paint-select: press a cell to turn it on or off, then drag to apply the same
+     * action to every cell the pointer crosses. Avoids the old click-toggle gaps.
+     */
+    private static void installPaintHandlers(Scene scene, Map<String, Set<Integer>> selected,
+                                             Map<String, Set<Integer>> unavailable,
+                                             Map<String, Set<Integer>> occupied) {
+        final boolean[] painting = {false};
+        final boolean[] paintOn = {false};
+        final boolean[] showedBlocker = {false};
+
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, ev -> {
+            if (!ev.isPrimaryButtonDown()) {
+                return;
+            }
+            CellHandle handle = cellHandleFrom(ev);
+            if (handle == null || handle.closed()) {
+                return;
+            }
+            painting[0] = true;
+            showedBlocker[0] = false;
+            boolean currentlyOn = selected.get(handle.day()).contains(handle.blockIndex());
+            paintOn[0] = !currentlyOn;
+            applyPaint(handle, paintOn[0], selected, unavailable, occupied, true, showedBlocker);
+        });
+        scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, ev -> {
+            if (!painting[0] || !ev.isPrimaryButtonDown()) {
+                return;
+            }
+            CellHandle handle = cellHandleFrom(ev);
+            if (handle == null || handle.closed()) {
+                return;
+            }
+            applyPaint(handle, paintOn[0], selected, unavailable, occupied, false, showedBlocker);
+        });
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, ev -> painting[0] = false);
+    }
+
+    private static CellHandle cellHandleFrom(MouseEvent ev) {
+        Node n = ev.getPickResult().getIntersectedNode();
+        while (n != null) {
+            if (n.getUserData() instanceof CellHandle handle) {
+                return handle;
+            }
+            n = n.getParent();
+        }
+        return null;
+    }
+
+    private static void applyPaint(CellHandle handle, boolean turnOn, Map<String, Set<Integer>> selected,
+                                   Map<String, Set<Integer>> unavailable, Map<String, Set<Integer>> occupied,
+                                   boolean showDialog, boolean[] showedBlocker) {
+        Set<Integer> daySelection = selected.get(handle.day());
+        if (!turnOn) {
+            daySelection.remove(handle.blockIndex());
+            handle.cell().getStyleClass().remove("timetable-cell-selected");
+            handle.check().setVisible(false);
+            return;
+        }
+        if (unavailable.getOrDefault(handle.day(), Set.of()).contains(handle.blockIndex())) {
+            if (showDialog && !showedBlocker[0]) {
+                showedBlocker[0] = true;
+                DialogUtil.error(I18n.t("schedule.unavailable_title", "تسجيل الحضور"),
+                        I18n.t("schedule.teacher_unavailable", "تسجيل الحضور") + " " + dayLabel(handle.day()) + " "
+                                + fmtHour(handle.startMinutes()) + " - " + fmtHour(handle.endMinutes()) + ".");
+            }
+            return;
+        }
+        if (occupied.getOrDefault(handle.day(), Set.of()).contains(handle.blockIndex())) {
+            if (showDialog && !showedBlocker[0]) {
+                showedBlocker[0] = true;
+                DialogUtil.error(I18n.t("schedule.conflict_title", "تسجيل الحضور"),
+                        I18n.t("schedule.teacher_occupied", "تسجيل الحضور") + " " + dayLabel(handle.day()) + " "
+                                + fmtHour(handle.startMinutes()) + " - " + fmtHour(handle.endMinutes()) + ".");
+            }
+            return;
+        }
+        daySelection.add(handle.blockIndex());
+        if (!handle.cell().getStyleClass().contains("timetable-cell-selected")) {
+            handle.cell().getStyleClass().add("timetable-cell-selected");
+        }
+        handle.check().setVisible(true);
+    }
+
+    private static void toggleDayColumn(String day, List<CellHandle> cells, Map<String, Set<Integer>> selected,
+                                        Map<String, Set<Integer>> unavailable, Map<String, Set<Integer>> occupied) {
+        if (cells == null || cells.isEmpty()) {
+            return;
+        }
+        boolean turnOn = cells.stream().anyMatch(h -> !h.closed()
+                && !selected.get(day).contains(h.blockIndex())
+                && !unavailable.getOrDefault(day, Set.of()).contains(h.blockIndex())
+                && !occupied.getOrDefault(day, Set.of()).contains(h.blockIndex()));
+        boolean[] ignore = {true};
+        for (CellHandle handle : cells) {
+            if (handle.closed()) {
+                continue;
+            }
+            applyPaint(handle, turnOn, selected, unavailable, occupied, false, ignore);
+        }
     }
 
     private static void addLunchBreakRow(GridPane grid, int row) {
@@ -314,18 +452,21 @@ public final class SchedulePickerDialog {
         grid.getRowConstraints().set(row, rc);
     }
 
-    private static VBox hourLabel(int startMinutes, int endMinutes) {
-        String startText = (startMinutes / 60) + "h" + (startMinutes % 60 == 0 ? "" : String.format("%02d", startMinutes % 60));
-        String endText = (endMinutes / 60) + "h" + (endMinutes % 60 == 0 ? "" : String.format("%02d", endMinutes % 60));
-        Label start = new Label(startText);
-        Label dash = new Label("—");
-        Label end = new Label(endText);
+    /** One compact range per row (8h–9h) so 9h is not shown as both the end of 8–9 and the start of 9–10. */
+    private static Label hourLabel(int startMinutes, int endMinutes) {
+        Label start = new Label(fmtHourLabel(startMinutes) + " – " + fmtHourLabel(endMinutes));
         start.getStyleClass().add("timetable-hour-label");
-        end.getStyleClass().add("timetable-hour-label");
-        dash.getStyleClass().add("timetable-hour-dash");
-        VBox box = new VBox(0, start, dash, end);
-        box.setAlignment(Pos.CENTER);
-        return box;
+        start.setWrapText(false);
+        start.setMinHeight(40);
+        start.setPrefHeight(40);
+        start.setMaxHeight(40);
+        start.setMaxWidth(78);
+        start.setAlignment(Pos.CENTER);
+        return start;
+    }
+
+    private static String fmtHourLabel(int minutes) {
+        return (minutes / 60) + "h" + (minutes % 60 == 0 ? "" : String.format("%02d", minutes % 60));
     }
 
     /** Merges contiguous ticked hour blocks per day into "HH:mm-HH:mm" ranges and joins them. */
@@ -412,6 +553,22 @@ public final class SchedulePickerDialog {
             }
         }
         return map;
+    }
+
+    private static Set<String> canonicalClosedDays(Set<String> raw) {
+        Set<String> closed = new LinkedHashSet<>();
+        if (raw == null || raw.isEmpty()) {
+            return closed;
+        }
+        for (String day : DAYS) {
+            for (String candidate : raw) {
+                if (candidate != null && candidate.trim().equalsIgnoreCase(day)) {
+                    closed.add(day);
+                    break;
+                }
+            }
+        }
+        return closed;
     }
 
     private static int toMinutes(String hhmm) {

@@ -63,24 +63,23 @@ public class OutcomingsView {
         recurringTable.setPrefHeight(180);
     }
 
-    private final TextField searchField = FormFactory.textField(I18n.t("outcoming.search", "تسجيل الحضور"));
-    private final ComboBox<String> statusFilter = new ComboBox<>(
-            FXCollections.observableArrayList(I18n.t("outcoming.all", "تسجيل الحضور"), I18n.t("status.paid", "تسجيل الحضور"), I18n.t("status.pending", "تسجيل الحضور"), I18n.t("status.overdue", "تسجيل الحضور")));
+    private final TextField searchField = FormFactory.textField("");
+    private final ComboBox<String> statusFilter = new ComboBox<>();
     private final ComboBox<String> categoryFilter = new ComboBox<>();
     private final DatePicker dateFrom = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 1, 1));
     private final DatePicker dateTo = new DatePicker(LocalDate.of(LocalDate.now().getYear(), 12, 31));
 
-    private final TextField labelField = FormFactory.textField(I18n.t("outcoming.label_hint", "تسجيل الحضور"));
-    private final TextField amountField = FormFactory.textField(I18n.t("field.amount", "تسجيل الحضور"));
-    private final TextField beneficiaryField = FormFactory.textField(I18n.t("outcoming.beneficiary_hint", "تسجيل الحضور"));
+    private final TextField labelField = FormFactory.textField("");
+    private final TextField amountField = FormFactory.textField("");
+    private final TextField beneficiaryField = FormFactory.textField("");
     private final ComboBox<OutcomingCategory> categoryField = new ComboBox<>(FXCollections.observableArrayList(OutcomingCategory.values()));
     private final ComboBox<PaymentType> methodField = new ComboBox<>(FXCollections.observableArrayList(PaymentType.values()));
     private final ComboBox<PaymentStatus> statusField = new ComboBox<>(FXCollections.observableArrayList(PaymentStatus.values()));
     private final DatePicker outcomingDateField = new DatePicker();
 
-    private final CheckBox recurringCheck = new CheckBox(I18n.t("outcoming.recurring_expense", "تسجيل الحضور"));
+    private final CheckBox recurringCheck = new CheckBox();
     private final ComboBox<OutcomingFrequency> frequencyField = new ComboBox<>(FXCollections.observableArrayList(OutcomingFrequency.values()));
-    private final Label startDateLabel = new Label(I18n.t("outcoming.start_date", "تسجيل الحضور"));
+    private final Label startDateLabel = new Label();
 
     private final Label footerCountLabel = new Label();
     private final Label footerTotalLabel = new Label();
@@ -89,6 +88,7 @@ public class OutcomingsView {
     private List<Outcoming> allOutcomings = List.of();
     private Outcoming selected;
     private VBox form;
+    private boolean filtersWired;
 
     /** Overlay Pane that floating panels live in, stacked on top of the normal screen content. */
     private Pane overlay;
@@ -96,10 +96,6 @@ public class OutcomingsView {
 
     public OutcomingsView(OutcomingService outcomingService) {
         this.outcomingService = outcomingService;
-        statusFilter.setValue(I18n.t("outcoming.all", "تسجيل الحضور"));
-        categoryFilter.setItems(FXCollections.observableArrayList(
-                I18n.t("outcoming.all", "تسجيل الحضور"), I18n.t("outcoming.category.salaries", "تسجيل الحضور"), I18n.t("outcoming.category.rent", "تسجيل الحضور"), I18n.t("outcoming.category.supplies", "تسجيل الحضور"), I18n.t("outcoming.category.electricity", "تسجيل الحضور"), I18n.t("outcoming.category.water", "تسجيل الحضور"), I18n.t("outcoming.category.maintenance", "تسجيل الحضور"), I18n.t("outcoming.category.food", "تسجيل الحضور"), I18n.t("outcoming.category.transport", "تسجيل الحضور"), I18n.t("outcoming.category.other", "تسجيل الحضور")));
-        categoryFilter.setValue(I18n.t("outcoming.all", "تسجيل الحضور"));
         categoryField.setMaxWidth(Double.MAX_VALUE);
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
@@ -178,11 +174,8 @@ public class OutcomingsView {
         VBox.setVgrow(tableBlock, Priority.ALWAYS);
 
 
-        if (form == null) {
-            form = buildForm();
-        }
-        // Overlay hosts the floating panel; pickOnBounds(false) lets clicks pass through
-        // to the table/buttons underneath wherever the overlay itself has no floating panel.
+        form = buildForm();
+        floatingForm = null;
         overlay = new Pane();
         overlay.setPickOnBounds(false);
 
@@ -190,8 +183,42 @@ public class OutcomingsView {
         ScrollPane scrollPane=new ScrollPane(root);
         scrollPane.getStyleClass().add("details-scroll");
         contentPane.setCenter(scrollPane);
+        refreshLocalizedControls();
         wireFilters();
         reload();
+    }
+
+    private void refreshLocalizedControls() {
+        searchField.setPromptText(I18n.t("outcoming.search", "تسجيل الحضور"));
+        labelField.setPromptText(I18n.t("outcoming.label_hint", "تسجيل الحضور"));
+        amountField.setPromptText(I18n.t("field.amount", "تسجيل الحضور"));
+        beneficiaryField.setPromptText(I18n.t("outcoming.beneficiary_hint", "تسجيل الحضور"));
+        recurringCheck.setText(I18n.t("outcoming.recurring_expense", "تسجيل الحضور"));
+        startDateLabel.setText(I18n.t("outcoming.start_date", "تسجيل الحضور"));
+
+        String all = I18n.t("outcoming.all", "تسجيل الحضور");
+        replaceComboItems(statusFilter, List.of(
+                all,
+                statusLabel(PaymentStatus.PAID),
+                statusLabel(PaymentStatus.PENDING),
+                statusLabel(PaymentStatus.OVERDUE)
+        ), all);
+
+        java.util.ArrayList<String> categories = new java.util.ArrayList<>();
+        categories.add(all);
+        for (OutcomingCategory category : OutcomingCategory.values()) {
+            categories.add(categoryLabel(category));
+        }
+        replaceComboItems(categoryFilter, categories, all);
+
+        TableStyleKit.applyEmptyPlaceholder(table);
+        TableStyleKit.applyEmptyPlaceholder(recurringTable);
+    }
+
+    private static void replaceComboItems(ComboBox<String> combo, List<String> items, String fallback) {
+        String previous = combo.getValue();
+        combo.getItems().setAll(items);
+        combo.setValue(previous != null && items.contains(previous) ? previous : fallback);
     }
 
     private HBox labeledFilter(String label, DatePicker picker) {
@@ -203,15 +230,16 @@ public class OutcomingsView {
     }
 
     private void wireFilters() {
+        dateFrom.setStyle("-fx-show-week-numbers: false;");
+        dateTo.setStyle("-fx-show-week-numbers: false;");
+        outcomingDateField.setStyle("-fx-show-week-numbers: false;");
+        if (filtersWired) return;
+        filtersWired = true;
         searchField.textProperty().addListener((o, a, b) -> applyFilters());
         statusFilter.valueProperty().addListener((o, a, b) -> applyFilters());
         categoryFilter.valueProperty().addListener((o, a, b) -> applyFilters());
         dateFrom.valueProperty().addListener((o, a, b) -> applyFilters());
         dateTo.valueProperty().addListener((o, a, b) -> applyFilters());
-        dateFrom.setStyle("-fx-show-week-numbers: false;");
-        dateTo.setStyle("-fx-show-week-numbers: false;");
-        outcomingDateField.setStyle("-fx-show-week-numbers: false;");
-
     }
 
     private void buildColumns() {
@@ -657,8 +685,8 @@ public class OutcomingsView {
 
     private void applyFilters() {
         String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
-        String statusVal = statusFilter.getValue();
-        String categoryVal = categoryFilter.getValue();
+        PaymentStatus wantedStatus = statusFromFilter();
+        OutcomingCategory wantedCategory = categoryFromFilter();
         LocalDate from = dateFrom.getValue();
         LocalDate to = dateTo.getValue();
 
@@ -669,11 +697,11 @@ public class OutcomingsView {
                         String beneficiary = o.getBeneficiary() == null ? "" : o.getBeneficiary().toLowerCase();
                         if (!label.contains(needle) && !beneficiary.contains(needle)) return false;
                     }
-                    if (statusVal != null && !I18n.t("outcoming.all", "تسجيل الحضور").equals(statusVal)) {
-                        if (!statusLabel(o.getStatus()).equals(statusVal)) return false;
+                    if (wantedStatus != null && o.getStatus() != wantedStatus) {
+                        return false;
                     }
-                    if (categoryVal != null && !I18n.t("outcoming.all", "تسجيل الحضور").equals(categoryVal)) {
-                        if (!categoryLabel(o.getCategory()).equals(categoryVal)) return false;
+                    if (wantedCategory != null && o.getCategory() != wantedCategory) {
+                        return false;
                     }
                     if (from != null && o.getDateOutcome() != null && o.getDateOutcome().toLocalDate().isBefore(from)) {
                         return false;
@@ -688,6 +716,36 @@ public class OutcomingsView {
         rows.setAll(filtered);
         updateFooter(filtered);
         updateSummaryCards(allOutcomings);
+    }
+
+    /** Null means "all". Stale labels left over from another locale are treated as all. */
+    private PaymentStatus statusFromFilter() {
+        String statusVal = statusFilter.getValue();
+        String all = I18n.t("outcoming.all", "تسجيل الحضور");
+        if (statusVal == null || statusVal.equals(all)) {
+            return null;
+        }
+        for (PaymentStatus status : PaymentStatus.values()) {
+            if (statusLabel(status).equals(statusVal)) {
+                return status;
+            }
+        }
+        return null;
+    }
+
+    /** Null means "all". Stale labels left over from another locale are treated as all. */
+    private OutcomingCategory categoryFromFilter() {
+        String categoryVal = categoryFilter.getValue();
+        String all = I18n.t("outcoming.all", "تسجيل الحضور");
+        if (categoryVal == null || categoryVal.equals(all)) {
+            return null;
+        }
+        for (OutcomingCategory category : OutcomingCategory.values()) {
+            if (categoryLabel(category).equals(categoryVal)) {
+                return category;
+            }
+        }
+        return null;
     }
 
     private void updateFooter(List<Outcoming> data) {

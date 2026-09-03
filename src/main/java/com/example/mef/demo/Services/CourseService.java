@@ -80,8 +80,6 @@ public class CourseService {
                     .distinct()
                     .collect(Collectors.joining("; "));
             classroom.setOccupancySchedule(schedule);
-            classroom.setAttendanceDays(schedule.isBlank() ? "" : Stream.of(schedule.split(";")).map(String::trim)
-                    .map(entry -> entry.substring(0, entry.indexOf(' '))).distinct().collect(Collectors.joining(",")));
             classroomRepository.save(classroom);
         });
     }

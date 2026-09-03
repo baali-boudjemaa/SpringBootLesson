@@ -34,6 +34,9 @@ public interface InscriptionRepository extends JpaRepository<Inscription, String
      * without hitting a LazyInitializationException or N+1 queries.
      * LEFT JOIN because classroom is optional on Inscription.
      */
-    @Query("SELECT i FROM Inscription i LEFT JOIN FETCH i.classroom WHERE i.student.id IN :studentIds")
+    @Query("SELECT DISTINCT i FROM Inscription i "
+            + "JOIN FETCH i.student "
+            + "LEFT JOIN FETCH i.classroom "
+            + "WHERE i.student.id IN :studentIds")
     List<Inscription> findByStudentIdInWithClassroom(@Param("studentIds") List<String> studentIds);
 }

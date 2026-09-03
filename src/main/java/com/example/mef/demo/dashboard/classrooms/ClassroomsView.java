@@ -13,9 +13,8 @@ import com.example.mef.demo.Services.CourseService;
 import com.example.mef.demo.Services.RoomService;
 import com.example.mef.demo.Services.SettingService;
 import com.example.mef.demo.dashboard.common.AsyncTasks;
-import com.example.mef.demo.dashboard.common.DaysPicker;
 import com.example.mef.demo.dashboard.common.FormFactory;
-import com.example.mef.demo.dashboard.common.TimeSlots;
+import com.example.mef.demo.dashboard.courses.SchedulePickerDialog;
 import com.example.mef.demo.dashboard.courses.ScheduleValidator;
 import com.example.mef.demo.enums.Category;
 import com.example.mef.demo.util.DialogUtil;
@@ -36,6 +35,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
@@ -68,7 +68,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.text.Normalizer;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -124,7 +123,7 @@ public class ClassroomsView {
 
     public void render(BorderPane contentPane) {
         this.rootContentPane = contentPane;
-
+        Classroom[] selected = new Classroom[]{null};
         FlowPane cardGrid = new FlowPane(16, 16);
         cardGrid.setPadding(new Insets(4));
 
@@ -142,12 +141,9 @@ public class ClassroomsView {
         categoryField.setCellFactory(cb -> categoryCell());
         categoryField.setButtonCell(categoryCell());
 
-        // Days & hours the section receives students (ايام وساعات حضور القسم),
-        // picked through the same interactive weekly-grid dialog used for
-        // teacher availability. The grid allows different hours per cell, but
-        // since ScheduleValidator only enforces a single uniform daily window
-        // per classroom (attendanceDays + periodStartTime/periodEndTime), the
-        // selection is collapsed to that shape as soon as the dialog closes.
+        // Days & hours the section receives students, picked per cell on the
+        // weekly grid. The exact selection is kept (different hours per day,
+        // including gaps) in attendanceSchedule.
         TextField attendanceSummaryField = FormFactory.textField(I18n.t("classroom.no_attendance_schedule", "تسجيل الحضور"));
         attendanceSummaryField.setEditable(false);
         attendanceSummaryField.setFocusTraversable(false);
@@ -156,8 +152,7 @@ public class ClassroomsView {
         attendanceButton.getStyleClass().add("secondary-button");
         HBox attendanceRow = new HBox(6, attendanceSummaryField, attendanceButton);
         attendanceRow.setAlignment(Pos.CENTER_LEFT);
-        // Holds the classroom's current attendance window as "Lundi 08:00-17:00; Mardi 08:00-17:00; ..."
-        // (all selected days share one range) so the dialog can be reopened pre-filled.
+        // Full picker string, e.g. "Lundi 08:00-09:00; Lundi 11:00-12:00; Mardi 08:00-17:00".
         String[] currentAttendanceSchedule = {""};
 
         Runnable updateAttendanceSummary = () -> {
@@ -170,14 +165,10 @@ public class ClassroomsView {
                 attendanceSummaryField.setText(I18n.t("classroom.no_attendance_schedule", "تسجيل الحضور"));
                 return;
             }
-            String days = slots.stream().map(ScheduleValidator.Slot::day).distinct()
-                    .map(this::classroomDayLabel).collect(Collectors.joining("، "));
-            ScheduleValidator.Slot first = slots.get(0);
-            String hours = TimeSlots.slots(LocalTime.of(0, 0), LocalTime.of(0, 0)).isEmpty() ? "" : "";
-            String range = String.format("%02d:%02d–%02d:%02d",
-                    first.startMinutes() / 60, first.startMinutes() % 60,
-                    first.endMinutes() / 60, first.endMinutes() % 60);
-            attendanceSummaryField.setText(days + "  ·  " + range);
+            attendanceSummaryField.setText(slots.stream()
+                    .map(s -> localizedDay(s.day()) + " " + formatMinutes(s.startMinutes())
+                            + "–" + formatMinutes(s.endMinutes()))
+                    .collect(Collectors.joining("، ")));
         };
 
         attendanceButton.setOnAction(e -> {
@@ -195,23 +186,7 @@ public class ClassroomsView {
                     I18n.t("classroom.availability_hint", "تسجيل الحضور"),
                     blocks
             ).ifPresent(result -> {
-                List<ScheduleValidator.Slot> picked = ScheduleValidator.parse(result);
-                if (picked.isEmpty()) {
-                    currentAttendanceSchedule[0] = "";
-                } else {
-                    java.util.LinkedHashSet<String> days = new java.util.LinkedHashSet<>();
-                    int minStart = Integer.MAX_VALUE, maxEnd = Integer.MIN_VALUE;
-                    for (ScheduleValidator.Slot slot : picked) {
-                        days.add(slot.day());
-                        minStart = Math.min(minStart, slot.startMinutes());
-                        maxEnd = Math.max(maxEnd, slot.endMinutes());
-                    }
-                    String range = String.format("%02d:%02d-%02d:%02d",
-                            minStart / 60, minStart % 60, maxEnd / 60, maxEnd % 60);
-                    currentAttendanceSchedule[0] = days.stream()
-                            .map(d -> d + " " + range)
-                            .collect(Collectors.joining("; "));
-                }
+                currentAttendanceSchedule[0] = result == null ? "" : result;
                 updateAttendanceSummary.run();
             });
         });
@@ -241,21 +216,17 @@ public class ClassroomsView {
         FormFactory.addRow(form, 3, I18n.t("classroom.category", "تسجيل الحضور"), categoryField);
 
         // Days & hours this section receives students (ايام وساعات حضور القسم).
-        FormFactory.addRow(form, 4, I18n.t("classroom.attendance_days", "تسجيل الحضور"));
-        form.add(attendanceDaysPicker.getNode(), 0, 5, 2, 1);
-        form.add(periodTimesBox, 0, 6, 2, 1);
-
+        FormFactory.addRow(form, 4, I18n.t("classroom.attendance_days", "تسجيل الحضور"), attendanceRow);
         // A section's room-use times come from its course schedules.  They are
         // displayed through «Voir l'emploi du temps», not entered manually here.
-        FormFactory.addRow(form, 7, I18n.t("classroom.rooms", "تسجيل الحضور"));
-        FormFactory.addRow(form, 8, roomsScroll);
+        FormFactory.addRow(form, 5, I18n.t("classroom.rooms", "تسجيل الحضور"));
+        FormFactory.addRow(form, 6, roomsScroll);
 
         Button save   = new Button(I18n.t("action.save", "تسجيل الحضور"));   save.getStyleClass().add("primary-button");
         Button cancel = new Button(I18n.t("action.clear", "تسجيل الحضور"));  cancel.getStyleClass().add("secondary-button");
         Button delete = new Button(I18n.t("action.delete", "تسجيل الحضور")); delete.getStyleClass().add("danger-button");
         HBox actions = new HBox(10, save, cancel, delete);
 
-        Classroom[] selected = new Classroom[]{null};
         Runnable[] reload = new Runnable[1];
         Runnable[] applyFilter = new Runnable[1];
         VBox formPanelcor = new VBox(14, form, actions);
@@ -318,9 +289,8 @@ public class ClassroomsView {
             ageGroupField.setText("");
             capacityField.setText("");
             categoryField.setValue(Category.CRECHE);
-            attendanceDaysPicker.clear();
-            startTimeField.setValue(null);
-            endTimeField.setValue(null);
+            currentAttendanceSchedule[0] = "";
+            updateAttendanceSummary.run();
             roomChecks.forEach(cb -> cb.setSelected(false));
             cardGrid.getChildren().forEach(n -> n.getStyleClass().remove("class-card-selected"));
         };
@@ -348,9 +318,8 @@ public class ClassroomsView {
                     ageGroupField.setText(c.getAgeGroup() == null ? "" : c.getAgeGroup());
                     capacityField.setText(String.valueOf(c.getCapacity()));
                     categoryField.setValue(c.getCategory() == null ? Category.CRECHE : c.getCategory());
-                    attendanceDaysPicker.setValue(c.getAttendanceDays());
-                    startTimeField.setValue(c.getPeriodStartTime());
-                    endTimeField.setValue(c.getPeriodEndTime());
+                    currentAttendanceSchedule[0] = classroomToScheduleString(c);
+                    updateAttendanceSummary.run();
                     List<String> linkedRoomIds = c.getRooms() == null ? List.of()
                             : c.getRooms().stream().map(Room::getId).toList();
                     roomChecks.forEach(cb -> cb.setSelected(
@@ -392,31 +361,22 @@ public class ClassroomsView {
                 c.setCapacity(capacity);
                 c.setCategory(categoryField.getValue() == null ? Category.CRECHE : categoryField.getValue());
 
-                String attendanceDaysValue = attendanceDaysPicker.getValue();
-                c.setAttendanceDays(attendanceDaysValue == null || attendanceDaysValue.isBlank() ? null : attendanceDaysValue);
-
-                String startTimeValue = startTimeField.getEditor().getText();
-                String endTimeValue = endTimeField.getEditor().getText();
-                LocalTime start = null, end = null;
-                if (startTimeValue != null && !startTimeValue.isBlank()) {
-                    try {
-                        start = LocalTime.parse(startTimeValue.trim(), java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                    } catch (java.time.format.DateTimeParseException ex) {
-                        throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_time", "تسجيل الحضور"));
-                    }
+                List<ScheduleValidator.Slot> attendanceSlots = ScheduleValidator.parse(currentAttendanceSchedule[0]);
+                if (attendanceSlots.isEmpty()) {
+                    c.setAttendanceDays(null);
+                    c.setPeriodStartTime(null);
+                    c.setPeriodEndTime(null);
+                    c.setAttendanceSchedule(null);
+                } else {
+                    String daysJoined = attendanceSlots.stream().map(ScheduleValidator.Slot::day).distinct()
+                            .collect(Collectors.joining(","));
+                    int minStart = attendanceSlots.stream().mapToInt(ScheduleValidator.Slot::startMinutes).min().orElseThrow();
+                    int maxEnd = attendanceSlots.stream().mapToInt(ScheduleValidator.Slot::endMinutes).max().orElseThrow();
+                    c.setAttendanceDays(daysJoined);
+                    c.setPeriodStartTime(formatMinutes(minStart));
+                    c.setPeriodEndTime(formatMinutes(maxEnd));
+                    c.setAttendanceSchedule(currentAttendanceSchedule[0]);
                 }
-                if (endTimeValue != null && !endTimeValue.isBlank()) {
-                    try {
-                        end = LocalTime.parse(endTimeValue.trim(), java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                    } catch (java.time.format.DateTimeParseException ex) {
-                        throw new IllegalArgumentException(I18n.t("settings.schedule.invalid_time", "تسجيل الحضور"));
-                    }
-                }
-                if (start != null && end != null && !start.isBefore(end)) {
-                    throw new IllegalArgumentException(I18n.t("classroom.period_time_order", "تسجيل الحضور"));
-                }
-                c.setPeriodStartTime(start == null ? null : startTimeValue.trim());
-                c.setPeriodEndTime(end == null ? null : endTimeValue.trim());
 
                 c.setRooms(roomChecks.stream()
                         .filter(CheckBox::isSelected)
@@ -1492,4 +1452,244 @@ public class ClassroomsView {
                 line
         );
     }
+
+    /** يبني شبكة أسبوعية تفاعلية لاختيار أيام/ساعات حضور القسم، مع إظهار الحصص
+     *  الموجودة مسبقاً لهذا القسم كخلايا "مشغولة" غير قابلة للتحديد. */
+    private GridPane buildAttendanceGrid(List<TimetableRow> timetableRows,
+                                         List<CourseSlotEntry> busyEntries,
+                                         boolean[][] selectedCells /* [dayIndex][rowIndex] */) {
+        GridPane grid = new GridPane();
+        grid.setStyle("-fx-background-color: white; -fx-border-color: #CBD5E1; -fx-border-width: 1;");
+
+        double hourColumnWidth = 56, dayColumnWidth = 96;
+        ColumnConstraints hourCol = new ColumnConstraints();
+        hourCol.setMinWidth(hourColumnWidth); hourCol.setPrefWidth(hourColumnWidth); hourCol.setMaxWidth(hourColumnWidth);
+        grid.getColumnConstraints().add(hourCol);
+        for (int i = 0; i < TIMETABLE_DAYS.size(); i++) {
+            ColumnConstraints c = new ColumnConstraints();
+            c.setMinWidth(dayColumnWidth); c.setPrefWidth(dayColumnWidth); c.setMaxWidth(dayColumnWidth);
+            grid.getColumnConstraints().add(c);
+        }
+
+        grid.add(new Region(), 0, 0);
+        for (int d = 0; d < TIMETABLE_DAYS.size(); d++) {
+            Label dayLabel = new Label(localizedDay(TIMETABLE_DAYS.get(d)));
+            dayLabel.setStyle("-fx-background-color:#CFE8E4; -fx-background-radius:10; -fx-text-fill:#0F172A; "
+                    + "-fx-font-weight:bold; -fx-font-size:11px; -fx-padding:6 4; -fx-alignment:center;");
+            dayLabel.setMaxWidth(Double.MAX_VALUE);
+            dayLabel.setAlignment(Pos.CENTER);
+            StackPane cell = new StackPane(dayLabel);
+            cell.setPadding(new Insets(4));
+            grid.add(cell, d + 1, 0);
+        }
+
+        for (int r = 0; r < timetableRows.size(); r++) {
+            TimetableRow row = timetableRows.get(r);
+            int gridRow = r + 1;
+
+            if (row.isBreak()) {
+                Label breakLabel = new Label(I18n.t("schedule.lunch_break", "تسجيل الحضور"));
+                breakLabel.setStyle("-fx-text-fill:#94A3B8; -fx-font-size:11px; -fx-font-style:italic; -fx-font-weight:bold;");
+                StackPane band = new StackPane(breakLabel);
+                band.setStyle("-fx-background-color:#F8FAFC; "
+                        + "-fx-border-color:transparent transparent #CBD5E1 transparent; -fx-border-width:0 0 1 0;");
+                grid.add(band, 0, gridRow, TIMETABLE_DAYS.size() + 1, 1);
+                continue;
+            }
+
+            Label hourLabel = new Label(row.startLabel() + "–" + row.endLabel());
+            hourLabel.setStyle("-fx-font-weight:bold; -fx-font-size:10px; -fx-text-fill:#334155;");
+            StackPane hourCell = new StackPane(hourLabel);
+            hourCell.setStyle("-fx-border-color:#CBD5E1; -fx-border-width:0 1 1 0;");
+            grid.add(hourCell, 0, gridRow);
+
+            for (int d = 0; d < TIMETABLE_DAYS.size(); d++) {
+                final int day = d, rowIdx = r;
+                CourseSlotEntry busy = busyEntries.stream()
+                        .filter(en -> en.dayIndex() == day
+                                && row.startMinutes() < en.endMinutes()
+                                && en.startMinutes() < row.endMinutes())
+                        .findFirst().orElse(null);
+
+                StackPane cell = new StackPane();
+                cell.setMinHeight(48);
+
+                if (busy != null) {
+                    Label lbl = new Label(busy.courseName());
+                    lbl.setStyle("-fx-text-fill:#7C2D12; -fx-font-size:9px; -fx-font-weight:bold;");
+                    lbl.setWrapText(true);
+                    cell.getChildren().add(lbl);
+                    cell.setStyle("-fx-background-color:#FED7AA; -fx-border-color:#E2E8F0; -fx-border-width:0 1 1 0;");
+                    Tooltip.install(cell, new Tooltip(busy.courseName() + " — " + busy.teacherName()));
+                } else {
+                    cell.setStyle(attendanceCellStyle(selectedCells[day][rowIdx]));
+                    cell.setCursor(javafx.scene.Cursor.HAND);
+                    cell.setOnMouseClicked(ev -> {
+                        selectedCells[day][rowIdx] = !selectedCells[day][rowIdx];
+                        cell.setStyle(attendanceCellStyle(selectedCells[day][rowIdx]));
+                    });
+                }
+                grid.add(cell, d + 1, gridRow);
+            }
+        }
+        return grid;
+    }
+
+    private static String attendanceCellStyle(boolean selected) {
+        return selected
+                ? "-fx-background-color:#86EFAC; -fx-border-color:#E2E8F0; -fx-border-width:0 1 1 0;"
+                : "-fx-background-color:white; -fx-border-color:#E2E8F0; -fx-border-width:0 1 1 0;";
+    }
+
+    private HBox attendanceLegendChip(String color, String label) {
+        Region swatch = new Region();
+        swatch.setMinSize(14, 14); swatch.setMaxSize(14, 14);
+        swatch.setStyle("-fx-background-color:" + color + "; -fx-border-color:#CBD5E1; "
+                + "-fx-background-radius:3; -fx-border-radius:3;");
+        Label lbl = new Label(label);
+        lbl.setStyle("-fx-font-size:11px; -fx-text-fill:#475569;");
+        HBox box = new HBox(6, swatch, lbl);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
+    }
+
+    /** يفتح نافذة الشبكة الأسبوعية لاختيار حضور/توفر القسم، مع مراعاة الحصص الموجودة
+     *  فعلاً لهذا القسم (يجلبها عبر courseService قبل بناء الشبكة). */
+    private void openAttendanceScheduleDialog(Window owner, Classroom classroomBeingEdited,
+                                              String currentSchedule,
+                                              java.util.function.Consumer<String> onConfirm) {
+        Label title = new Label(I18n.t("classroom.availability_classroom_title", "تسجيل الحضور"));
+        title.setStyle("-fx-font-size:16px; -fx-font-weight:bold;");
+        Label hint = new Label(I18n.t("classroom.availability_hint", "تسجيل الحضور"));
+        hint.setStyle("-fx-text-fill:#64748B; -fx-font-size:12px;");
+        Label loading = new Label("Chargement...");
+
+        VBox root = new VBox(12, title, hint, loading);
+        root.getStyleClass().add("workflow-card");
+        root.setPadding(new Insets(20));
+        root.setStyle("-fx-background-color:white;");
+
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        if (owner != null) dialog.initOwner(owner);
+        dialog.setTitle(I18n.t("classroom.availability_classroom_title", "تسجيل الحضور"));
+        dialog.setMinWidth(760);
+        dialog.setMinHeight(460);
+        dialog.setResizable(true);
+        dialog.setScene(new Scene(root, 500, 300));
+
+        java.util.function.Supplier<List<Course>> loadCourses = () ->
+                classroomBeingEdited == null || classroomBeingEdited.getId() == null
+                        ? List.<Course>of()
+                        : courseService.findAll().stream()
+                        .filter(c -> c.getClassroom() != null
+                                && classroomBeingEdited.getId().equals(c.getClassroom().getId()))
+                        .toList();
+
+        AsyncTasks.run(loadCourses, matchingCourses -> {
+            root.getChildren().remove(loading);
+
+            List<TimetableRow> timetableRows = generateTimetableRows();
+            List<CourseSlotEntry> busyEntries = collectSlotEntries(matchingCourses);
+
+            boolean[][] selectedCells = new boolean[TIMETABLE_DAYS.size()][timetableRows.size()];
+            for (ScheduleValidator.Slot slot : ScheduleValidator.parse(currentSchedule)) {
+                int day = dayIndexOf(slot.day());
+                if (day == -1) continue;
+                for (int r = 0; r < timetableRows.size(); r++) {
+                    TimetableRow row = timetableRows.get(r);
+                    if (!row.isBreak() && row.startMinutes() < slot.endMinutes() && slot.startMinutes() < row.endMinutes()) {
+                        selectedCells[day][r] = true;
+                    }
+                }
+            }
+
+            ScrollPane scroll = new ScrollPane(buildAttendanceGrid(timetableRows, busyEntries, selectedCells));
+            scroll.setFitToWidth(false);
+            scroll.setPannable(true);
+            scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+            VBox.setVgrow(scroll, Priority.ALWAYS);
+
+            HBox legend = new HBox(16,
+                    attendanceLegendChip("#86EFAC", I18n.t("classroom.legend_available", "تسجيل الحضور")),
+                    attendanceLegendChip("#FED7AA", I18n.t("classroom.legend_busy_course", "تسجيل الحضور")),
+                    attendanceLegendChip("white", I18n.t("classroom.legend_free", "تسجيل الحضور")));
+
+            Button clearAll = new Button(I18n.t("action.clear", "تسجيل الحضور"));
+            clearAll.getStyleClass().add("secondary-button");
+            clearAll.setOnAction(e -> {
+                for (boolean[] col : selectedCells) java.util.Arrays.fill(col, false);
+                int idx = root.getChildren().indexOf(scroll);
+                root.getChildren().set(idx, new ScrollPane(buildAttendanceGrid(timetableRows, busyEntries, selectedCells)) {{
+                    setFitToWidth(false); setPannable(true);
+                    setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+                    VBox.setVgrow(this, Priority.ALWAYS);
+                }});
+            });
+
+            Button save = new Button(I18n.t("action.save", "تسجيل الحضور"));
+            save.getStyleClass().add("primary-button");
+            save.setOnAction(e -> {
+                onConfirm.accept(cellsToScheduleString(selectedCells, timetableRows));
+                dialog.close();
+            });
+            Button cancel = new Button(I18n.t("action.cancel", "تسجيل الحضور"));
+            cancel.getStyleClass().add("secondary-button");
+            cancel.setOnAction(e -> dialog.close());
+
+            root.getChildren().addAll(legend, scroll, new HBox(10, save, clearAll, cancel));
+            dialog.setScene(new Scene(root, 820, 560));
+        }, err -> {
+            root.getChildren().remove(loading);
+            Label errLabel = new Label("Erreur : " + err.getMessage());
+            errLabel.setStyle("-fx-text-fill:#B91C1C;");
+            Button close = new Button(I18n.t("action.close", "تسجيل الحضور"));
+            close.getStyleClass().add("secondary-button");
+            close.setOnAction(ev -> dialog.close());
+            root.getChildren().addAll(errLabel, close);
+        });
+
+        dialog.showAndWait();
+    }
+
+    /** يحوّل الخلايا المحددة إلى نص "يوم HH:mm-HH:mm; ..." — نفس الصيغة التي يفهمها
+     *  ScheduleValidator.parse أصلاً في هذه الشاشة. يجمع كل الأيام المختارة على نطاق
+     *  ساعات موحّد (أدنى بداية / أقصى نهاية)، لأن نموذج Classroom يخزن نافذة واحدة فقط
+     *  (attendanceDays + periodStartTime + periodEndTime). */
+    private String cellsToScheduleString(boolean[][] selectedCells, List<TimetableRow> timetableRows) {
+        int minStart = Integer.MAX_VALUE, maxEnd = Integer.MIN_VALUE;
+        java.util.LinkedHashSet<String> days = new java.util.LinkedHashSet<>();
+        for (int d = 0; d < TIMETABLE_DAYS.size(); d++) {
+            boolean any = false;
+            for (int r = 0; r < timetableRows.size(); r++) {
+                if (!selectedCells[d][r]) continue;
+                any = true;
+                TimetableRow row = timetableRows.get(r);
+                minStart = Math.min(minStart, row.startMinutes());
+                maxEnd = Math.max(maxEnd, row.endMinutes());
+            }
+            if (any) days.add(TIMETABLE_DAYS.get(d));
+        }
+        if (days.isEmpty()) return "";
+        String range = String.format("%02d:%02d-%02d:%02d", minStart / 60, minStart % 60, maxEnd / 60, maxEnd % 60);
+        return days.stream().map(d -> d + " " + range).collect(Collectors.joining("; "));
+    }
+
+    /** يعيد الجدول كما حُفظ خليةً خليةً؛ الأقسام القديمة بلا attendanceSchedule تُملأ من النافذة الموحدة. */
+    private String classroomToScheduleString(Classroom c) {
+        if (c.getAttendanceSchedule() != null && !c.getAttendanceSchedule().isBlank()) {
+            return c.getAttendanceSchedule();
+        }
+        if (c.getAttendanceDays() == null || c.getAttendanceDays().isBlank()
+                || c.getPeriodStartTime() == null || c.getPeriodEndTime() == null) {
+            return "";
+        }
+        String range = c.getPeriodStartTime() + "-" + c.getPeriodEndTime();
+        return java.util.Arrays.stream(c.getAttendanceDays().split(","))
+                .map(String::trim).filter(d -> !d.isBlank())
+                .map(d -> d + " " + range)
+                .collect(Collectors.joining("; "));
+    }
+
+
 }

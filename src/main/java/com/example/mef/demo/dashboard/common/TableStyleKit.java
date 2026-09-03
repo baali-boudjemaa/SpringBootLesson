@@ -1,5 +1,6 @@
 package com.example.mef.demo.dashboard.common;
 
+import com.example.mef.demo.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -40,11 +41,24 @@ public final class TableStyleKit {
     public static void applyTheme(TableView<?> table, String theme) {
         table.getStyleClass().addAll("data-table", theme + "-table");
         table.setFixedCellSize(ROW_HEIGHT);
+        applyEmptyPlaceholder(table);
     }
 
     public static void applyTheme(TableView<?> table, String theme, double rowHeight) {
         table.getStyleClass().addAll("data-table", theme + "-table");
         table.setFixedCellSize(rowHeight);
+        applyEmptyPlaceholder(table);
+    }
+
+    /** JavaFX default placeholder stays in the JVM locale (often French); replace it on each render. */
+    public static void applyEmptyPlaceholder(TableView<?> table) {
+        Label empty = new Label(I18n.t("table.empty", "لا يوجد محتوى في الجدول"));
+        empty.getStyleClass().add("table-placeholder");
+        if (I18n.isRTL()) {
+            empty.setStyle("-fx-font-family: '" + I18n.getArabicFontFamily() + "';");
+        }
+        StackPane wrap = new StackPane(empty);
+        table.setPlaceholder(wrap);
     }
 
     /** A round initials avatar (e.g. "AA") in a given accent color. */

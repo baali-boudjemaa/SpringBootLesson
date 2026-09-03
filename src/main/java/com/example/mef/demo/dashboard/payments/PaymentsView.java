@@ -103,13 +103,6 @@ public class PaymentsView {
         this.paymentService = paymentService;
         this.enrollmentService = enrollmentService;
         this.monthlyBillingService = monthlyBillingService;
-        statusFilter.getItems().addAll(
-            I18n.t("payment.filter.all", "Tous"),
-            I18n.t("status.paid", "PAYÉ"),
-            I18n.t("status.pending", "EN ATTENTE"),
-            I18n.t("status.overdue", "EN RETARD")
-        );
-        statusFilter.setValue(I18n.t("payment.filter.all", "Tous"));
         inscriptionField.setMaxWidth(Double.MAX_VALUE);
         methodField.setMaxWidth(Double.MAX_VALUE);
         statusField.setMaxWidth(Double.MAX_VALUE);
@@ -209,9 +202,29 @@ public class PaymentsView {
         scrollPane.setFitToWidth(true);
         contentPane.setCenter(scrollPane);
 
+        TableStyleKit.applyEmptyPlaceholder(table);
+        refreshStatusFilter();
         wireFilters();
         loadPickers();
         reload();
+    }
+
+    /** Rebuilds status combo labels for the current locale (bean is created before locale is applied). */
+    private void refreshStatusFilter() {
+        String previous = statusFilter.getValue();
+        String all = I18n.t("payment.filter.all", "Tous");
+        List<String> items = List.of(
+                all,
+                I18n.t("status.paid", "PAYÉ"),
+                I18n.t("status.pending", "EN ATTENTE"),
+                I18n.t("status.overdue", "EN RETARD")
+        );
+        statusFilter.getItems().setAll(items);
+        if (previous != null && items.contains(previous)) {
+            statusFilter.setValue(previous);
+        } else {
+            statusFilter.setValue(all);
+        }
     }
 
     private HBox labeledFilter(String label, DatePicker picker) {
@@ -563,7 +576,7 @@ public class PaymentsView {
 
     private void applyFilters() {
         String needle = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
-        String statusVal = statusFilter.getValue();
+        PaymentStatus wantedStatus = statusFromFilter();
         LocalDate from = dateFrom.getValue();
         LocalDate to = dateTo.getValue();
 
@@ -573,8 +586,8 @@ public class PaymentsView {
                         String name = studentLabel(p).toLowerCase();
                         if (!name.contains(needle)) return false;
                     }
-                    if (statusVal != null && !I18n.t("payment.filter.all", "Tous").equals(statusVal)) {
-                        if (!statusLabel(p.getStatus()).equals(statusVal)) return false;
+                    if (wantedStatus != null && p.getStatus() != wantedStatus) {
+                        return false;
                     }
                     if (from != null && p.getDatePay() != null && p.getDatePay().toLocalDate().isBefore(from)) {
                         return false;
@@ -589,6 +602,20 @@ public class PaymentsView {
         rows.setAll(filtered);
         updateFooter(filtered);
         updateSummaryCards(allPayments);
+    }
+
+    /** Null means "all". Stale labels left over from another locale are treated as all. */
+    private PaymentStatus statusFromFilter() {
+        String statusVal = statusFilter.getValue();
+        if (statusVal == null || statusVal.equals(I18n.t("payment.filter.all", "Tous"))) {
+            return null;
+        }
+        for (PaymentStatus status : PaymentStatus.values()) {
+            if (statusLabel(status).equals(statusVal)) {
+                return status;
+            }
+        }
+        return null;
     }
 
     private void updateFooter(List<Payment> data) {

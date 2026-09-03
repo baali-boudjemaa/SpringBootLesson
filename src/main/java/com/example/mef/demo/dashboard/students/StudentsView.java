@@ -75,12 +75,9 @@ public class StudentsView {
     }
 
     private final TextField searchField = FormFactory.textField("");
-    private final ComboBox<String> genderFilter = new ComboBox<>(
-            FXCollections.observableArrayList("Tous", "Garçon", "Fille"));
-    private final ComboBox<String> classFilter = new ComboBox<>(
-            FXCollections.observableArrayList("Toutes"));
-    private final ComboBox<String> categoryFilter = new ComboBox<>(
-            FXCollections.observableArrayList("Toutes"));
+    private final ComboBox<String> genderFilter = new ComboBox<>();
+    private final ComboBox<String> classFilter = new ComboBox<>();
+    private final ComboBox<String> categoryFilter = new ComboBox<>();
 
     private final TextField firstNameField = FormFactory.textField("");
     private final TextField lastNameField = FormFactory.textField("");
@@ -108,6 +105,7 @@ public class StudentsView {
     /** Overlay Pane that the floating panel lives in, stacked on top of the normal screen content. */
     private Pane overlay;
     private FloatingPanel floatingForm;
+    private boolean filtersWired;
 
     public StudentsView(StudentService studentService,
                         ClassroomService classroomService,
@@ -116,10 +114,6 @@ public class StudentsView {
         this.classroomService = classroomService;
         this.inscriptionRepository = inscriptionRepository;
         genderField.setMaxWidth(Double.MAX_VALUE);
-        genderFilter.setValue("Tous");
-        classFilter.setValue("Toutes");
-        categoryFilter.setValue("Toutes");
-
         genderField.setCellFactory(cb -> genderListCell());
         genderField.setButtonCell(genderListCell());
     }
@@ -127,6 +121,7 @@ public class StudentsView {
     /** @param onEnrollNew invoked when the user wants to run the full enrollment wizard instead of a bare add. */
     public void render(BorderPane contentPane, Label pageTitleLabel, Runnable onEnrollNew) {
         this.onEnrollNew = onEnrollNew;
+        detachSharedNodes();
         refreshTranslations();
         pageTitleLabel.setText(I18n.t("students.title", "تسجيل الحضور"));
 
@@ -189,9 +184,38 @@ public class StudentsView {
         scrollPane.setFitToWidth(true);
         contentPane.setCenter(scrollPane);
 
-        wireFilters();
+        if (!filtersWired) {
+            wireFilters();
+            filtersWired = true;
+        }
         loadClassrooms();
         reload();
+    }
+
+    /**
+     * These controls are fields reused across renders. JavaFX forbids adding a
+     * node that still has a parent, so leaving Students and coming back (or
+     * switching language) would throw and leave the previous page on screen.
+     */
+    private void detachSharedNodes() {
+        detach(table);
+        detach(searchField);
+        detach(genderFilter);
+        detach(classFilter);
+        detach(categoryFilter);
+        detach(summaryCards);
+        detach(footerCountLabel);
+        detach(form);
+        detach(overlay);
+    }
+
+    private static void detach(Node node) {
+        if (node == null || node.getParent() == null) {
+            return;
+        }
+        if (node.getParent() instanceof Pane pane) {
+            pane.getChildren().remove(node);
+        }
     }
 
     private void wireFilters() {
@@ -368,7 +392,9 @@ public class StudentsView {
     }
 
     private static String genderLabel(Sexe gender) {
-        return gender == Sexe.FEMALE ? I18n.t("gender.female", "تسجيل الحضور") : gender == Sexe.MALE ? I18n.t("gender.male", "تسجيل الحضور") : "—";
+        if (gender == Sexe.FEMALE) return I18n.t("gender.girl", "أنثى");
+        if (gender == Sexe.MALE) return I18n.t("gender.boy", "ذكر");
+        return "—";
     }
 
     private String categoryLabel(Category category) {
@@ -403,6 +429,16 @@ public class StudentsView {
     private VBox buildForm() {
         studentNumberValue.getStyleClass().add("field-label");
         enrollmentDateValue.getStyleClass().add("field-label");
+
+        detach(studentNumberValue);
+        detach(enrollmentDateValue);
+        detach(firstNameField);
+        detach(lastNameField);
+        detach(genderField);
+        detach(dobField);
+        detach(bloodTypeField);
+        detach(medicalInfoField);
+        detach(notesField);
 
         GridPane grid = FormFactory.sectionGrid();
         FormFactory.addRow(grid, 0, I18n.t("students.form.number", "تسجيل الحضور"), studentNumberValue);
@@ -566,19 +602,26 @@ public class StudentsView {
                 .sorted()
                 .toList();
 
-        ObservableList<String> items = FXCollections.observableArrayList("Toutes");
+        String allClasses = allClassesLabel();
+        ObservableList<String> items = FXCollections.observableArrayList(allClasses);
         items.addAll(names);
         classFilter.setItems(items);
+        classFilter.setButtonCell(filterListCell());
+        classFilter.setCellFactory(cb -> filterListCell());
 
         // Keep the previous selection if it's still a valid option, otherwise reset.
-        classFilter.setValue(items.contains(current) ? current : "Toutes");
+        classFilter.setValue(items.contains(current) && !isAllFilter(current) ? current : allClasses);
 
         String currentCategory = categoryFilter.getValue();
-        ObservableList<String> categories = FXCollections.observableArrayList("Toutes");
+        String allCategories = allClassesLabel();
+        ObservableList<String> categories = FXCollections.observableArrayList(allCategories);
         classrooms.stream().map(Classroom::getCategory).filter(java.util.Objects::nonNull)
                 .map(this::categoryLabel).distinct().sorted().forEach(categories::add);
         categoryFilter.setItems(categories);
-        categoryFilter.setValue(categories.contains(currentCategory) ? currentCategory : "Toutes");
+        categoryFilter.setButtonCell(filterListCell());
+        categoryFilter.setCellFactory(cb -> filterListCell());
+        categoryFilter.setValue(categories.contains(currentCategory) && !isAllFilter(currentCategory)
+                ? currentCategory : allCategories);
     }
 
     /** Resolves each currently loaded student's current classroom via their Inscription records. */
@@ -598,7 +641,13 @@ public class StudentsView {
                     classroomCategoryByStudentId = assignments.categories();
                     applyFilters();
                 },
-                err -> DialogUtil.error("Erreur", "Échec du chargement des classes des élèves : " + err.getMessage())
+                err -> {
+                    classroomNameByStudentId = Map.of();
+                    classroomCategoryByStudentId = Map.of();
+                    applyFilters();
+                    DialogUtil.error(I18n.t("dialog.error", "خطأ"),
+                            I18n.t("students.load_classes_failed", "تعذر تحميل أقسام الطلاب: ") + err.getMessage());
+                }
         );
     }
 
@@ -655,13 +704,13 @@ public class StudentsView {
                         String last = s.getLastName() == null ? "" : s.getLastName().toLowerCase();
                         if (!first.contains(needle) && !last.contains(needle)) return false;
                     }
-                    if (genderVal != null && !"Tous".equals(genderVal)) {
+                    if (!isAllFilter(genderVal)) {
                         if (!genderLabel(s.getGender()).equals(genderVal)) return false;
                     }
-                    if (classVal != null && !"Toutes".equals(classVal)) {
+                    if (!isAllFilter(classVal)) {
                         if (!classVal.equals(classroomNameByStudentId.get(s.getId()))) return false;
                     }
-                    if (categoryVal != null && !"Toutes".equals(categoryVal)) {
+                    if (!isAllFilter(categoryVal)) {
                         if (!categoryVal.equals(categoryLabel(classroomCategoryByStudentId.get(s.getId())))) return false;
                     }
                     return true;
@@ -688,9 +737,9 @@ public class StudentsView {
                 .count();
 
         summaryCards.getChildren().addAll(
-                summaryCard("fth-users", String.valueOf(data.size()), "Total Enfants", "#4338CA", "#EEF2FF"),
-                summaryCard("fth-user", boys + " · " + girls, "Garçons · Filles", "#0E7490", "#CFFAFE"),
-                summaryCard("fth-heart", String.valueOf(withMedicalInfo), "Infos Médicales", "#B91C1C", "#FEE2E2")
+                summaryCard("fth-users", String.valueOf(data.size()), I18n.t("students.card.total", "إجمالي الأطفال"), "#4338CA", "#EEF2FF"),
+                summaryCard("fth-user", boys + " · " + girls, I18n.t("students.card.boys_girls", "ذكور · إناث"), "#0E7490", "#CFFAFE"),
+                summaryCard("fth-heart", String.valueOf(withMedicalInfo), I18n.t("students.card.medical", "معلومات طبية"), "#B91C1C", "#FEE2E2")
         );
         for (Node n : summaryCards.getChildren()) HBox.setHgrow(n, Priority.ALWAYS);
     }
@@ -701,6 +750,46 @@ public class StudentsView {
         lastNameField.setPromptText(I18n.t("field.last_name", "تسجيل الحضور"));
         medicalInfoField.setPromptText(I18n.t("field.medical_info", "تسجيل الحضور"));
         notesField.setPromptText(I18n.t("students.form.notes", "تسجيل الحضور"));
+        refreshGenderFilter();
+        TableStyleKit.applyEmptyPlaceholder(table);
+    }
+
+    private void refreshGenderFilter() {
+        String all = allGenderLabel();
+        String previous = genderFilter.getValue();
+        List<String> items = List.of(all, genderLabel(Sexe.MALE), genderLabel(Sexe.FEMALE));
+        genderFilter.setCellFactory(cb -> filterListCell());
+        genderFilter.setButtonCell(filterListCell());
+        genderFilter.getItems().setAll(items);
+        genderFilter.setValue(items.contains(previous) && !isAllFilter(previous) ? previous : all);
+    }
+
+    private static String allGenderLabel() {
+        return I18n.t("filter.all", "الكل");
+    }
+
+    private static String allClassesLabel() {
+        return I18n.t("filter.all_f", "الكل");
+    }
+
+    /** Treats "all" in either locale as unfiltered. */
+    private static boolean isAllFilter(String value) {
+        if (value == null || value.isBlank()) return true;
+        return value.equals(I18n.t("filter.all", "الكل"))
+                || value.equals(I18n.t("filter.all_f", "الكل"))
+                || value.equals("Tous")
+                || value.equals("Toutes")
+                || value.equals("الكل");
+    }
+
+    private static javafx.scene.control.ListCell<String> filterListCell() {
+        return new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+            }
+        };
     }
 
     private HBox summaryCard(String icon, String value, String label, String accent, String bg) {

@@ -110,13 +110,13 @@ public final class I18n {
 
     /**
      * Returns the translated string for the given key.
-     * Falls back to the key itself if not found.
+     * Falls back to {@code fallback} (or the key) if the entry is missing.
      */
-    public static String t(String key, String تسجيل_الحضور) {
+    public static String t(String key, String fallback) {
         try {
             return bundle.getString(key);
         } catch (Exception e) {
-            return key;
+            return fallback != null ? fallback : key;
         }
     }
 

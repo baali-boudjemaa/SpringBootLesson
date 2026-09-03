@@ -25,7 +25,7 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
     @Query("SELECT DISTINCT p FROM Payment p " +
            "JOIN FETCH p.inscription i " +
            "JOIN FETCH i.student " +
-           "JOIN FETCH i.classroom")
+           "LEFT JOIN FETCH i.classroom")
     List<Payment> findAllWithDetails();
 
 }

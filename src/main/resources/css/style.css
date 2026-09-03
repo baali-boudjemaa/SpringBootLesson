@@ -147,6 +147,9 @@
     -fx-border-radius: 10;
     -fx-effect: dropshadow(gaussian, rgba(15,23,42,0.16), 20, 0, 0, 8);
 }
+.combo-box-popup .list-cell {
+    -fx-font-family: "Noto Naskh Arabic";
+}
 .combo-box-popup .list-cell:filled:hover    { -fx-background-color: -accent-soft; }
 .combo-box-popup .list-cell:filled:selected { -fx-background-color: -accent; -fx-text-fill: white; }
 
@@ -459,8 +462,19 @@
     -fx-text-fill: white;
     -fx-effect: dropshadow(gaussian, rgba(37,99,235,0.30), 8, 0, 0, 2);
 }
-.timetable-hour-label { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -ink; }
+.timetable-hour-label {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink;
+    -fx-alignment: center;
+}
 .timetable-hour-dash  { -fx-font-size: 9px;  -fx-text-fill: -muted; -fx-padding: 0; }
+.timetable-day-header-closed { -fx-opacity: 0.45; }
+.timetable-cell-closed {
+    -fx-background-color: #F1F5F9;
+    -fx-cursor: default;
+    -fx-opacity: 0.7;
+}
 
 .timetable-cell {
     -fx-background-color: -surface;

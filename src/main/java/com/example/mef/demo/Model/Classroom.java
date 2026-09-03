@@ -56,6 +56,14 @@ public class Classroom  {
     @Column
     private String periodEndTime;
 
+    /**
+     * Per-day attendance windows as picked in the weekly grid,
+     * e.g. "Lundi 08:00-17:00; Vendredi 09:00-17:00". Kept separately from
+     * {@link #periodStartTime}/{@link #periodEndTime} so each day can keep its own hours.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String attendanceSchedule;
+
     /** Individual occupied cells, e.g. "Lundi 07:00-09:00; Mardi 09:00-11:00". */
     @Column(columnDefinition = "TEXT")
     private String occupancySchedule;
